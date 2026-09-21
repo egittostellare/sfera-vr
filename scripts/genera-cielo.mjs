@@ -72,13 +72,27 @@ if (!fs.existsSync(CACHE_BSC)) {
 }
 // colonne fisse (ReadMe di V/50): HR 1-4 · nome 5-14 · AR J2000 76-83 · decl J2000 84-90 ·
 // Vmag 103-107 · B−V 110-114
+// La designazione che si legge passando col raggio: la lettera greca di Bayer (α And), o il numero
+// di Flamsteed (21 And), o in mancanza il numero del catalogo (HR 1234). Colonne: Flamsteed 5-7 ·
+// Bayer 8-10 · apice 11 · costellazione 12-14.
+const GRECO = { Alp: 'α', Bet: 'β', Gam: 'γ', Del: 'δ', Eps: 'ε', Zet: 'ζ', Eta: 'η', The: 'θ', Iot: 'ι',
+  Kap: 'κ', Lam: 'λ', Mu: 'μ', Nu: 'ν', Xi: 'ξ', Omi: 'ο', Pi: 'π', Rho: 'ρ', Sig: 'σ', Tau: 'τ',
+  Ups: 'υ', Phi: 'φ', Chi: 'χ', Psi: 'ψ', Ome: 'ω' };
+const APICI = { 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+const designazione = (r, hr) => {
+  const flam = r.slice(4, 7).trim(), bay = r.slice(7, 10).trim(), ap = r.slice(10, 11).trim(), cost = r.slice(11, 14).trim();
+  if (bay && GRECO[bay]) return GRECO[bay] + (APICI[ap] || '') + ' ' + cost;
+  if (flam) return flam + ' ' + cost;
+  return 'HR ' + hr;
+};
 const BSC = new Map();
 for (const r of zlib.gunzipSync(fs.readFileSync(CACHE_BSC)).toString('latin1').split('\n')) {
   if (r.length < 114 || r.slice(75, 77).trim() === '') continue;
   const ra = (Number(r.slice(75, 77)) + Number(r.slice(77, 79)) / 60 + Number(r.slice(79, 83)) / 3600) * 15;
   const de = (r.slice(83, 84) === '-' ? -1 : 1) * (Number(r.slice(84, 86)) + Number(r.slice(86, 88)) / 60 + Number(r.slice(88, 90)) / 3600);
   const bv = r.slice(109, 114).trim();
-  BSC.set(Number(r.slice(0, 4)), { hr: Number(r.slice(0, 4)), nome: r.slice(4, 14).trim(), ra, de,
+  const hr = Number(r.slice(0, 4));
+  BSC.set(hr, { hr, nome: r.slice(4, 14).trim(), d: designazione(r, hr), ra, de,
     m: Number(r.slice(102, 107)), bv: bv === '' ? null : Number(bv) });
 }
 
@@ -101,7 +115,7 @@ const aggiungi = (s) => { stelle.push(s); if (s.hr) indiceHR.set(s.hr, stelle.le
 for (const { nums } of figureGrezze) for (const h of nums) {
   if (indiceHR.has(h)) continue;
   const b = BSC.get(h);
-  aggiungi({ hr: h, ra: b.ra, de: b.de, m: b.m, bv: b.bv, nostra: false });
+  aggiungi({ hr: h, d: b.d, ra: b.ra, de: b.de, m: b.m, bv: b.bv, nostra: false });
 }
 
 // le nostre: la posizione da Swiss Ephemeris, media J2000 (senza nutazione, aberrazione, deflessione),
@@ -126,8 +140,8 @@ for (const s of NOSTRE) {
   }
   // «ammasso» e' solo chi non e' una stella (niente numero HR): Alcyone e Prima Hyadum sono
   // «nebulari» per la tradizione, ma in cielo sono stelle e si disegnano come tali
-  const voce = { hr, n: s.nome, ra: pos.ra, de: pos.de, m: s.mag, bv: s.bv ?? null, nostra: true,
-    ammasso: !hr };
+  const voce = { hr, n: s.nome, d: s.designazione || (hr && BSC.get(hr).d) || '', ra: pos.ra, de: pos.de,
+    m: s.mag, bv: s.bv ?? null, nostra: true, ammasso: !hr };
   if (hr && indiceHR.has(hr)) Object.assign(stelle[indiceHR.get(hr)], voce);
   else aggiungi(voce);
 }
@@ -158,7 +172,7 @@ const uscita = {
     nostre: 'Regulus: le 121 stelle del tasto Stelle, posizioni da Swiss Ephemeris (sefstars.txt), J2000',
   },
   stelle: stelle.map((s) => ({
-    ...(s.hr ? { hr: s.hr } : {}), ...(s.n ? { n: s.n } : {}),
+    ...(s.hr ? { hr: s.hr } : {}), ...(s.n ? { n: s.n } : {}), ...(s.d ? { d: s.d } : {}),
     ra: r4(s.ra), de: r4(s.de), m: Math.round(s.m * 100) / 100,
     c: s.bv == null ? '#f2efe6' : coloreDaBV(s.bv),
     ...(s.nostra ? { nostra: 1 } : {}), ...(s.ammasso ? { ammasso: 1 } : {}),
@@ -171,6 +185,40 @@ const testa = '// GENERATO da scripts/genera-cielo.mjs il ' + uscita.generato + 
   '// (pubblico dominio). Le nostre 121: Regulus / Swiss Ephemeris. Questo file e\' CC BY-SA 4.0.\n';
 fs.writeFileSync(FUORI, testa + 'window.CIELO = ' + JSON.stringify(uscita) + ';\n');
 
+// ---------- i LUOGHI per la scelta del luogo (luoghi-dati.js, si carica solo aprendo il box) ----------
+// Dal database città di Regulus (GeoNames cities500, CC BY 4.0): stessi nomi, stessi fusi.
+// Tutto il mondo ai livelli 0-1 (capitali, capoluoghi, grandi città), al livello 2 le città sopra
+// i 100.000 abitanti, e l'Italia sopra i 5000; mai i «quartieri» (livello 5: popolazioni sballate,
+// e' il caso di Quarto Oggiaro). Per tutto il resto ci sono le coordinate a mano.
+// I nomi alternativi (Londra, Parigi, Monaco…) solo per capitali e metropoli: pesano.
+const TSV = path.join(REGULUS, 'citta', 'citta.tsv');
+let luoghiScritti = null;
+if (fs.existsSync(TSV)) {
+  const cittaJs = fs.readFileSync(path.join(REGULUS, 'src', 'data', 'citta.js'), 'utf8');
+  const bNomi = cittaJs.match(/NOMI_IT\s*=\s*\{([\s\S]*?)\};/);
+  const NOMI_IT = bNomi ? Object.fromEntries([...bNomi[1].matchAll(/(\w+)\s*:\s*'([^']+)'/g)].map((m) => [m[1], m[2]])) : {};
+  const scelti = [];
+  for (const riga of fs.readFileSync(TSV, 'utf8').split('\n')) {
+    if (!riga) continue;
+    const [nome, lat, lon, zona, cc, pop, livello, , , blob] = riga.split('\t');
+    const liv = Number(livello), p = Number(pop) || 0;
+    // il livello 2 del mondo e' pieno di localita' minori: li' solo sopra i 100.000 abitanti
+    if (!(liv <= 1 || (liv === 2 && p >= 100000) || (cc === 'IT' && p >= 5000 && liv < 5))) continue;
+    const n = cc === 'IT' && NOMI_IT[nome] ? NOMI_IT[nome] : nome;
+    const alt = (liv === 0 || (liv === 1 && p >= 1e6)) && blob ? blob.trim() : '';
+    scelti.push({ n, lat: Number(lat), lon: Number(lon), zona, cc, liv, p, alt });
+  }
+  scelti.sort((a, b) => a.liv - b.liv || b.p - a.p);
+  const fusi = [...new Set(scelti.map((s) => s.zona))];
+  const iFuso = new Map(fusi.map((z, i) => [z, i]));
+  const r3 = (x) => Math.round(x * 1e3) / 1e3;
+  const righe = scelti.map((s) => [s.n, r3(s.lat), r3(s.lon), iFuso.get(s.zona), s.cc, ...(s.alt ? [s.alt] : [])]);
+  const FL = path.join(RADICE, 'luoghi-dati.js');
+  fs.writeFileSync(FL, '// GENERATO da scripts/genera-cielo.mjs — dal database città di Regulus (GeoNames cities500, CC BY 4.0).\n' +
+    'window.LUOGHI = ' + JSON.stringify({ fusi, l: righe }) + ';\n');
+  luoghiScritti = { n: righe.length, it: scelti.filter((s) => s.cc === 'IT').length, kb: fs.statSync(FL).size / 1024 };
+}
+
 const nostre = stelle.filter((s) => s.nostra), sole = stelle.filter((s) => !s.nostra);
 console.log('stelle in tutto:      ' + stelle.length);
 console.log('  delle figure:       ' + sole.length + ' (fra queste ' + sole.filter((s) => s.m > 5).length + ' oltre la 5ª magnitudine)');
@@ -179,3 +227,5 @@ console.log('  nostre:             ' + nostre.length + ' (' + nostre.filter((s) 
 console.log('costellazioni:        ' + figure.length + ' · lati: ' + figure.reduce((t, f) => t + f.l.length / 2, 0));
 console.log('Swiss contro Yale:    peggiore ' + peggiore.toFixed(2) + '′ sulle ' + NOSTRE.filter((s) => hrDi.get(s.id)).length + ' stelle confrontabili');
 console.log('scritto: ' + path.relative(RADICE, FUORI) + ' (' + (fs.statSync(FUORI).size / 1024).toFixed(1) + ' KB)');
+console.log(luoghiScritti ? 'luoghi:  ' + luoghiScritti.n + ' (Italia ' + luoghiScritti.it + ') — luoghi-dati.js ' + luoghiScritti.kb.toFixed(0) + ' KB'
+  : 'luoghi:  citta/citta.tsv di Regulus non trovato (npm run download-citta in Regulus): luoghi-dati.js non rifatto');

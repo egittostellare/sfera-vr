@@ -42,6 +42,30 @@
     padding-bottom:6px}
   #diag b{color:#7a86a6;font-weight:400;margin-right:6px}
   #diag .ok{color:#7fd6a4} #diag .warn{color:#e3c169} #diag .err{color:#ff8a8a}
+  /* la velocita' del moto diurno: quattro gradi */
+  .vel{display:flex;gap:5px;padding:4px 0 2px 35px}
+  .vel button{flex:1;min-width:26px;padding:3px 0;border-radius:6px;border:1px solid rgba(200,176,106,.35);
+    background:rgba(20,24,40,.8);color:#cfd6ea;font:12px 'Spectral',Georgia,serif;cursor:pointer}
+  .vel button.on{background:#c8b06a;color:#10131f;border-color:#c8b06a}
+  /* il luogo */
+  #luogo-btn{position:fixed;z-index:5;top:16px;right:16px;padding:9px 14px;border-radius:10px;
+    border:1px solid rgba(227,193,105,.45);background:rgba(8,11,22,.85);color:#e9e4d6;cursor:pointer;
+    font:16px 'Cormorant Garamond',Georgia,serif;letter-spacing:.03em}
+  #luogo{position:fixed;z-index:7;top:60px;right:16px;width:min(360px,calc(100vw - 32px));padding:14px;
+    background:rgba(8,11,22,.96);border:1px solid rgba(227,193,105,.45);border-radius:12px;backdrop-filter:blur(9px)}
+  #luogo[hidden]{display:none}
+  #luogo h3{margin:0 0 10px;font:600 15px 'Cormorant Garamond',serif;letter-spacing:.14em;text-transform:uppercase;color:#e3c169}
+  #luogo input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(150,166,205,.3);
+    background:#0d1224;color:#eef2ff;font:14px 'Spectral',Georgia,serif}
+  #luogo .ris{max-height:260px;overflow:auto;margin:8px 0}
+  #luogo .ris div{padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px}
+  #luogo .ris div:hover,#luogo .ris div.sel{background:rgba(227,193,105,.16)}
+  #luogo .ris small{color:#7a86a6;margin-left:6px}
+  #luogo .coord{display:flex;gap:6px;margin-top:6px}
+  #luogo .coord input{flex:1}
+  #luogo button.usa{margin-top:8px;width:100%;padding:8px;border-radius:8px;border:1px solid #c8b06a;
+    background:rgba(200,176,106,.18);color:#e9e4d6;cursor:pointer;font:14px 'Spectral',Georgia,serif}
+  #luogo .nota{font-size:11px;color:#7a86a6;margin-top:8px;line-height:1.45}
   /* la citazione che la licenza delle figure chiede */
   #crediti{position:fixed;z-index:3;bottom:2px;left:0;right:0;text-align:center;font-size:10px;
     color:#6f7896;pointer-events:none;letter-spacing:.02em}
@@ -66,10 +90,27 @@
   <div class="row on" data-k="planet"   style="--a:#ffcf5a"><span class="sw"></span>Sole + cerchio diurno</div>
   <div class="row on" data-k="pianeti"  style="--a:#e8c46a"><span class="sw"></span>Pianeti</div>
   <div class="row on" data-k="stelle"   style="--a:#a3c0ff"><span class="sw"></span>Stelle di Regulus</div>
-  <div class="row on" data-k="costellazioni" style="--a:#8fa3d8"><span class="sw"></span>Costellazioni</div>
+  <div class="row on" data-k="costellazioni" style="--a:#8fa3d8"><span class="sw"></span>Costellazioni (stelle)</div>
+  <div class="row on" data-k="linee"    style="--a:#8fa3d8"><span class="sw"></span>Linee delle costellazioni</div>
+  <div class="row"    data-k="orizReale" style="--a:#57d68f"><span class="sw"></span>Orizzonte reale</div>
   <div class="row"    data-k="spin"     style="--a:#c8b06a"><span class="sw"></span>Moto diurno</div>
+  <div class="vel" id="vel" title="Velocità del moto diurno">
+    <button data-v="0" class="on">1</button><button data-v="1">2</button><button data-v="2">3</button><button data-v="3">4</button>
+  </div>
 </div>
-<div id="hint">Desktop: trascina per ruotare, scorri per zoom. Nel Quest: apri questa pagina nel browser, premi <b>Entra in VR</b>, poi punta il raggio del controller sul pannello e premi il grilletto.</div>
+<button id="luogo-btn">⌖ Milano</button>
+<div id="luogo" hidden>
+  <h3>Il luogo</h3>
+  <input id="luogo-cerca" placeholder="Cerca una città…" autocomplete="off">
+  <div class="ris" id="luogo-ris"></div>
+  <div class="coord"><input id="luogo-lat" placeholder="Latitudine, es. 45.46"><input id="luogo-lng" placeholder="Longitudine, es. 9.19"></div>
+  <button class="usa" id="luogo-usa">Usa queste coordinate</button>
+  <div class="nota">Sud e Ovest col meno. Il cielo si ricalcola per quel luogo, nell'istante di adesso.
+    Le città vengono dal database di Regulus (GeoNames, CC BY 4.0).</div>
+</div>
+<div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
+  Nel Quest: premi <b>Entra in VR</b>; col raggio del controller, sul pannello si premono i tasti, nel cielo si leggono i nomi,
+  e il grilletto seleziona.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -98,12 +139,26 @@ const R=8, DEG=Math.PI/180, TAU=Math.PI*2;
 const groups={}; let spin=false;
 
 // ====================== il luogo e l'istante ======================
-// Il cielo e' quello VERO: di Milano, nell'istante in cui si apre la pagina. I pianeti e il tempo
-// siderale vengono da astronomy-engine (MIT), confrontata col motore di Regulus (Swiss Ephemeris)
-// su tre istanti: 0,28' al peggio sui pianeti, un quarto di secondo sul tempo siderale.
-// Senza rete la libreria non arriva: resta il cielo dimostrativo di prima, e il diario lo dice.
-const LUOGO={nome:'Milano', lat:45.4642, lng:9.19, fuso:'Europe/Rome'};
-const ISTANTE=new Date();
+// Il cielo e' quello VERO: del luogo scelto (Milano, se non se ne sceglie un altro), nell'istante in
+// cui si apre la pagina. I pianeti e il tempo siderale vengono da astronomy-engine (MIT), confrontata
+// col motore di Regulus (Swiss Ephemeris) su tre istanti: 0,28' al peggio sui pianeti, un quarto di
+// secondo sul tempo siderale. Senza rete la libreria non arriva: resta il cielo dimostrativo, e il
+// diario lo dice.
+// Il luogo viaggia nell'indirizzo (?nome=…&lat=…&lng=…&tz=…): e' quello che fa il box del luogo, e
+// un domani Regulus potra' aprire la sfera sul tema a schermo (con &t=istante ISO).
+function coordTesto(lat,lng){
+  const f=(v,p,n)=>{ const a=Math.abs(v), g=Math.floor(a), m=Math.round((a-g)*60);
+    return (m===60?g+1:g)+'°'+String(m===60?0:m).padStart(2,'0')+'′'+(v>=0?p:n); };
+  return f(lat,'N','S')+' '+f(lng,'E','O');
+}
+const Q=new URLSearchParams(location.search);
+const qNum=(k,min,max)=>{ const v=parseFloat(Q.get(k)); return Number.isFinite(v)&&v>=min&&v<=max?v:null; };
+const fusoValido=z=>{ if(!z) return false; try{ new Intl.DateTimeFormat('it-IT',{timeZone:z}); return true; }catch(e){ return false; } };
+const qLat=qNum('lat',-90,90), qLng=qNum('lng',-180,180);
+const LUOGO=(qLat!=null&&qLng!=null)
+  ? {nome:Q.get('nome')||coordTesto(qLat,qLng), lat:qLat, lng:qLng, fuso:fusoValido(Q.get('tz'))?Q.get('tz'):'UTC'}
+  : {nome:'Milano', lat:45.4642, lng:9.19, fuso:'Europe/Rome'};
+const ISTANTE=(Q.get('t')&&!isNaN(Date.parse(Q.get('t'))))?new Date(Q.get('t')):new Date();
 const A=window.Astronomy||null;
 const TEMPO=A?A.MakeTime(ISTANTE):null;
 const PHI=LUOGO.lat*DEG;
@@ -157,9 +212,20 @@ function applyCam(){const s=Math.sin(orbit.phi),c=Math.cos(orbit.phi);
   camera.lookAt(0,0,0);}
 applyCam();
 const el=renderer.domElement; el.style.touchAction='none';
-el.addEventListener('pointerdown',e=>{orbit.drag=true;orbit.lx=e.clientX;orbit.ly=e.clientY;el.setPointerCapture(e.pointerId);});
-el.addEventListener('pointerup',()=>orbit.drag=false);
-el.addEventListener('pointermove',e=>{if(!orbit.drag)return;const dx=e.clientX-orbit.lx,dy=e.clientY-orbit.ly;
+el.addEventListener('pointerdown',e=>{orbit.drag=true;orbit.lx=orbit.x0=e.clientX;orbit.ly=orbit.y0=e.clientY;el.setPointerCapture(e.pointerId);});
+// sul desktop anche il mouse indica e seleziona: un clic senza trascinare e' una selezione
+el.addEventListener('pointerup',e=>{
+  orbit.drag=false;
+  if(renderer.xr.isPresenting || Math.hypot(e.clientX-orbit.x0,e.clientY-orbit.y0)>=5) return;
+  const b=puntatoDaSchermo(e.clientX,e.clientY);
+  if(b){ if(b!==SEL) seleziona(b); } else if(SEL) seleziona(null);
+});
+el.addEventListener('pointermove',e=>{
+  if(!orbit.drag){
+    if(!renderer.xr.isPresenting){ const b=puntatoDaSchermo(e.clientX,e.clientY); indica(b); el.style.cursor=b?'pointer':''; }
+    return;
+  }
+  const dx=e.clientX-orbit.lx,dy=e.clientY-orbit.ly;
   orbit.lx=e.clientX;orbit.ly=e.clientY;orbit.tT-=dx*0.006;orbit.tP-=dy*0.006;
   orbit.tP=Math.max(0.05,Math.min(Math.PI-0.05,orbit.tP));});
 el.addEventListener('wheel',e=>{e.preventDefault();orbit.tR*=(1+e.deltaY*0.0012);
@@ -180,7 +246,7 @@ function tavolaEtichetta(text,color){const pad=8,fs=52,c=document.createElement(
   const t=new THREE.CanvasTexture(c);t.anisotropy=4;return {t,rapp:c.width/c.height};}
 function label(text,color,scale){
   const {t,rapp}=tavolaEtichetta(text,color);
-  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:true}));
   const h=scale||0.6;s.scale.set(h*rapp,h,1);s.renderOrder=10;
   etichette.push({s,text,color,h});return s;}
 function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||world).add(g);return g;}
@@ -243,24 +309,31 @@ function daJ2000(raDeg,deDeg){
   const e=A.EquatorFromVector(A.RotateVector(ROT,v));
   return {ra:e.ra*15*DEG, de:e.dec*DEG};
 }
-function diCorpo(nomeEn){   // geocentrico e apparente, sull'equatore di data: come Swiss in Regulus
-  const e=A.EquatorFromVector(A.RotateVector(ROT,A.GeoVector(A.Body[nomeEn],TEMPO,true)));
+// geocentrico e apparente, sull'equatore di data (come Swiss in Regulus), all'istante t
+function diCorpo(nomeEn,t,rot){
+  t=t||TEMPO; rot=rot||ROT;
+  const e=A.EquatorFromVector(A.RotateVector(rot,A.GeoVector(A.Body[nomeEn],t,true)));
   return {ra:e.ra*15*DEG, de:e.dec*DEG};
 }
+// La volta e' costruita per l'istante d'apertura (RAMC di allora): quando il tempo scorre la volta
+// ruota tutta, e un corpo ricollocato all'istante t va messo con quello stesso RAMC — la rotazione
+// della volta porta il resto.
 const dirEq=p=>eq(RAMC-p.ra,p.de);
 
-const posSole=A?diCorpo('Sun'):{ra:raOf(60*DEG), de:decOf(60*DEG)};
+let posSole=A?diCorpo('Sun'):{ra:raOf(60*DEG), de:decOf(60*DEG)};
+const SOLE={};   // i pezzi del Sole, da ricollocare quando il tempo scorre
+function cerchioDiurno(de){ const p=[]; for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,de).multiplyScalar(R)); return p; }
 { // Sole e suo cerchio diurno
   const g=G('planet',sky);
-  const p=[];
-  for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,posSole.de).multiplyScalar(R));
-  g.add(line(p,0xffcf5a,.30,1));
-  const sun=new THREE.Mesh(new THREE.SphereGeometry(0.22,24,24),new THREE.MeshBasicMaterial({color:0xfff1c0}));
-  sun.position.copy(dirEq(posSole).multiplyScalar(R));
+  SOLE.cerchio=line(cerchioDiurno(posSole.de),0xffcf5a,.30,1); g.add(SOLE.cerchio);
+  SOLE.mesh=new THREE.Mesh(new THREE.SphereGeometry(0.22,24,24),new THREE.MeshBasicMaterial({color:0xfff1c0}));
+  SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R));
   const glow=new THREE.Mesh(new THREE.SphereGeometry(0.42,20,20),
-    new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); sun.add(glow);
-  g.add(sun);
-  const s=label('Sole','#ffe6a0',0.55); s.position.copy(dirEq(posSole).multiplyScalar(R*1.06)); g.add(s);
+    new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); SOLE.mesh.add(glow);
+  g.add(SOLE.mesh);
+  // la scritta appena SOPRA il Sole, non dietro: visto dal centro starebbe coperta dal disco
+  SOLE.et=label('Sole','#ffe6a0',0.55); g.add(SOLE.et);
+  SOLE.et.position.copy(SOLE.mesh.position).addScaledVector(tangenteSu(SOLE.mesh.position.clone().normalize()),0.72);
 }
 
 // ====================== le stelle e le figure ======================
@@ -269,8 +342,13 @@ const posSole=A?diCorpo('Sun'):{ra:raOf(60*DEG), de:decOf(60*DEG)};
 const RS=R*0.965;   // un poco dentro la volta, cosi' la sua velatura non le spegne
 const CIELO=window.CIELO||null;
 let quanteStelle=0;
+const BERSAGLI=[];            // stelle e pianeti che il raggio (o il mouse) puo' indicare
+const NELLE_FIGURE=new Set();
 if(CIELO){
   const P=CIELO.stelle.map(s=>dirEq(daJ2000(s.ra,s.de)).multiplyScalar(RS));
+  CIELO.figure.forEach(f=>f.l.forEach(k=>NELLE_FIGURE.add(k)));
+  CIELO.stelle.forEach((s,k)=>BERSAGLI.push({tipo:'stella', k, pos:P[k], m:s.m, c:s.c,
+    nome:s.n||s.d||('HR '+s.hr), sotto:s.n?(s.d||null):null, nostra:!!s.nostra, fig:NELLE_FIGURE.has(k)}));
   // ogni stella e' un dischetto di luce rivolto al centro: geometria vera, non un «punto» del
   // driver grafico, che nel visore avrebbe una misura imprevedibile
   const tex=(()=>{ const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
@@ -293,13 +371,14 @@ if(CIELO){
     im.frustumCulled=false;   // le istanze stanno tutt'attorno: il riquadro del singolo dischetto non vale
     return im;
   }
-  // le figure: i lati, e le stelle che li reggono in una luce quieta, quasi bianca
+  // le figure: le stelle che le reggono, in una luce quieta, quasi bianca; e a parte i lati, che
+  // hanno un tasto loro
   const gF=G('costellazioni',sky);
-  const nelleFigure=new Set(); CIELO.figure.forEach(f=>f.l.forEach(k=>nelleFigure.add(k)));
+  gF.add(campo([...NELLE_FIGURE], s=>versoBianco(s.c,.7), 1, .95));
+  const gL=G('linee',sky);
   const pts=[]; CIELO.figure.forEach(f=>{ for(let i=0;i<f.l.length;i+=2) pts.push(P[f.l[i]],P[f.l[i+1]]); });
-  gF.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
+  gL.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
     new THREE.LineBasicMaterial({color:0x8fa3d8,transparent:true,opacity:.34,depthWrite:false})));
-  gF.add(campo([...nelleFigure], s=>versoBianco(s.c,.7), 1, .95));
   // le stelle di Regulus: la tinta vera (la scala osservativa di Regulus) e un alone intorno
   const gS=G('stelle',sky);
   const nostre=[], ammassi=[];
@@ -323,25 +402,180 @@ function spriteGlifo(g,colore,alto){
   x.lineJoin='round'; x.lineWidth=5/s; x.strokeStyle='rgba(255,255,255,.55)'; x.stroke(p);
   x.fillStyle=colore; x.fill(p);
   const t=new THREE.CanvasTexture(c); t.anisotropy=4;
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:true}));
   sp.scale.set(alto,alto,1); sp.renderOrder=11; return sp;
 }
 let quantiPianeti=0;
+const PIANETI=[];   // {en, punto, sp}: da ricollocare quando il tempo scorre
+function tangenteSu(dir){   // la direzione «in su» lungo la volta, in quel punto
+  const su=new THREE.Vector3(0,1,0), tg=su.addScaledVector(dir,-su.dot(dir));
+  if(tg.lengthSq()<1e-6) tg.set(1,0,0); return tg.normalize();
+}
 if(A && CIELO){
   const gP=G('pianeti',sky);
   CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).forEach(p=>{
-    const pos=dirEq(diCorpo(PIANETI_EN[p.n])).multiplyScalar(RS);
     const punto=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),new THREE.MeshBasicMaterial({color:p.c}));
-    punto.position.copy(pos); gP.add(punto);
-    // il glifo appena sopra il punto, lungo la volta
-    const dir=pos.clone().normalize(), su=new THREE.Vector3(0,1,0);
-    const tg=su.clone().addScaledVector(dir,-su.dot(dir)); if(tg.lengthSq()<1e-6) tg.set(1,0,0); tg.normalize();
-    const sp=spriteGlifo(p.g,p.c,0.42); sp.position.copy(pos).addScaledVector(tg,0.34); gP.add(sp);
+    gP.add(punto);
+    const sp=spriteGlifo(p.g,p.c,0.42); gP.add(sp);
+    PIANETI.push({en:PIANETI_EN[p.n], punto, sp});
+    BERSAGLI.push({tipo:'pianeta', gruppo:'pianeti', nome:p.n, pos:punto.position, m:-3, c:p.c});
     quantiPianeti++;
   });
+  BERSAGLI.push({tipo:'pianeta', gruppo:'planet', nome:'Sole', pos:SOLE.mesh.position, m:-5, c:'#ffcf5a'});
 }
+// Ricolloca Sole e pianeti all'istante del cielo: la Luna fa mezzo grado l'ora, e col moto
+// diurno veloce si vedrebbe restare indietro fra le stelle.
+function collocaPianeti(){
+  if(!A) return;
+  const t=A.MakeTime(istanteCielo()), rot=A.Rotation_EQJ_EQD(t);
+  for(const p of PIANETI){
+    const pos=dirEq(diCorpo(p.en,t,rot)).multiplyScalar(RS);
+    p.punto.position.copy(pos);
+    p.sp.position.copy(pos).addScaledVector(tangenteSu(pos.clone().normalize()),0.34);   // il glifo appena sopra
+  }
+  posSole=diCorpo('Sun',t,rot);
+  SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R));
+  const pSole=dirEq(posSole).multiplyScalar(R);
+  SOLE.et.position.copy(pSole).addScaledVector(tangenteSu(pSole.clone().normalize()),0.72);
+  SOLE.cerchio.geometry.setFromPoints(cerchioDiurno(posSole.de));
+}
+// la velatura della volta non scrive la profondita': e' solo un tono, e le scritte che le stanno
+// dietro (i cardinali, a 8,4 m) devono restare visibili ora che si lasciano coprire dal pannello
 world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
-  new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide})));
+  new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide,depthWrite:false})));
+
+// ====================== il tempo del cielo ======================
+// Il moto diurno e' TEMPO che scorre, non una rotazione a piacere: la volta gira alla velocita'
+// siderale (360,9856° al giorno) moltiplicata per il grado scelto, e Sole e pianeti si ricollocano
+// man mano. La velocita' e' agganciata all'orologio, non ai fotogrammi: prima dipendeva dal visore
+// e arrivava a 13° al secondo, ed era la nausea. Il grado piu' veloce ora e' 5° al secondo.
+const VELOCITA=[{x:60,t:'lenta',d:'1 ora di cielo al minuto'},{x:180,t:'media',d:'1 ora in 20 s'},
+  {x:480,t:'veloce',d:'1 ora in 7,5 s'},{x:1200,t:'rapida',d:'1 ora in 3 s'}];
+let livVel=0, simMs=0, simPianeti=0, tPrec=null;
+const W_SID=360.98564736629/86400000*DEG;   // radianti per millisecondo di tempo solare
+const istanteCielo=()=>new Date(ISTANTE.getTime()+simMs);
+function avanzaCielo(dt){
+  simMs+=dt*VELOCITA[livVel].x;
+  sky.quaternion.setFromAxisAngle(Pp,-W_SID*simMs);   // verso ovest: l'angolo orario cresce
+  if(Math.abs(simMs-simPianeti)>=15*60000){ simPianeti=simMs; collocaPianeti(); }
+}
+collocaPianeti();
+
+// ====================== l'orizzonte reale ======================
+// Acceso, quello che non e' ancora sorto non si vede: un piano di taglio sull'orizzonte per linee,
+// dischetti e sfere del cielo; le scritte (sprite) non si lasciano tagliare e si spengono a mano.
+// L'orizzonte e' quello geometrico: lo stesso «sorgere» di Regulus.
+renderer.localClippingEnabled=true;
+const PIANO=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+function aggiornaPiano(){ PIANO.constant=-world.position.y; }
+function applicaOrizzonte(on){
+  sky.traverse(o=>{ if(o.material && !o.isSprite){ o.material.clippingPlanes=on?[PIANO]:null; o.material.needsUpdate=true; } });
+  const disco=groups.frame&&groups.frame.children[0];   // il piano dell'orizzonte si fa terra
+  if(disco&&disco.material) disco.material.opacity=on?.42:.16;
+  if(!on) SPRITE_CIELO.forEach(s=>s.visible=true);      // spento: le scritte tornano tutte
+  diag(on?'orizzonte reale: quello che non è sorto non si vede':'orizzonte trasparente');
+}
+const _w=new THREE.Vector3();
+const sottoOrizzonte=o=>{ o.getWorldPosition(_w); return _w.y<world.position.y; };
+const SPRITE_CIELO=[]; sky.traverse(o=>{ if(o.isSprite) SPRITE_CIELO.push(o); });   // glifi, «Sole», «Polo»
+
+// ====================== puntare: il nome al passaggio, la selezione al clic ======================
+// Col raggio del controller (o col mouse sul desktop): passando su una stella o un pianeta compare
+// il nome; cliccando lo si SELEZIONA, come in Stellarium — da li' partiranno le schede e le
+// coordinate. La ricerca e' per ANGOLO dal raggio, non per urto: le stelle sono dischetti di pochi
+// centimetri a otto metri, e a colpirle esatte non ci si riuscirebbe mai.
+function visibile(b){
+  if(b.tipo==='pianeta') return stato[b.gruppo];
+  return (b.nostra&&stato.stelle)||(b.fig&&stato.costellazioni);
+}
+const _o=new THREE.Vector3(), _d=new THREE.Vector3(), _v=new THREE.Vector3(), _inv=new THREE.Matrix4();
+function puntatoDaRaggio(origine,direzione){
+  sky.updateMatrixWorld(); _inv.copy(sky.matrixWorld).invert();
+  _o.copy(origine).applyMatrix4(_inv); _d.copy(direzione).transformDirection(_inv);
+  let meglio=null, punteggio=Infinity;
+  for(const b of BERSAGLI){
+    if(!visibile(b)) continue;
+    const ang=_d.angleTo(_v.copy(b.pos).sub(_o))/DEG;
+    if(ang>1.8) continue;
+    if(stato.orizReale){ _w.copy(b.pos).applyMatrix4(sky.matrixWorld); if(_w.y<world.position.y) continue; }
+    const p=ang-(b.tipo==='pianeta'?0.6:0.12*(5-b.m));   // a parita', vince la piu' luminosa
+    if(p<punteggio){ punteggio=p; meglio=b; }
+  }
+  return meglio;
+}
+function puntatoDaSchermo(mx,my){   // sul desktop: il bersaglio piu' vicino al mouse, in pixel
+  let meglio=null, dMin=14*14;
+  sky.updateMatrixWorld();
+  for(const b of BERSAGLI){
+    if(!visibile(b)) continue;
+    _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
+    if(stato.orizReale && _w.y<world.position.y) continue;
+    _v.copy(_w).project(camera); if(_v.z>1||_v.z<-1) continue;
+    const sx=(_v.x+1)/2*innerWidth, sy=(1-_v.y)/2*innerHeight;
+    const d=(sx-mx)**2+(sy-my)**2-(b.tipo==='pianeta'?40:(5-b.m)*6);
+    if(d<dMin){ dMin=d; meglio=b; }
+  }
+  return meglio;
+}
+// la scritta: il nome grande, sotto la designazione (e, per la selezionata, la magnitudine)
+function tavolaNome(nome,sotto,colore){
+  const c=document.createElement('canvas'), x=c.getContext('2d');
+  const f1="600 46px 'Cormorant Garamond', Georgia, serif", f2="28px 'Spectral', Georgia, serif";
+  x.font=f1; const w1=x.measureText(nome).width; x.font=f2; const w2=sotto?x.measureText(sotto).width:0;
+  c.width=Math.ceil(Math.max(w1,w2))+28; c.height=sotto?98:64;
+  x.shadowColor='rgba(0,0,0,.95)'; x.shadowBlur=9; x.textBaseline='top'; x.textAlign='center';   // centrata sulla stella
+  x.font=f1; x.fillStyle=colore; x.fillText(nome,c.width/2,8);
+  if(sotto){ x.font=f2; x.fillStyle='#b4bdd6'; x.fillText(sotto,c.width/2,62); }
+  const t=new THREE.CanvasTexture(c); t.anisotropy=4; return {t,rapp:c.width/c.height,alto:c.height/64};
+}
+const nuovaScritta=()=>{ const s=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:true}));
+  s.renderOrder=13; s.visible=false; world.add(s); return s; };
+const ET_HOVER=nuovaScritta(), ET_SEL=nuovaScritta();
+const ANELLO=new THREE.Mesh(new THREE.RingGeometry(0.17,0.2,48),
+  new THREE.MeshBasicMaterial({color:0xe3c169,transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:true}));
+ANELLO.renderOrder=12; ANELLO.visible=false; world.add(ANELLO);
+let HOVER=null, SEL=null;
+function scriviSu(sp,b,conInfo){
+  let sotto=b.sotto||null;
+  if(conInfo){
+    const extra=b.tipo==='pianeta'?'pianeta':('magnitudine '+String(b.m).replace('.',',')+(b.nostra?' · stella di Regulus':''));
+    sotto=[sotto,extra].filter(Boolean).join(' · ');
+  }
+  const col=b.tipo==='pianeta'?b.c:(b.nostra?'#f3e6c4':'#dfe6f5');
+  const {t,rapp,alto}=tavolaNome(b.nome,sotto,col);
+  if(sp.material.map) sp.material.map.dispose();
+  sp.material.map=t; sp.material.needsUpdate=true;
+  const h=0.42*alto; sp.scale.set(h*rapp,h,1); sp.userData.b=b;   // ~3° a otto metri
+}
+function indica(b){   // il bersaglio sotto il raggio o il mouse
+  if(b===HOVER) return;
+  HOVER=b;
+  if(b && b!==SEL) scriviSu(ET_HOVER,b,false);
+}
+function seleziona(b){
+  SEL=b;
+  if(b){ scriviSu(ET_SEL,b,true); diag('selezionata: '+b.nome+(b.sotto?' ('+b.sotto+')':''),'ok'); }
+  else diag('selezione tolta');
+}
+// dove sta un bersaglio nel sistema di «world» (la volta ruota col moto diurno)
+function doveOra(b,out){ return out.copy(b.pos).applyQuaternion(sky.quaternion); }
+const _p=new THREE.Vector3();
+function collocaScritta(sp,b){
+  doveOra(b,_p);
+  const tg=tangenteSu(_p.clone().normalize());
+  sp.position.copy(_p).multiplyScalar(0.985).addScaledVector(tg,0.16+sp.scale.y/2);
+}
+function aggiornaIndicazioni(){
+  const sotto=b=>stato.orizReale && doveOra(b,_p).y<0;   // _p e' in «world»: l'orizzonte e' y=0
+  ET_HOVER.visible=!!(HOVER && HOVER!==SEL && visibile(HOVER) && !sotto(HOVER));
+  if(ET_HOVER.visible) collocaScritta(ET_HOVER,HOVER);
+  const vedoSel=!!(SEL && visibile(SEL) && !sotto(SEL));
+  ET_SEL.visible=ANELLO.visible=vedoSel;
+  if(vedoSel){
+    collocaScritta(ET_SEL,SEL);
+    doveOra(SEL,_p); ANELLO.position.copy(_p).multiplyScalar(0.99); ANELLO.lookAt(0,0,0);
+  }
+}
 
 // ====================== gli interruttori: UNA sola verita' ======================
 // Lo stato di ogni elemento sta qui, e da qui si dipingono sia il pannello della pagina sia
@@ -350,11 +584,12 @@ world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
 // rispondeva «acceso». Il tasto tornava acceso senza riaccendere la linea: per questo le linee
 // si toglievano e non tornavano piu'.
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
-  pianeti:true,stelle:true,costellazioni:true,spin:false};
+  pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false};
 function imposta(k,on){
   stato[k]=on;
   if(groups[k]) groups[k].visible=on;
-  if(k==='spin') spin=on;
+  if(k==='spin'){ spin=on; tPrec=null; }
+  if(k==='orizReale') applicaOrizzonte(on);
   const dom=document.querySelector('#panel .row[data-k="'+k+'"]');
   if(dom) dom.classList.toggle('on',on);
   const b=BUTTONS.find(x=>x.k===k);
@@ -374,15 +609,18 @@ const BUTTONS=[
   {k:'pianeti', t:'Pianeti',  on:true, c:0xe8c46a},
   {k:'stelle',  t:'Stelle di Regulus', on:true, c:0xa3c0ff},
   {k:'costellazioni', t:'Costellazioni', on:true, c:0x8fa3d8},
+  {k:'linee',   t:'Linee',    on:true, c:0x8fa3d8},
+  {k:'orizReale', t:'Orizzonte reale', on:false, c:0x57d68f},
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
+  {k:'velocita',t:'Velocità 1 · lenta', on:false, c:0xc8b06a, azione:true},
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
 ];
 const vrPanel=new THREE.Group();
 vrPanel.position.set(-0.6,1.15,-0.75); vrPanel.rotation.y=0.5; scene.add(vrPanel);
-// due colonne da sei: in una sola, con undici tasti, il pannello scendeva fino alle ginocchia
+// due colonne da sette: in una sola il pannello scendeva fino alle ginocchia
 // (provvisorio: la tastiera la disegna l'autore)
-const COLONNA=6, PASSO_X=0.37, PASSO_Y=0.12;
+const COLONNA=7, PASSO_X=0.37, PASSO_Y=0.12;
 const posTasto=i=>({x:Math.floor(i/COLONNA)*PASSO_X, y:-(i%COLONNA)*PASSO_Y});
 function btnTexture(b){
   const w=512,h=150,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
@@ -417,6 +655,16 @@ BUTTONS.forEach((b,i)=>{
 });
 const title=label('CIELO','#cfe0ff',0.06); title.position.set(-0.09,0.10,0);
 vrPanel.add(title);
+// l'ora del cielo accanto al titolo: nel visore la testata della pagina non si vede
+const orologioVR=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false}));
+orologioVR.renderOrder=10; vrPanel.add(orologioVR);
+function scriviOrologioVR(testo){
+  const {t,rapp}=tavolaEtichetta(testo,'#e3c169');
+  if(orologioVR.material.map) orologioVR.material.map.dispose();
+  orologioVR.material.map=t; orologioVR.material.needsUpdate=true;
+  const h=0.05; orologioVR.scale.set(h*rapp,h,1);
+  orologioVR.position.set(0.02+h*rapp/2,0.10,0);   // attaccato a destra del titolo
+}
 
 // il diario di bordo, anche dentro il visore
 const logCv=document.createElement('canvas'); logCv.width=600; logCv.height=280;
@@ -446,8 +694,17 @@ function ridipingi(b){
   if(m.material.map) m.material.map.dispose();
   m.material.map=btnTexture(b); m.material.needsUpdate=true;
 }
+// la velocita': un grado solo per volta, dal tasto del visore o dai quattro della pagina
+function impostaVelocita(i){
+  livVel=i;
+  const b=BUTTONS.find(x=>x.k==='velocita');
+  b.t='Velocità '+(i+1)+' · '+VELOCITA[i].t; ridipingi(b);
+  document.querySelectorAll('#vel button').forEach(x=>x.classList.toggle('on',Number(x.dataset.v)===i));
+  diag('velocità '+(i+1)+': '+VELOCITA[i].d);
+}
 function toggleBtn(b){
   if(b.k==='recenter'){ calibrato=false; diag('ricentro…'); return; }
+  if(b.k==='velocita'){ impostaVelocita((livVel+1)%VELOCITA.length); return; }
   if(b.k==='altezza'){
     modoAltezza = modoAltezza==='occhi' ? 'piedi' : 'occhi';
     b.t = modoAltezza==='occhi' ? 'Occhi all’orizzonte' : 'Piedi all’orizzonte';
@@ -457,22 +714,33 @@ function toggleBtn(b){
 }
 
 const raycaster=new THREE.Raycaster(); const tmpM=new THREE.Matrix4();
-// Il raggio e' lungo un metro e si allunga o si accorcia con la scala: cosi' si ferma dove
-// tocca un tasto invece di attraversarlo, e il puntino si posa li'.
-const RAGGIO=1.2;
+// Il raggio e' lungo un metro e si allunga o si accorcia con la scala: si ferma dove tocca un tasto
+// invece di attraversarlo, e il puntino si posa li'. Fuori dal pannello arriva fin quasi alla volta,
+// per mirare le stelle.
+const RAGGIO=1.2, RAGGIO_CIELO=6.5;
 function makeController(i){
   const ctl=renderer.xr.getController(i); scene.add(ctl);
-  const ray=line([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)],0xffffff,.5,1);
-  ray.scale.z=RAGGIO; ctl.add(ray); ctl.userData.ray=ray;
+  const ray=line([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)],0xffffff,.4,1);
+  ray.scale.z=RAGGIO_CIELO; ctl.add(ray); ctl.userData.ray=ray;
   const dot=new THREE.Mesh(new THREE.SphereGeometry(0.012,12,12),new THREE.MeshBasicMaterial({color:0xffffff}));
-  dot.position.z=-RAGGIO; ctl.add(dot); ctl.userData.dot=dot;
+  dot.position.z=-RAGGIO_CIELO; ctl.add(dot); ctl.userData.dot=dot;
   ctl.addEventListener('connected',e=>{ ctl.userData.src=e.data; });
   ctl.addEventListener('disconnected',()=>{ ctl.userData.src=null; });
   ctl.addEventListener('selectstart',()=>{
     const hit=hitTest(ctl);
-    if(hit){ vibra(ctl,0.6,45); toggleBtn(hit.object.userData.b); }
+    if(hit){ vibra(ctl,0.6,45); toggleBtn(hit.object.userData.b); return; }
+    // fuori dal pannello: si seleziona quello che il raggio indica, o si toglie la selezione
+    const b=ctl.userData.puntato||null;
+    if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); }
+    else if(SEL) seleziona(null);
   });
   return ctl;
+}
+const _orig=new THREE.Vector3(), _dir=new THREE.Vector3();
+function raggioDi(ctl){   // origine e direzione del raggio nel mondo
+  tmpM.identity().extractRotation(ctl.matrixWorld);
+  _orig.setFromMatrixPosition(ctl.matrixWorld); _dir.set(0,0,-1).applyMatrix4(tmpM);
+  return [_orig,_dir];
 }
 function hitTest(ctl){
   tmpM.identity().extractRotation(ctl.matrixWorld);
@@ -581,6 +849,7 @@ function calibra(frame){
 function applicaAltezza(){
   const aiPiedi = rifTipo==='local-floor' ? 0 : eyeY-1.6;   // senza pavimento lo si stima
   world.position.y = modoAltezza==='occhi' ? eyeY : aiPiedi;
+  aggiornaPiano();   // il piano dell'orizzonte reale segue
   diag(modoAltezza==='occhi' ? 'occhi all’orizzonte (centro della sfera)'
                              : 'piedi all’orizzonte (in piedi sulla Terra)','ok');
 }
@@ -604,26 +873,56 @@ if(document.fonts && document.fonts.load){
 }
 
 // ====================== ciclo ======================
-let spinA=0, erroreLoop=false, nFrame=0, tUltimo=0;
+// ====================== l'ora del cielo, in testa e nel visore ======================
+let minutoMostrato=null, oraScritta=0;
+const quandoTesto=(t,conAnno)=>t.toLocaleString('it-IT',{timeZone:LUOGO.fuso,day:'2-digit',month:'2-digit',
+  ...(conAnno?{year:'numeric'}:{}),hour:'2-digit',minute:'2-digit'});
+function aggiornaOra(){
+  const t=istanteCielo(), chiave=Math.floor(t.getTime()/60000), ora=performance.now();
+  if(chiave===minutoMostrato) return;
+  if(spin && ora-oraScritta<200) return;   // col moto rapido i minuti volano: si riscrive 5 volte al secondo
+  minutoMostrato=chiave; oraScritta=ora;
+  document.getElementById('sotto').textContent='φ '+coordTesto(LUOGO.lat,LUOGO.lng).split(' ')[0]+' '+
+    LUOGO.nome+' · '+quandoTesto(t,true)+' · WebXR';
+  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false));
+}
+
+let erroreLoop=false, nFrame=0, tUltimo=0;
 renderer.setAnimationLoop((time,frame)=>{
   try{
     nFrame++;
     if(time-tUltimo>1000){ fps=nFrame*1000/(time-tUltimo); nFrame=0; tUltimo=time; logSporco=true; }
-    if(spin){ spinA-=0.06/60*Math.PI; sky.quaternion.setFromAxisAngle(Pp,spinA); }
+    // il tempo del cielo: agganciato all'orologio, non ai fotogrammi (un salto dopo una pausa non conta)
+    const ora=performance.now(), dt=tPrec==null?0:Math.min(ora-tPrec,100); tPrec=ora;
+    if(spin) avanzaCielo(dt);
+    aggiornaOra();
     if(renderer.xr.isPresenting){
       if(!calibrato) calibra(frame);
       btnMeshes.forEach(m=>{ m.userData.halo.material.opacity=0; m.scale.setScalar(1); });
+      let indicato=null;
       [c0,c1].forEach(c=>{
         if(!c) return;
-        const h=hitTest(c), d=h?h.distance:RAGGIO;
-        c.userData.ray.scale.z=d; c.userData.dot.position.z=-d;
-        if(h){
+        const h=hitTest(c);
+        c.userData.puntato=null;
+        if(h){   // sul pannello: il raggio si ferma sul tasto
+          c.userData.ray.scale.z=h.distance; c.userData.dot.position.z=-h.distance; c.userData.dot.scale.setScalar(1);
           const m=h.object; m.userData.halo.material.opacity=.55; m.scale.setScalar(1.05);
           if(c.userData.sopra!==m){ c.userData.sopra=m; vibra(c,0.25,18); }   // un tocco lieve entrando
-        } else c.userData.sopra=null;
+          c.userData.suAstro=null;
+        } else {   // fuori: il raggio va verso la volta e cerca stelle e pianeti
+          c.userData.sopra=null;
+          c.userData.ray.scale.z=RAGGIO_CIELO; c.userData.dot.position.z=-RAGGIO_CIELO; c.userData.dot.scale.setScalar(4);
+          const [o,d]=raggioDi(c), b=puntatoDaRaggio(o,d);
+          c.userData.puntato=b; if(b && !indicato) indicato=b;
+          if(b && c.userData.suAstro!==b) vibra(c,0.12,10);   // un tocco appena, su ogni astro
+          c.userData.suAstro=b;
+        }
       });
+      indica(indicato);
       if(logSporco) disegnaLog();
     } else updateOrbit();
+    aggiornaIndicazioni();
+    if(stato.orizReale) for(const s of SPRITE_CIELO) s.visible=!sottoOrizzonte(s);
     renderer.render(scene,camera);
   }catch(err){
     if(!erroreLoop){ erroreLoop=true; diag('ciclo: '+(err.message||err),'err'); }
@@ -631,14 +930,85 @@ renderer.setAnimationLoop((time,frame)=>{
 });
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);});
-{ // che cielo e': luogo e ora, in testa e nel diario
-  const quando=ISTANTE.toLocaleString('it-IT',{timeZone:LUOGO.fuso,day:'2-digit',month:'2-digit',
-    year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const g=Math.floor(LUOGO.lat), p=Math.round((LUOGO.lat-g)*60);
-  document.getElementById('sotto').textContent='φ '+g+'°'+String(p).padStart(2,'0')+'′ '+LUOGO.nome+' · '+quando+' · WebXR';
-  if(A) diag('cielo di '+LUOGO.nome+', '+quando+' — '+quanteStelle+' stelle, '+
-    (CIELO?CIELO.figure.length:0)+' figure, '+quantiPianeti+' pianeti','ok');
+
+// ====================== i quattro gradi di velocita', nella pagina ======================
+document.querySelectorAll('#vel button').forEach(x=>x.addEventListener('click',()=>impostaVelocita(Number(x.dataset.v))));
+
+// ====================== il luogo: il box ======================
+// Le citta' (luoghi-dati.js, dal database di Regulus) si scaricano solo aprendo il box. Scelta una
+// citta' — o scritte le coordinate — la pagina si riapre con il luogo nell'indirizzo.
+const btnLuogo=document.getElementById('luogo-btn'), boxLuogo=document.getElementById('luogo');
+const inCerca=document.getElementById('luogo-cerca'), divRis=document.getElementById('luogo-ris');
+btnLuogo.textContent='⌖ '+LUOGO.nome;
+let luoghiPronti=null;
+function caricaLuoghi(){
+  if(!luoghiPronti) luoghiPronti=new Promise((ok,ko)=>{
+    const s=document.createElement('script'); s.src='luoghi-dati.js';
+    s.onload=()=>window.LUOGHI?ok(window.LUOGHI):ko(new Error('dati vuoti'));
+    s.onerror=()=>{ luoghiPronti=null; ko(new Error('luoghi-dati.js non arrivato')); };
+    document.head.appendChild(s);
+  });
+  return luoghiPronti;
 }
+const normTesto=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+// prima i nomi che COMINCIANO cosi', poi quelli che lo contengono come parola (anche fra i nomi
+// alternativi: «Londra» trova London); l'elenco e' gia' in ordine d'importanza
+function cercaLuoghi(q,L,max){
+  q=normTesto(q.trim()); if(q.length<2) return [];
+  const primi=[], altri=[];
+  for(const r of L.l){
+    const n=normTesto(r[0]);
+    if(n.startsWith(q)){ primi.push(r); if(primi.length>=max) break; }
+    else if(altri.length<max && ((' '+n).includes(' '+q) || (r[5] && (' '+r[5]).includes(' '+q)))) altri.push(r);
+  }
+  return primi.concat(altri).slice(0,max);
+}
+function vai(nome,lat,lng,tz){
+  location.search=new URLSearchParams({nome, lat:String(lat), lng:String(lng), tz:tz||'UTC'}).toString();
+}
+function mostraRisultati(){
+  caricaLuoghi().then(L=>{
+    const ris=cercaLuoghi(inCerca.value,L,12);
+    divRis.textContent='';
+    ris.forEach((r,i)=>{
+      const d=document.createElement('div'); if(i===0) d.className='sel';
+      d.textContent=r[0];
+      const s=document.createElement('small'); s.textContent=r[4]+' · '+coordTesto(r[1],r[2]); d.appendChild(s);
+      d.addEventListener('click',()=>vai(r[0],r[1],r[2],L.fusi[r[3]]));
+      divRis.appendChild(d);
+    });
+    if(!ris.length && inCerca.value.trim().length>=2) divRis.textContent='nessuna città: prova con le coordinate';
+  }).catch(e=>{ divRis.textContent='elenco delle città non disponibile ('+e.message+'): usa le coordinate'; });
+}
+btnLuogo.addEventListener('click',()=>{
+  boxLuogo.hidden=!boxLuogo.hidden;
+  if(!boxLuogo.hidden){ inCerca.focus(); caricaLuoghi().catch(()=>{}); }
+});
+inCerca.addEventListener('input',mostraRisultati);
+inCerca.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ const primo=divRis.querySelector('div'); if(primo) primo.click(); }
+  if(e.key==='Escape') boxLuogo.hidden=true;
+});
+document.getElementById('luogo-usa').addEventListener('click',()=>{
+  const num=v=>parseFloat(String(v).replace(',','.'));
+  const lat=num(document.getElementById('luogo-lat').value), lng=num(document.getElementById('luogo-lng').value);
+  if(!(lat>=-90&&lat<=90&&lng>=-180&&lng<=180)){
+    divRis.textContent='coordinate non valide: latitudine fra −90 e 90, longitudine fra −180 e 180'; return;
+  }
+  // il fuso lo da' la citta' piu' vicina, come fa Regulus per le coordinate a mano
+  caricaLuoghi().then(L=>{
+    let meglio=null, dm=Infinity;
+    for(const c of L.l){
+      const d=Math.acos(Math.min(1,Math.sin(lat*DEG)*Math.sin(c[1]*DEG)+Math.cos(lat*DEG)*Math.cos(c[1]*DEG)*Math.cos((lng-c[2])*DEG)));
+      if(d<dm){ dm=d; meglio=c; }
+    }
+    vai(coordTesto(lat,lng),lat,lng,meglio?L.fusi[meglio[3]]:'UTC');
+  }).catch(()=>vai(coordTesto(lat,lng),lat,lng,'UTC'));
+});
+
+aggiornaOra();
+if(A) diag('cielo di '+LUOGO.nome+', '+quandoTesto(ISTANTE,true)+' — '+quanteStelle+' stelle, '+
+  (CIELO?CIELO.figure.length:0)+' figure, '+quantiPianeti+' pianeti','ok');
 diag('scena pronta — premi «Entra in VR»','ok');
 </script>
 </body>
