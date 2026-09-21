@@ -33,6 +33,12 @@
   .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#cfd6ea;transition:.2s}
   .row.on .sw{background:var(--a,#4da3ff)} .row.on .sw::after{transform:translateX(11px);background:#fff}
   #hint{position:fixed;z-index:3;bottom:16px;right:16px;font-size:12px;color:#9aa2bd;max-width:230px;text-align:right}
+  /* diario di bordo: nel visore la console non si vede, quindi i passi si scrivono qui */
+  #diag{position:fixed;z-index:5;top:64px;left:16px;max-width:340px;padding:9px 11px;
+    background:rgba(8,11,22,.8);border:1px solid rgba(150,166,205,.14);border-radius:10px;
+    font-family:ui-monospace,Consolas,monospace;font-size:11px;line-height:1.5;color:#aab4cf}
+  #diag b{color:#6f7b99;font-weight:400;margin-right:5px}
+  #diag .ok{color:#7fd6a4} #diag .warn{color:#e3c169} #diag .err{color:#ff8a8a}
 </style>
 </head>
 <body>
@@ -43,6 +49,7 @@
 </header>
 
 <button id="enter">◉ Entra in VR</button>
+<div id="diag"></div>
 
 <div id="panel">
   <p class="grp">Elementi</p>
@@ -57,20 +64,61 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ====================== diario di bordo ======================
+// Va scritto prima di ogni altra cosa: se qualcosa si rompe durante l'avvio,
+// il riquadro lo dice invece di lasciare una pagina muta.
+const diagBox=document.getElementById('diag');
+const diagRighe=[]; let logSporco=true;
+function diag(msg,kind){
+  const d=new Date(), t=String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+  diagRighe.push({t,msg,kind:kind||''});
+  while(diagRighe.length>9) diagRighe.shift();
+  diagBox.innerHTML=diagRighe.map(l=>'<div class="'+l.kind+'"><b>'+l.t+'</b>'+l.msg+'</div>').join('');
+  logSporco=true;
+}
+addEventListener('error',e=>diag('JS: '+(e.message||e.type),'err'));
+addEventListener('unhandledrejection',e=>{
+  const r=e.reason; diag('Promessa: '+((r&&(r.name+' — '+r.message))||r),'err');
+});
+
 const R=8, DEG=Math.PI/180, TAU=Math.PI*2;
 const PHI=45*DEG, EPS=23.44*DEG, RAMC=40*DEG, cosE=Math.cos(EPS), sinE=Math.sin(EPS);
 const groups={}; let spin=false;
 
-// ---------- renderer / scene / camera ----------
+// ====================== renderer / scena / camera ======================
 const scene=new THREE.Scene();
+// Tutto il cielo sta dentro "world": entrando in VR lo alziamo all'altezza
+// degli occhi, perche' l'osservatore dev'essere AL CENTRO della sfera.
+const world=new THREE.Group(); scene.add(world);
 const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,200);
 camera.position.set(14,9,18);
-const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+
+// Il contesto WebGL nasce gia' compatibile con la VR. Se non lo e', three.js r128
+// chiama makeXRCompatible() a sessione avviata: su certi dispositivi quella chiamata
+// ricrea il contesto e porta via texture e geometrie — schermo nero.
+const canvas=document.createElement('canvas');
+const attr={antialias:true,alpha:true,xrCompatible:true};
+let gl=null;
+try{ gl=canvas.getContext('webgl2',attr)||canvas.getContext('webgl',attr); }catch(e){}
+const renderer=new THREE.WebGLRenderer(gl?{canvas,context:gl,antialias:true,alpha:true}
+                                          :{antialias:true,alpha:true});
+// si legge l'attributo VERO: se il contesto non e' nato compatibile, three.js
+// dovra' chiamare makeXRCompatible() a sessione avviata, ed e' un sospetto in piu'.
+(function(){
+  let nota='contesto creato da three.js', kind='warn';
+  try{
+    const a=renderer.getContext().getContextAttributes();
+    const ok=a.xrCompatible===true;
+    nota='contesto WebGL '+(gl?'mio':'di three.js')+' · xrCompatible: '+(ok?'si':'NO');
+    kind=ok?'ok':'warn';
+  }catch(e){}
+  diag(nota,kind);
+})();
 renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.xr.enabled=true;
 document.getElementById('scene').appendChild(renderer.domElement);
 
-// ---------- desktop orbit ----------
+// ====================== orbita da desktop ======================
 const orbit={radius:camera.position.length(),theta:Math.atan2(camera.position.z,camera.position.x),
   phi:Math.acos(camera.position.y/camera.position.length()),tT:0,tP:0,tR:0,drag:false,lx:0,ly:0};
 orbit.tT=orbit.theta;orbit.tP=orbit.phi;orbit.tR=orbit.radius;
@@ -89,19 +137,19 @@ el.addEventListener('wheel',e=>{e.preventDefault();orbit.tR*=(1+e.deltaY*0.0012)
 function updateOrbit(){orbit.theta+=(orbit.tT-orbit.theta)*0.12;orbit.phi+=(orbit.tP-orbit.phi)*0.12;
   orbit.radius+=(orbit.tR-orbit.radius)*0.12;applyCam();}
 
-// ---------- helpers ----------
+// ====================== aiutanti ======================
 function line(pts,color,op,w){const g=new THREE.BufferGeometry().setFromPoints(pts);
   return new THREE.Line(g,new THREE.LineBasicMaterial({color,transparent:true,opacity:op,linewidth:w||1}));}
 function label(text,color,scale){const pad=8,fs=52,c=document.createElement('canvas'),x=c.getContext('2d');
-  x.font=`600 ${fs}px 'Cormorant Garamond', Georgia, serif`;c.width=x.measureText(text).width+pad*2;c.height=fs+pad*2;
-  x.font=`600 ${fs}px 'Cormorant Garamond', Georgia, serif`;x.fillStyle=color;x.textBaseline='middle';
+  x.font="600 "+fs+"px 'Cormorant Garamond', Georgia, serif";c.width=x.measureText(text).width+pad*2;c.height=fs+pad*2;
+  x.font="600 "+fs+"px 'Cormorant Garamond', Georgia, serif";x.fillStyle=color;x.textBaseline='middle';
   x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=8;x.fillText(text,pad,c.height/2);
   const t=new THREE.CanvasTexture(c);t.anisotropy=4;
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));
   const h=scale||0.6;s.scale.set(h*c.width/c.height,h,1);s.renderOrder=10;return s;}
-function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||scene).add(g);return g;}
+function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||world).add(g);return g;}
 
-// ---------- equatorial basis ----------
+// ====================== base equatoriale ======================
 const Pp=new THREE.Vector3(0,Math.sin(PHI),-Math.cos(PHI));
 const Mm=new THREE.Vector3(0,Math.cos(PHI),Math.sin(PHI));
 const Ww=new THREE.Vector3(-1,0,0);
@@ -114,7 +162,7 @@ const raOf=l=>Math.atan2(Math.sin(l)*cosE,Math.cos(l));
 const decOf=l=>Math.asin(sinE*Math.sin(l));
 const eclDir=l=>eq(RAMC-raOf(l),decOf(l));
 
-// ---------- FIXED (local) elements: horizon, meridian, cardinals ----------
+// ====================== elementi fissi: orizzonte, meridiano, cardinali ======================
 {
   const g=G('frame');
   const hp=new THREE.Mesh(new THREE.CircleGeometry(R,96),
@@ -130,25 +178,25 @@ const eclDir=l=>eq(RAMC-raOf(l),decOf(l));
    .forEach(([v,t])=>{const s=label(t,'#c7d2ee',0.55);s.position.copy(v.multiplyScalar(R*1.05));g.add(s);});
 }
 
-// ---------- SKY (rotates with diurnal motion) ----------
-const sky=new THREE.Group(); scene.add(sky);
-{ // equator
+// ====================== il cielo (gira col moto diurno) ======================
+const sky=new THREE.Group(); world.add(sky);
+{ // equatore
   const g=G('equator',sky), p=[];
   for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,0).multiplyScalar(R));
   g.add(line(p,0x4da3ff,.85,2));
 }
-{ // ecliptic
+{ // eclittica
   const g=G('ecliptic',sky), p=[];
   for(let i=0;i<=360;i++)p.push(eclDir(i/360*TAU).multiplyScalar(R));
   g.add(line(p,0xe23636,.24,5)); g.add(line(p,0xff5a5a,.95,2));
 }
-{ // celestial axis
+{ // asse del mondo
   const g=G('axis',sky);
   g.add(line([Pp.clone().multiplyScalar(R*1.12),Pp.clone().multiplyScalar(-R*1.12)],0x6f8fd0,.6,1));
   const s=label('Polo','#9db4e6',0.5); s.position.copy(Pp.clone().multiplyScalar(R*1.16)); g.add(s);
 }
-let sunAngle=60*DEG; // sun's ecliptic longitude (fixed on ecliptic; sky rotation moves it across sky)
-{ // sun + its diurnal circle
+let sunAngle=60*DEG; // longitudine eclittica del Sole
+{ // Sole e suo cerchio diurno
   const g=G('planet',sky);
   const dSun=decOf(sunAngle), p=[];
   for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,dSun).multiplyScalar(R));
@@ -160,16 +208,16 @@ let sunAngle=60*DEG; // sun's ecliptic longitude (fixed on ecliptic; sky rotatio
   g.add(sun);
   const s=label('Sole','#ffe6a0',0.55); s.position.copy(eclDir(sunAngle).multiplyScalar(R*1.06)); g.add(s);
 }
-scene.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
+world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
   new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide})));
 
-// ---------- DOM toggles ----------
+// ====================== interruttori del pannello DOM ======================
 function setToggle(k,on){ if(groups[k]) groups[k].visible=on; if(k==='spin') spin=on; syncVR(); }
 document.querySelectorAll('#panel .row').forEach(r=>{
   r.addEventListener('click',()=>{const on=r.classList.toggle('on');setToggle(r.dataset.k,on);});
 });
 
-// ---------- VR: controllers + floating panel ----------
+// ====================== VR: pannello fluttuante ======================
 const BUTTONS=[
   {k:'equator', t:'Equatore', on:true, c:0x4da3ff},
   {k:'ecliptic',t:'Eclittica',on:true, c:0xff5a5a},
@@ -177,6 +225,7 @@ const BUTTONS=[
   {k:'axis',    t:'Asse',     on:true, c:0x6f8fd0},
   {k:'planet',  t:'Sole',     on:true, c:0xffcf5a},
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
+  {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
 ];
 const vrPanel=new THREE.Group();
 vrPanel.position.set(-0.42,1.15,-0.75); vrPanel.rotation.y=0.5; scene.add(vrPanel);
@@ -187,27 +236,53 @@ function btnTexture(b){
   x.strokeStyle=b.on?rgbHex(b.c,1):'rgba(150,166,205,.35)';x.lineWidth=b.on?6:3;x.stroke();
   x.fillStyle='#eef2ff';x.font="600 58px 'Cormorant Garamond', Georgia, serif";x.textBaseline='middle';
   x.fillText(b.t,34,h/2);
-  x.beginPath();x.arc(w-56,h/2,20,0,TAU);x.fillStyle=b.on?rgbHex(b.c,1):'rgba(120,130,160,.5)';x.fill();
+  if(!b.azione){
+    x.beginPath();x.arc(w-56,h/2,20,0,TAU);x.fillStyle=b.on?rgbHex(b.c,1):'rgba(120,130,160,.5)';x.fill();
+  }
   const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t;
 }
 function roundRect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
   x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
-function rgbHex(c,al){const r=(c>>16)&255,g=(c>>8)&255,b=c&255;return `rgba(${r},${g},${b},${al})`;}
+function rgbHex(c,al){const r=(c>>16)&255,g=(c>>8)&255,b=c&255;return 'rgba('+r+','+g+','+b+','+al+')';}
 const btnMeshes=[];
 BUTTONS.forEach((b,i)=>{
   const m=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.10),
     new THREE.MeshBasicMaterial({map:btnTexture(b),transparent:true}));
   m.position.set(0,-i*0.12,0); m.userData.b=b; vrPanel.add(m); btnMeshes.push(m);
 });
-const title=label('CIELO','#cfe0ff',0.06); title.position.set(-0.09,0.10,0); // small header
+const title=label('CIELO','#cfe0ff',0.06); title.position.set(-0.09,0.10,0);
 vrPanel.add(title);
 
+// il diario di bordo, anche dentro il visore
+const logCv=document.createElement('canvas'); logCv.width=600; logCv.height=280;
+const logTex=new THREE.CanvasTexture(logCv);
+const logMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.159),
+  new THREE.MeshBasicMaterial({map:logTex,transparent:true,opacity:.92}));
+logMesh.position.set(0,-BUTTONS.length*0.12-0.02,0); vrPanel.add(logMesh);
+let fps=0;
+function disegnaLog(){
+  const x=logCv.getContext('2d'); x.clearRect(0,0,logCv.width,logCv.height);
+  x.fillStyle='rgba(8,11,22,.86)'; roundRect(x,2,2,logCv.width-4,logCv.height-4,14); x.fill();
+  x.strokeStyle='rgba(150,166,205,.22)'; x.lineWidth=3; x.stroke();
+  x.font="22px ui-monospace, Consolas, monospace"; x.textBaseline='middle';
+  const ultime=diagRighe.slice(-8);
+  ultime.forEach((l,i)=>{
+    x.fillStyle=l.kind==='err'?'#ff8a8a':l.kind==='warn'?'#e3c169':l.kind==='ok'?'#7fd6a4':'#aab4cf';
+    let s=l.msg; if(s.length>44) s=s.slice(0,43)+'…';
+    x.fillText(s,18,26+i*30);
+  });
+  x.fillStyle='#6f7b99'; x.fillText(Math.round(fps)+' fps',18,logCv.height-20);
+  logTex.needsUpdate=true; logSporco=false;
+}
+disegnaLog();
+
 function toggleBtn(b){
+  if(b.azione){ if(b.k==='recenter'){ calibrato=false; diag('ricentro…'); } return; }
   b.on=!b.on; setToggle(b.k,b.on);
   const m=btnMeshes.find(x=>x.userData.b===b); m.material.map=btnTexture(b); m.material.needsUpdate=true;
 }
-function syncVR(){ // keep VR button textures in sync with DOM state
-  BUTTONS.forEach(b=>{const dom=document.querySelector(`#panel .row[data-k="${b.k}"]`);
+function syncVR(){
+  BUTTONS.forEach(b=>{const dom=document.querySelector('#panel .row[data-k="'+b.k+'"]');
     if(dom){const on=dom.classList.contains('on'); if(on!==b.on){b.on=on;
       const m=btnMeshes.find(x=>x.userData.b===b); if(m){m.material.map=btnTexture(b);m.material.needsUpdate=true;}}}});
 }
@@ -233,40 +308,111 @@ function hitTest(ctl){
 }
 let c0,c1;
 
-// ---------- Enter VR ----------
+// ====================== ingresso in VR ======================
 const enter=document.getElementById('enter');
+let xrSession=null, calibrato=false, eyeY=0;
+
 if(navigator.xr && navigator.xr.isSessionSupported){
   navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
-    if(!ok){ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; }
-  }).catch(()=>{ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; });
-} else { enter.textContent='WebXR non supportato dal browser'; enter.style.opacity=.6; }
+    if(ok) diag('il visore risponde: immersive-vr disponibile','ok');
+    else { enter.textContent='VR non disponibile qui'; enter.style.opacity=.6;
+           diag('immersive-vr non disponibile su questo dispositivo','warn'); }
+  }).catch(e=>{ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6;
+                diag('controllo VR fallito: '+e.name,'warn'); });
+} else {
+  enter.textContent='WebXR non supportato dal browser'; enter.style.opacity=.6;
+  diag('navigator.xr assente (serve HTTPS e un browser WebXR)','warn');
+}
 
-enter.addEventListener('click',async()=>{
-  if(!navigator.xr) return;
+// Il sistema di riferimento si prova PRIMA di consegnare la sessione a three.js:
+// se lo chiedesse three.js e venisse rifiutato, l'errore cadrebbe una riga prima
+// dell'avvio del ciclo di disegno — sessione aperta, nulla disegnato, schermo nero.
+async function scegliRiferimento(session){
+  for(const tipo of ['local-floor','local','viewer']){
+    try{ await session.requestReferenceSpace(tipo); return tipo; }
+    catch(e){ diag('riferimento "'+tipo+'" rifiutato ('+e.name+')','warn'); }
+  }
+  return null;
+}
+
+async function entraVR(){
+  if(!navigator.xr){ diag('navigator.xr assente','err'); return; }
+  let session=null;
   try{
-    const session=await navigator.xr.requestSession('immersive-vr',
-      {optionalFeatures:['local-floor','bounded-floor','hand-tracking','layers']});
-    renderer.xr.setReferenceSpaceType('local-floor');
+    diag('chiedo la sessione…');
+    session=await navigator.xr.requestSession('immersive-vr',
+      {optionalFeatures:['local-floor','bounded-floor','hand-tracking']});
+    xrSession=session;
+    session.addEventListener('end',sessioneFinita);
+    diag('sessione aperta','ok');
+
+    const rif=await scegliRiferimento(session);
+    if(!rif) throw new Error('nessun sistema di riferimento accettato');
+    diag('riferimento: '+rif,'ok');
+    renderer.xr.setReferenceSpaceType(rif);
+
+    calibrato=false;
     await renderer.xr.setSession(session);
+    diag('renderer agganciato — il cielo dovrebbe esserci','ok');
+
     if(!c0){ c0=makeController(0); c1=makeController(1); }
     enter.classList.add('small'); enter.textContent='◉ Esci';
-    session.addEventListener('end',()=>{ enter.classList.remove('small'); enter.textContent='◉ Entra in VR'; });
-  }catch(err){ enter.textContent='VR: '+(err.name||'errore'); enter.style.opacity=.7; }
+  }catch(err){
+    diag('ERRORE: '+(err.name||'')+' — '+(err.message||err),'err');
+    // rete di sicurezza: una sessione aperta e non disegnata resta appesa,
+    // e al tentativo seguente il visore risponde InvalidStateError.
+    if(session){ diag('chiudo la sessione rimasta aperta','warn');
+      try{ await session.end(); }catch(e){ diag('chiusura fallita: '+e.name,'warn'); } }
+    xrSession=null;
+    enter.classList.remove('small'); enter.textContent='◉ Riprova';
+  }
+}
+function sessioneFinita(){
+  xrSession=null; calibrato=false;
+  enter.classList.remove('small'); enter.textContent='◉ Entra in VR';
+  diag('sessione terminata');
+}
+enter.addEventListener('click',()=>{
+  if(xrSession){ diag('esco…'); xrSession.end().catch(e=>diag('uscita: '+e.name,'warn')); return; }
+  entraVR(); // niente await prima di requestSession: il gesto dell'utente resta valido
 });
 
-// ---------- loop ----------
-let spinA=0;
-renderer.setAnimationLoop(()=>{
-  if(spin){ spinA-=0.06/60*Math.PI; sky.quaternion.setFromAxisAngle(Pp,spinA); }
-  // hover highlight in VR
-  if(renderer.xr.isPresenting){
-    btnMeshes.forEach(m=>m.material.color.setHex(0xffffff));
-    [c0,c1].forEach(c=>{ if(!c)return; const h=hitTest(c); if(h) h.material.color.setHex(0x9fd0ff); });
-  } else updateOrbit();
-  renderer.render(scene,camera);
+// L'osservatore dev'essere al centro della sfera: con un riferimento ancorato al
+// pavimento l'origine sta ai piedi, e l'orizzonte gli passerebbe sotto. Si misura
+// l'altezza vera dell'occhio al primo fotogramma e si alza tutto il cielo.
+function calibra(frame){
+  if(!frame) return;
+  const rif=renderer.xr.getReferenceSpace(); if(!rif) return;
+  let pose=null; try{ pose=frame.getViewerPose(rif); }catch(e){ return; }
+  if(!pose) return;
+  eyeY=pose.transform.position.y;
+  world.position.y=eyeY;
+  vrPanel.position.set(-0.42,eyeY-0.12,-0.75);
+  calibrato=true;
+  diag('occhio a '+eyeY.toFixed(2)+' m — sfera centrata','ok');
+}
+
+// ====================== ciclo ======================
+let spinA=0, erroreLoop=false, nFrame=0, tUltimo=0;
+renderer.setAnimationLoop((time,frame)=>{
+  try{
+    nFrame++;
+    if(time-tUltimo>1000){ fps=nFrame*1000/(time-tUltimo); nFrame=0; tUltimo=time; logSporco=true; }
+    if(spin){ spinA-=0.06/60*Math.PI; sky.quaternion.setFromAxisAngle(Pp,spinA); }
+    if(renderer.xr.isPresenting){
+      if(!calibrato) calibra(frame);
+      btnMeshes.forEach(m=>m.material.color.setHex(0xffffff));
+      [c0,c1].forEach(c=>{ if(!c)return; const h=hitTest(c); if(h) h.material.color.setHex(0x9fd0ff); });
+      if(logSporco) disegnaLog();
+    } else updateOrbit();
+    renderer.render(scene,camera);
+  }catch(err){
+    if(!erroreLoop){ erroreLoop=true; diag('ciclo: '+(err.message||err),'err'); }
+  }
 });
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);});
+diag('scena pronta — premi «Entra in VR»','ok');
 </script>
 </body>
 </html>
