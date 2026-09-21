@@ -111,7 +111,8 @@
 </div>
 <div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller, sul pannello si premono i tasti, nel cielo si leggono i nomi,
-  e il grilletto seleziona. Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.</div>
+  e il grilletto seleziona. Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
+  La levetta allontana (avanti) o avvicina (indietro) l'orizzonte.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -179,7 +180,14 @@ const scene=new THREE.Scene();
 // Tutto il cielo sta dentro "world": entrando in VR lo alziamo all'altezza
 // degli occhi, perche' l'osservatore dev'essere AL CENTRO della sfera.
 const world=new THREE.Group(); scene.add(world);
-const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,200);
+// la grandezza della sfera (la cambia la levetta del controller): 1 = 8 metri di raggio.
+// Si parte da 32 metri, o dalla misura scelta l'ultima volta su questo visore.
+const SCALA_MIN=0.5, SCALA_MAX=50, SCALA_INIZIO=4;
+let SCALA=SCALA_INIZIO;
+try{ const s=parseFloat(localStorage.getItem('sfera-vr-scala')); if(s>=SCALA_MIN&&s<=SCALA_MAX) SCALA=s; }catch(e){}
+world.scale.setScalar(SCALA);
+// la vista arriva lontano: la sfera si puo' allargare fino a 400 m (e sul desktop la si guarda da fuori)
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,4000);
 scene.add(camera);   // nella scena, perche' il velo della dissolvenza le sta attaccato e deve seguire la testa
 camera.position.set(14,9,18);
 
@@ -212,8 +220,8 @@ document.getElementById('scene').appendChild(renderer.domElement);
 const orbit={radius:camera.position.length(),theta:Math.atan2(camera.position.z,camera.position.x),
   phi:Math.acos(camera.position.y/camera.position.length()),tT:0,tP:0,tR:0,drag:false,lx:0,ly:0};
 orbit.tT=orbit.theta;orbit.tP=orbit.phi;orbit.tR=orbit.radius;
-function applyCam(){const s=Math.sin(orbit.phi),c=Math.cos(orbit.phi);
-  camera.position.set(orbit.radius*s*Math.cos(orbit.theta),orbit.radius*c,orbit.radius*s*Math.sin(orbit.theta));
+function applyCam(){const s=Math.sin(orbit.phi),c=Math.cos(orbit.phi), r=orbit.radius*SCALA;   // sul desktop la sfera si vede uguale a ogni grandezza
+  camera.position.set(r*s*Math.cos(orbit.theta),r*c,r*s*Math.sin(orbit.theta));
   camera.lookAt(0,0,0);}
 applyCam();
 const el=renderer.domElement; el.style.touchAction='none';
@@ -841,6 +849,39 @@ function lascia(ctl){
   vibra(ctl,0.3,25);
   diag('orientamento fissato');
 }
+// ====================== la grandezza della sfera: la levetta ======================
+// Dal centro, ingrandire la sfera non cambia nessun angolo: stelle, figure e orizzonte restano come
+// sono. Cambia la PROFONDITA': a 8 metri i due occhi e ogni movimento della testa dicono che la volta
+// e' vicina (la sensazione di cupola, di chiuso); a decine o centinaia di metri stereo e parallasse si
+// spengono e la volta si comporta come il cielo vero, all'infinito. La levetta del controller la
+// allontana (spinta in avanti) o la avvicina (tirata indietro), in modo continuo; si ingrandisce tutto
+// il planetario in proporzione, quindi stelle, linee e scritte restano della stessa misura apparente.
+// Pannello e tastiera stanno con chi guarda e non cambiano. La misura scelta la ricorda il visore.
+let levaAttiva=false;   // SCALA e i suoi limiti stanno in cima, dove nasce il planetario
+function impostaScala(s){
+  SCALA=Math.max(SCALA_MIN,Math.min(SCALA_MAX,s)); world.scale.setScalar(SCALA);
+  if(!renderer.xr.isPresenting) applyCam();
+}
+const raggioSfera=()=>Math.round(R*SCALA);
+function levetta(dt){
+  // la levetta di chi la muove di piu' fra le due mani; sul Quest e' l'asse 3 (l'1 su altri controller)
+  let y=0;
+  for(const c of [c0,c1]){
+    const g=c&&c.userData.src&&c.userData.src.gamepad; if(!g||!g.axes) continue;
+    const v=g.axes.length>=4?g.axes[3]:(g.axes[1]||0); if(Math.abs(v)>Math.abs(y)) y=v;
+  }
+  const MORTA=0.15;
+  if(Math.abs(y)<MORTA){
+    if(levaAttiva){ levaAttiva=false;
+      try{ localStorage.setItem('sfera-vr-scala',String(SCALA)); }catch(e){}
+      diag('raggio della sfera: '+raggioSfera()+' m','ok'); }
+    return;
+  }
+  levaAttiva=true;
+  const forza=(Math.abs(y)-MORTA)/(1-MORTA)*Math.sign(y);
+  impostaScala(SCALA*Math.exp(-forza*1.3*dt/1000));   // a fondo: la misura raddoppia in circa mezzo secondo
+}
+
 function aggiornaPresa(){
   if(!presa) return;
   const [,d]=raggioDi(presa.ctl); if(Math.hypot(d.x,d.z)<0.25) return;
@@ -1089,6 +1130,7 @@ renderer.setAnimationLoop((time,frame)=>{
     const ora=performance.now(), dt=tPrec==null?0:Math.min(ora-tPrec,100); tPrec=ora;
     if(spin) avanzaCielo(dt);
     aggiornaPresa();
+    if(renderer.xr.isPresenting) levetta(dt);
     aggiornaGlifi();
     aggiornaVelo(ora);
     aggiornaOra();

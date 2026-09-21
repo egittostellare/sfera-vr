@@ -38,6 +38,12 @@ In tutto 720 stelle e 657 lati di figura.
   nel vuoto, si stringe il **tasto laterale** del controller e si trascina a destra o a sinistra: il
   planetario intero (orizzonte, cardinali, cielo) segue il raggio, e rilasciato il tasto resta lì.
   Il cielo resta giusto rispetto al suo orizzonte; pannello e tastiera restano con chi guarda.
+- **Allargare la sfera** con la **levetta** del controller: in avanti l'orizzonte si allontana,
+  indietro si avvicina. Si parte da 32 metri di raggio e si va da 4 a 400; la misura scelta si
+  ricorda su quel visore. Si ingrandisce tutto insieme, quindi **nessun angolo cambia**: le stelle
+  restano esattamente dove sono e le scritte conservano la loro misura apparente. Cambia solo la
+  profondità che danno i due occhi — da vicino la volta si sente come una cupola, da lontano
+  diventa cielo.
 - **Cambiando luogo** la vista si oscura, il cielo si gira nel buio e poi si riaccende.
 - **Il moto diurno** è tempo che scorre, a quattro velocità: 1 ora di cielo al minuto, in 20 s,
   in 7,5 s, in 3 s (da 0,25° a 5° al secondo). Sole e pianeti si ricollocano man mano.
