@@ -143,13 +143,19 @@ function updateOrbit(){orbit.theta+=(orbit.tT-orbit.theta)*0.12;orbit.phi+=(orbi
 // ====================== aiutanti ======================
 function line(pts,color,op,w){const g=new THREE.BufferGeometry().setFromPoints(pts);
   return new THREE.Line(g,new THREE.LineBasicMaterial({color,transparent:true,opacity:op,linewidth:w||1}));}
-function label(text,color,scale){const pad=8,fs=52,c=document.createElement('canvas'),x=c.getContext('2d');
+// Le scritte nel cielo si ricordano, perche' vanno ridipinte quando arriva il carattere:
+// all'avvio il Cormorant non e' ancora scaricato e nascono col carattere di riserva.
+const etichette=[];
+function tavolaEtichetta(text,color){const pad=8,fs=52,c=document.createElement('canvas'),x=c.getContext('2d');
   x.font="600 "+fs+"px 'Cormorant Garamond', Georgia, serif";c.width=x.measureText(text).width+pad*2;c.height=fs+pad*2;
   x.font="600 "+fs+"px 'Cormorant Garamond', Georgia, serif";x.fillStyle=color;x.textBaseline='middle';
   x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=8;x.fillText(text,pad,c.height/2);
-  const t=new THREE.CanvasTexture(c);t.anisotropy=4;
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;return {t,rapp:c.width/c.height};}
+function label(text,color,scale){
+  const {t,rapp}=tavolaEtichetta(text,color);
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));
-  const h=scale||0.6;s.scale.set(h*c.width/c.height,h,1);s.renderOrder=10;return s;}
+  const h=scale||0.6;s.scale.set(h*rapp,h,1);s.renderOrder=10;
+  etichette.push({s,text,color,h});return s;}
 function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||world).add(g);return g;}
 
 // ====================== base equatoriale ======================
@@ -214,10 +220,24 @@ let sunAngle=60*DEG; // longitudine eclittica del Sole
 world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
   new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide})));
 
-// ====================== interruttori del pannello DOM ======================
-function setToggle(k,on){ if(groups[k]) groups[k].visible=on; if(k==='spin') spin=on; syncVR(); }
+// ====================== gli interruttori: UNA sola verita' ======================
+// Lo stato di ogni elemento sta qui, e da qui si dipingono sia il pannello della pagina sia
+// quello dentro il visore. Prima i due si rincorrevano: il tasto nel visore spegneva una linea,
+// poi chiedeva al pannello della pagina com'era — e quello, che del clic non sapeva niente,
+// rispondeva «acceso». Il tasto tornava acceso senza riaccendere la linea: per questo le linee
+// si toglievano e non tornavano piu'.
+const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,spin:false};
+function imposta(k,on){
+  stato[k]=on;
+  if(groups[k]) groups[k].visible=on;
+  if(k==='spin') spin=on;
+  const dom=document.querySelector('#panel .row[data-k="'+k+'"]');
+  if(dom) dom.classList.toggle('on',on);
+  const b=BUTTONS.find(x=>x.k===k);
+  if(b){ b.on=on; ridipingi(b); }
+}
 document.querySelectorAll('#panel .row').forEach(r=>{
-  r.addEventListener('click',()=>{const on=r.classList.toggle('on');setToggle(r.dataset.k,on);});
+  r.addEventListener('click',()=>imposta(r.dataset.k,!stato[r.dataset.k]));
 });
 
 // ====================== VR: pannello fluttuante ======================
@@ -229,6 +249,7 @@ const BUTTONS=[
   {k:'planet',  t:'Sole',     on:true, c:0xffcf5a},
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
+  {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
 ];
 const vrPanel=new THREE.Group();
 vrPanel.position.set(-0.42,1.15,-0.75); vrPanel.rotation.y=0.5; scene.add(vrPanel);
@@ -237,7 +258,11 @@ function btnTexture(b){
   x.fillStyle=b.on?'rgba(30,42,70,.95)':'rgba(16,20,34,.9)';
   roundRect(x,4,4,w-8,h-8,18);x.fill();
   x.strokeStyle=b.on?rgbHex(b.c,1):'rgba(150,166,205,.35)';x.lineWidth=b.on?6:3;x.stroke();
-  x.fillStyle='#eef2ff';x.font="600 58px 'Cormorant Garamond', Georgia, serif";x.textBaseline='middle';
+  // il corpo scende finche' la scritta non ci sta: «Occhi all'orizzonte» a 58 uscirebbe dal tasto
+  const spazio=w-(b.azione?68:120); let fs=58;
+  x.font="600 "+fs+"px 'Cormorant Garamond', Georgia, serif";
+  while(x.measureText(b.t).width>spazio && fs>30){ fs-=2; x.font="600 "+fs+"px 'Cormorant Garamond', Georgia, serif"; }
+  x.fillStyle='#eef2ff';x.textBaseline='middle';
   x.fillText(b.t,34,h/2);
   if(!b.azione){
     x.beginPath();x.arc(w-56,h/2,20,0,TAU);x.fillStyle=b.on?rgbHex(b.c,1):'rgba(120,130,160,.5)';x.fill();
@@ -252,6 +277,11 @@ BUTTONS.forEach((b,i)=>{
   const m=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.10),
     new THREE.MeshBasicMaterial({map:btnTexture(b),transparent:true}));
   m.position.set(0,-i*0.12,0); m.userData.b=b; vrPanel.add(m); btnMeshes.push(m);
+  // l'alone che si accende quando il raggio ci sta sopra: tingere il tasto non bastava,
+  // il colore si moltiplica sul fondo scuro della scritta e il cambio non si vedeva
+  const halo=new THREE.Mesh(new THREE.PlaneGeometry(0.372,0.132),
+    new THREE.MeshBasicMaterial({color:0x9fd0ff,transparent:true,opacity:0,depthWrite:false}));
+  halo.position.set(0,-i*0.12,-0.003); vrPanel.add(halo); m.userData.halo=halo;
 });
 const title=label('CIELO','#cfe0ff',0.06); title.position.set(-0.09,0.10,0);
 vrPanel.add(title);
@@ -279,26 +309,36 @@ function disegnaLog(){
 }
 disegnaLog();
 
-function toggleBtn(b){
-  if(b.azione){ if(b.k==='recenter'){ calibrato=false; diag('ricentro…'); } return; }
-  b.on=!b.on; setToggle(b.k,b.on);
-  const m=btnMeshes.find(x=>x.userData.b===b); m.material.map=btnTexture(b); m.material.needsUpdate=true;
+function ridipingi(b){
+  const m=btnMeshes.find(x=>x.userData.b===b); if(!m) return;
+  if(m.material.map) m.material.map.dispose();
+  m.material.map=btnTexture(b); m.material.needsUpdate=true;
 }
-function syncVR(){
-  BUTTONS.forEach(b=>{const dom=document.querySelector('#panel .row[data-k="'+b.k+'"]');
-    if(dom){const on=dom.classList.contains('on'); if(on!==b.on){b.on=on;
-      const m=btnMeshes.find(x=>x.userData.b===b); if(m){m.material.map=btnTexture(b);m.material.needsUpdate=true;}}}});
+function toggleBtn(b){
+  if(b.k==='recenter'){ calibrato=false; diag('ricentro…'); return; }
+  if(b.k==='altezza'){
+    modoAltezza = modoAltezza==='occhi' ? 'piedi' : 'occhi';
+    b.t = modoAltezza==='occhi' ? 'Occhi all’orizzonte' : 'Piedi all’orizzonte';
+    ridipingi(b); applicaAltezza(); return;
+  }
+  imposta(b.k,!stato[b.k]);
 }
 
 const raycaster=new THREE.Raycaster(); const tmpM=new THREE.Matrix4();
+// Il raggio e' lungo un metro e si allunga o si accorcia con la scala: cosi' si ferma dove
+// tocca un tasto invece di attraversarlo, e il puntino si posa li'.
+const RAGGIO=1.2;
 function makeController(i){
   const ctl=renderer.xr.getController(i); scene.add(ctl);
-  const ray=line([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1.2)],0xffffff,.5,1);
-  ctl.add(ray);
+  const ray=line([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1)],0xffffff,.5,1);
+  ray.scale.z=RAGGIO; ctl.add(ray); ctl.userData.ray=ray;
   const dot=new THREE.Mesh(new THREE.SphereGeometry(0.012,12,12),new THREE.MeshBasicMaterial({color:0xffffff}));
-  dot.position.z=-1.2; ctl.add(dot);
+  dot.position.z=-RAGGIO; ctl.add(dot); ctl.userData.dot=dot;
+  ctl.addEventListener('connected',e=>{ ctl.userData.src=e.data; });
+  ctl.addEventListener('disconnected',()=>{ ctl.userData.src=null; });
   ctl.addEventListener('selectstart',()=>{
-    const hit=hitTest(ctl); if(hit) toggleBtn(hit.userData.b);
+    const hit=hitTest(ctl);
+    if(hit){ vibra(ctl,0.6,45); toggleBtn(hit.object.userData.b); }
   });
   return ctl;
 }
@@ -307,13 +347,21 @@ function hitTest(ctl){
   raycaster.ray.origin.setFromMatrixPosition(ctl.matrixWorld);
   raycaster.ray.direction.set(0,0,-1).applyMatrix4(tmpM);
   const hits=raycaster.intersectObjects(btnMeshes,false);
-  return hits.length?hits[0].object:null;
+  return hits.length?hits[0]:null;   // l'intersezione intera: serve anche la distanza
+}
+// una vibrazione breve nella mano, se il controller la sa fare (sul Quest si')
+function vibra(ctl,forza,ms){
+  try{
+    const g=ctl.userData.src&&ctl.userData.src.gamepad;
+    const h=g&&g.hapticActuators&&g.hapticActuators[0];
+    if(h&&h.pulse) h.pulse(forza,ms);
+  }catch(e){}
 }
 let c0,c1;
 
 // ====================== ingresso in VR ======================
 const enter=document.getElementById('enter');
-let xrSession=null, calibrato=false, eyeY=0;
+let xrSession=null, calibrato=false, eyeY=0, rifTipo=null, modoAltezza='occhi';
 
 if(navigator.xr && navigator.xr.isSessionSupported){
   navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
@@ -351,7 +399,7 @@ async function entraVR(){
 
     const rif=await scegliRiferimento(session);
     if(!rif) throw new Error('nessun sistema di riferimento accettato');
-    diag('riferimento: '+rif,'ok');
+    diag('riferimento: '+rif,'ok'); rifTipo=rif;
     renderer.xr.setReferenceSpaceType(rif);
 
     calibrato=false;
@@ -389,10 +437,38 @@ function calibra(frame){
   let pose=null; try{ pose=frame.getViewerPose(rif); }catch(e){ return; }
   if(!pose) return;
   eyeY=pose.transform.position.y;
-  world.position.y=eyeY;
-  vrPanel.position.set(-0.42,eyeY-0.12,-0.75);
+  vrPanel.position.set(-0.42,eyeY+0.05,-0.75);
   calibrato=true;
-  diag('occhio a '+eyeY.toFixed(2)+' m — sfera centrata','ok');
+  diag('occhio a '+eyeY.toFixed(2)+' m','ok');
+  applicaAltezza();
+}
+// Due modi di stare nella sfera, da confrontare dentro il visore:
+// «occhi»  = l'orizzonte passa per lo sguardo, l'osservatore e' al CENTRO (e' la sfera locale
+//            dei libri, ma si ha la sensazione di essere sprofondati fino agli occhi);
+// «piedi»  = si sta in piedi SUL piano dell'orizzonte, come sulla Terra, con la volta sopra.
+function applicaAltezza(){
+  const aiPiedi = rifTipo==='local-floor' ? 0 : eyeY-1.6;   // senza pavimento lo si stima
+  world.position.y = modoAltezza==='occhi' ? eyeY : aiPiedi;
+  diag(modoAltezza==='occhi' ? 'occhi all’orizzonte (centro della sfera)'
+                             : 'piedi all’orizzonte (in piedi sulla Terra)','ok');
+}
+
+// Quando il carattere e' arrivato si ridipinge tutto con lui — scritte nel cielo e tasti —
+// se no un tasto cambierebbe carattere la prima volta che lo si tocca.
+let carattereRidipinto=false;
+function ridipingiCarattere(){
+  if(carattereRidipinto) return; carattereRidipinto=true;
+  etichette.forEach(e=>{
+    const {t,rapp}=tavolaEtichetta(e.text,e.color);
+    e.s.material.map.dispose(); e.s.material.map=t; e.s.material.needsUpdate=true;
+    e.s.scale.set(e.h*rapp,e.h,1);
+  });
+  BUTTONS.forEach(ridipingi);
+}
+if(document.fonts && document.fonts.load){
+  Promise.all([document.fonts.load("600 52px 'Cormorant Garamond'"),
+               document.fonts.load("600 58px 'Cormorant Garamond'")])
+    .then(ridipingiCarattere).catch(()=>{});
 }
 
 // ====================== ciclo ======================
@@ -404,8 +480,16 @@ renderer.setAnimationLoop((time,frame)=>{
     if(spin){ spinA-=0.06/60*Math.PI; sky.quaternion.setFromAxisAngle(Pp,spinA); }
     if(renderer.xr.isPresenting){
       if(!calibrato) calibra(frame);
-      btnMeshes.forEach(m=>m.material.color.setHex(0xffffff));
-      [c0,c1].forEach(c=>{ if(!c)return; const h=hitTest(c); if(h) h.material.color.setHex(0x9fd0ff); });
+      btnMeshes.forEach(m=>{ m.userData.halo.material.opacity=0; m.scale.setScalar(1); });
+      [c0,c1].forEach(c=>{
+        if(!c) return;
+        const h=hitTest(c), d=h?h.distance:RAGGIO;
+        c.userData.ray.scale.z=d; c.userData.dot.position.z=-d;
+        if(h){
+          const m=h.object; m.userData.halo.material.opacity=.55; m.scale.setScalar(1.05);
+          if(c.userData.sopra!==m){ c.userData.sopra=m; vibra(c,0.25,18); }   // un tocco lieve entrando
+        } else c.userData.sopra=null;
+      });
       if(logSporco) disegnaLog();
     } else updateOrbit();
     renderer.render(scene,camera);
