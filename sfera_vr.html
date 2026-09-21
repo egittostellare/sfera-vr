@@ -112,7 +112,8 @@
 <div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller, sul pannello si premono i tasti, nel cielo si leggono i nomi,
   e il grilletto seleziona. Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
-  La levetta allontana (avanti) o avvicina (indietro) l'orizzonte.</div>
+  La levetta fa lo zoom come la rotella di Stellarium: avanti ingrandisce quello che il raggio indica,
+  indietro fa entrare più cielo; a 1× c'è uno scatto.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -180,13 +181,12 @@ const scene=new THREE.Scene();
 // Tutto il cielo sta dentro "world": entrando in VR lo alziamo all'altezza
 // degli occhi, perche' l'osservatore dev'essere AL CENTRO della sfera.
 const world=new THREE.Group(); scene.add(world);
-// la grandezza della sfera (la cambia la levetta del controller): 1 = 8 metri di raggio.
-// Si parte da 32 metri, o dalla misura scelta l'ultima volta su questo visore.
-const SCALA_MIN=0.5, SCALA_MAX=50, SCALA_INIZIO=4;
-let SCALA=SCALA_INIZIO;
-try{ const s=parseFloat(localStorage.getItem('sfera-vr-scala')); if(s>=SCALA_MIN&&s<=SCALA_MAX) SCALA=s; }catch(e){}
+// La grandezza della sfera: 1 = 8 metri di raggio; e' di 32. Ingrandirla dal centro non cambia nessun
+// angolo (e' stata provata con la levetta, e non si vedeva): serve solo a dare ai due occhi una volta
+// lontana. La levetta ora fa lo zoom (piu' sotto).
+const SCALA=4;
 world.scale.setScalar(SCALA);
-// la vista arriva lontano: la sfera si puo' allargare fino a 400 m (e sul desktop la si guarda da fuori)
+try{ localStorage.removeItem('sfera-vr-scala'); }catch(e){}   // la misura ricordata dalla prova di prima
 const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,4000);
 scene.add(camera);   // nella scena, perche' il velo della dissolvenza le sta attaccato e deve seguire la testa
 camera.position.set(14,9,18);
@@ -294,6 +294,11 @@ function orientaCielo(){
   hp.rotation.x=-Math.PI/2; g.add(hp);
   const rim=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,10,200),new THREE.MeshBasicMaterial({color:0x57d68f}));
   rim.rotation.x=Math.PI/2; g.add(rim);
+  // per lo zoom: ogni vertice del tubo segue il punto del cerchio su cui sta, cosi' il tubo resta
+  // sottile anche ingrandito (deformandolo tutto diventerebbe una fascia larga)
+  { const p=rim.geometry.attributes.position, a=new Float32Array(p.count*3);
+    for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), l=Math.hypot(x,y)||1; a[i*3]=x/l*R; a[i*3+1]=y/l*R; }
+    rim.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3)); rim.userData.zoomAncora=true; }
   const mer=[];for(let i=0;i<=180;i++){const t=i/180*TAU;mer.push(new THREE.Vector3(0,Math.cos(t)*R,Math.sin(t)*R));}
   g.add(line(mer,0x8493bd,.30,1));
   [[new THREE.Vector3(1,0,0),'Est'],[new THREE.Vector3(-1,0,0),'Ovest'],
@@ -316,7 +321,8 @@ const sky=new THREE.Group(); world.add(sky);
 }
 { // asse del mondo
   const g=G('axis',sky);
-  g.add(line([new THREE.Vector3(0,0,R*1.12),new THREE.Vector3(0,0,-R*1.12)],0x6f8fd0,.6,1));
+  // col punto di mezzo nel centro: con lo zoom ognuna delle due meta' va verso il suo polo
+  g.add(line([new THREE.Vector3(0,0,R*1.12),new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-R*1.12)],0x6f8fd0,.6,1));
   const s=label('Polo','#9db4e6',0.5); s.position.set(0,0,R*1.16); g.add(s);
 }
 // ====================== dal catalogo alla sfera ======================
@@ -349,9 +355,11 @@ function cerchioDiurno(de){ const p=[]; for(let i=0;i<=240;i++)p.push(eqv(i/240*
   SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R));
   const glow=new THREE.Mesh(new THREE.SphereGeometry(0.42,20,20),
     new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); SOLE.mesh.add(glow);
+  SOLE.mesh.userData.zoomRigido=glow.userData.zoomRigido=true;   // con lo zoom si sposta, non si gonfia
   g.add(SOLE.mesh);
   // la scritta appena SOPRA il Sole, non dietro: visto dal centro starebbe coperta dal disco
   SOLE.et=label('Sole','#ffe6a0',0.55); g.add(SOLE.et);   // la colloca aggiornaGlifi, appena sopra il disco
+  SOLE.et.userData.zoomRef=v=>SOLE.mesh.getWorldPosition(v);   // con lo zoom resta attaccata al disco
 }
 
 // ====================== le stelle e le figure ======================
@@ -394,7 +402,17 @@ if(CIELO){
   const gF=G('costellazioni',sky);
   gF.add(campo([...NELLE_FIGURE], s=>versoBianco(s.c,.7), 1, .95));
   const gL=G('linee',sky);
-  const pts=[]; CIELO.figure.forEach(f=>{ for(let i=0;i<f.l.length;i+=2) pts.push(P[f.l[i]],P[f.l[i+1]]); });
+  // ogni lato e' un arco di cerchio massimo a tratti di 3° (dal centro si vede identico alla corda):
+  // con lo zoom i tratti si deformano uno per uno, e il lato si piega come deve
+  const pts=[];
+  CIELO.figure.forEach(f=>{ for(let i=0;i<f.l.length;i+=2){
+    const a=P[f.l[i]], b=P[f.l[i+1]], n=Math.max(1,Math.ceil(a.angleTo(b)/(3*DEG)));
+    let prec=a;
+    for(let j=1;j<=n;j++){
+      const q=j===n?b:a.clone().normalize().lerp(b.clone().normalize(),j/n).normalize().multiplyScalar(RS);
+      pts.push(prec,q); prec=q;
+    }
+  } });
   gL.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
     new THREE.LineBasicMaterial({color:0x8fa3d8,transparent:true,opacity:.34,depthWrite:false})));
   // le stelle di Regulus: la tinta vera (la scala osservativa di Regulus) e un alone intorno
@@ -447,8 +465,9 @@ if(A && CIELO){
   const gP=G('pianeti',sky);
   CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).forEach(p=>{
     const punto=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),new THREE.MeshBasicMaterial({color:p.c}));
-    gP.add(punto);
+    punto.userData.zoomRigido=true; gP.add(punto);
     const sp=spriteGlifo(p.g,p.c,0.42); gP.add(sp);
+    sp.userData.zoomRef=v=>punto.getWorldPosition(v);   // con lo zoom il glifo resta sopra il suo punto
     PIANETI.push({en:PIANETI_EN[p.n], punto, sp});
     BERSAGLI.push({tipo:'pianeta', gruppo:'pianeti', nome:p.n, pos:punto.position, m:-3, c:p.c});
     quantiPianeti++;
@@ -517,15 +536,17 @@ function visibile(b){
   return (b.nostra&&stato.stelle)||(b.fig&&stato.costellazioni);
 }
 const _o=new THREE.Vector3(), _d=new THREE.Vector3(), _v=new THREE.Vector3(), _inv=new THREE.Matrix4();
+// Si confronta il raggio con dove l'astro SI VEDE (con lo zoom non e' dove sta); l'orizzonte reale
+// invece si giudica sul posto vero.
 function puntatoDaRaggio(origine,direzione){
-  sky.updateWorldMatrix(true,false); _inv.copy(sky.matrixWorld).invert();
-  _o.copy(origine).applyMatrix4(_inv); _d.copy(direzione).transformDirection(_inv);
+  sky.updateWorldMatrix(true,false);
   let meglio=null, punteggio=Infinity;
   for(const b of BERSAGLI){
     if(!visibile(b)) continue;
-    const ang=_d.angleTo(_v.copy(b.pos).sub(_o))/DEG;
+    _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
+    const ang=direzione.angleTo(deforma(_w,_v).sub(origine))/DEG;
     if(ang>1.8) continue;
-    if(stato.orizReale){ _w.copy(b.pos).applyMatrix4(sky.matrixWorld); if(_w.y<world.position.y) continue; }
+    if(stato.orizReale && _w.y<world.position.y) continue;
     const p=ang-(b.tipo==='pianeta'?0.6:0.12*(5-b.m));   // a parita', vince la piu' luminosa
     if(p<punteggio){ punteggio=p; meglio=b; }
   }
@@ -538,7 +559,7 @@ function puntatoDaSchermo(mx,my){   // sul desktop: il bersaglio piu' vicino al 
     if(!visibile(b)) continue;
     _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
     if(stato.orizReale && _w.y<world.position.y) continue;
-    _v.copy(_w).project(camera); if(_v.z>1||_v.z<-1) continue;
+    deforma(_w,_v).project(camera); if(_v.z>1||_v.z<-1) continue;
     const sx=(_v.x+1)/2*innerWidth, sy=(1-_v.y)/2*innerHeight;
     const d=(sx-mx)**2+(sy-my)**2-(b.tipo==='pianeta'?40:(5-b.m)*6);
     if(d<dMin){ dMin=d; meglio=b; }
@@ -559,9 +580,11 @@ function tavolaNome(nome,sotto,colore){
 const nuovaScritta=()=>{ const s=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:true}));
   s.renderOrder=13; s.visible=false; world.add(s); return s; };
 const ET_HOVER=nuovaScritta(), ET_SEL=nuovaScritta();
+// con lo zoom la scritta segue l'astro dove si vede, alla stessa distanza da lui
+for(const s of [ET_HOVER,ET_SEL]) s.userData.zoomRef=function(v){ const b=s.userData.b; return b?sky.localToWorld(v.copy(b.pos)):s.getWorldPosition(v); };
 const ANELLO=new THREE.Mesh(new THREE.RingGeometry(0.17,0.2,48),
   new THREE.MeshBasicMaterial({color:0xe3c169,transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:true}));
-ANELLO.renderOrder=12; ANELLO.visible=false; world.add(ANELLO);
+ANELLO.renderOrder=12; ANELLO.visible=false; ANELLO.userData.zoomRigido=true; world.add(ANELLO);
 let HOVER=null, SEL=null;
 function scriviSu(sp,b,conInfo){
   let sotto=b.sotto||null;
@@ -691,6 +714,7 @@ vrPanel.add(title);
 const orologioVR=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false}));
 orologioVR.renderOrder=10; vrPanel.add(orologioVR);
 function scriviOrologioVR(testo){
+  orologioVR.userData.testo=testo;
   const {t,rapp}=tavolaEtichetta(testo,'#e3c169');
   if(orologioVR.material.map) orologioVR.material.map.dispose();
   orologioVR.material.map=t; orologioVR.material.needsUpdate=true;
@@ -736,7 +760,7 @@ function impostaVelocita(i){
   diag('velocità '+(i+1)+': '+VELOCITA[i].d);
 }
 function toggleBtn(b){
-  if(b.k==='recenter'){ calibrato=false; diag('ricentro…'); return; }
+  if(b.k==='recenter'){ calibrato=false; azzeraZoom('ricentro'); diag('ricentro…'); return; }
   if(b.k==='velocita'){ impostaVelocita((livVel+1)%VELOCITA.length); return; }
   if(b.k==='luogo'){ if(TASTIERA.visible) chiudiTastiera(); else apriTastiera(); return; }
   if(b.k==='altezza'){
@@ -849,37 +873,180 @@ function lascia(ctl){
   vibra(ctl,0.3,25);
   diag('orientamento fissato');
 }
-// ====================== la grandezza della sfera: la levetta ======================
-// Dal centro, ingrandire la sfera non cambia nessun angolo: stelle, figure e orizzonte restano come
-// sono. Cambia la PROFONDITA': a 8 metri i due occhi e ogni movimento della testa dicono che la volta
-// e' vicina (la sensazione di cupola, di chiuso); a decine o centinaia di metri stereo e parallasse si
-// spengono e la volta si comporta come il cielo vero, all'infinito. La levetta del controller la
-// allontana (spinta in avanti) o la avvicina (tirata indietro), in modo continuo; si ingrandisce tutto
-// il planetario in proporzione, quindi stelle, linee e scritte restano della stessa misura apparente.
-// Pannello e tastiera stanno con chi guarda e non cambiano. La misura scelta la ricorda il visore.
-let levaAttiva=false;   // SCALA e i suoi limiti stanno in cima, dove nasce il planetario
-function impostaScala(s){
-  SCALA=Math.max(SCALA_MIN,Math.min(SCALA_MAX,s)); world.scale.setScalar(SCALA);
-  if(!renderer.xr.isPresenting) applyCam();
+// ====================== lo zoom: la levetta ======================
+// Come la rotella di Stellarium: levetta in avanti, il cielo attorno a quello che il raggio indica si
+// ingrandisce; indietro, si restringe e nel visore entra piu' cielo di quanto il Quest ne mostri.
+// Ingrandire la sfera dal centro non si vedrebbe (gli angoli resterebbero quelli): lo zoom invece
+// CAMBIA GLI ANGOLI. La deformazione e' la «proiezione stereografica» di Stellarium portata sulla
+// volta: attorno al centro scelto gli angoli si moltiplicano per l'ingrandimento, all'opposto si
+// dividono, e ogni cerchio della sfera resta un cerchio (orizzonte, equatore, eclittica non si
+// spezzano). In formule e' un «boost» di Lorentz, e due zoom si compongono moltiplicando matrici.
+// La volta deformata e' ferma nel mondo: girando la testa ci si guarda attorno come sempre, niente
+// cielo che scivola davanti agli occhi (e' quello che da' la nausea). Le stelle si spostano ma non si
+// gonfiano (crescono appena, come in Stellarium); le scritte restano attaccate al loro astro.
+// Il centro si sceglie partendo da 1×: l'astro che il raggio indica, o il punto della volta dove
+// arriva. Tornando indietro c'e' uno SCATTO sulla vista naturale: ci si ferma a 1× e si riparte dopo
+// aver lasciato la levetta, puntando dove si vuole.
+const ZOOM={s:1, c:new THREE.Vector3(0,0,-1), su:null, att:false, fermo:false, ctl:null};   // c: nel sistema del planetario
+const ZOOM_MIN=0.35, ZOOM_MAX=16, ZOOM_VEL=1.2;   // a levetta piena: da 1× a 10× in due secondi
+const ZU={uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()}, uZoomL:{value:new THREE.Matrix4()},
+          uZoomV:{value:new THREE.Matrix4()}};
+const _nZ=new THREE.Vector3(), _v4Z=new THREE.Vector4();
+// il boost lungo n che moltiplica per s gli angoli attorno a n: agisce su (direzione, 1)
+function matriceZoom(n,s,out){
+  const eta=-Math.log(s), ch=Math.cosh(eta), sh=Math.sinh(eta), k=ch-1;
+  return out.set(
+    1+k*n.x*n.x, k*n.x*n.y,   k*n.x*n.z,   sh*n.x,
+    k*n.y*n.x,   1+k*n.y*n.y, k*n.y*n.z,   sh*n.y,
+    k*n.z*n.x,   k*n.z*n.y,   1+k*n.z*n.z, sh*n.z,
+    sh*n.x,      sh*n.y,      sh*n.z,      ch);
 }
-const raggioSfera=()=>Math.round(R*SCALA);
+function aggiornaZoom(){
+  const on=ZOOM.s!==1;
+  ZU.uZoomOn.value=on?1:0;
+  ZU.uZoomO.value.copy(world.position);   // il centro della sfera, dove sta chi guarda
+  if(on) matriceZoom(_nZ.copy(ZOOM.c).applyQuaternion(world.quaternion), ZOOM.s, ZU.uZoomL.value);
+}
+// dove si vede un punto della scena (la stessa formula dello shader, per il raggio e per le prove)
+function deforma(p,out){
+  out=out||new THREE.Vector3(); out.copy(p);
+  if(!ZU.uZoomOn.value) return out;
+  const O=ZU.uZoomO.value; out.sub(O); const l=out.length(); if(l<1e-4) return out.copy(p);
+  _v4Z.set(out.x/l,out.y/l,out.z/l,1).applyMatrix4(ZU.uZoomL.value);
+  return out.set(_v4Z.x,_v4Z.y,_v4Z.z).normalize().multiplyScalar(l).add(O);
+}
+const testoZoom=()=>(ZOOM.s>=10?String(Math.round(ZOOM.s)):ZOOM.s.toFixed(ZOOM.s<1?2:1).replace('.',','))+'×';
+function azzeraZoom(motivo){
+  if(ZOOM.s===1 && !ZOOM.att) return;
+  ZOOM.s=1; ZOOM.att=false; ZOOM.fermo=false; ZOOM.su=null; aggiornaZoom();
+  minutoMostrato=null;
+  if(motivo) diag('zoom tolto ('+motivo+'): vista naturale');
+}
+function centraZoom(ctl){
+  const b=ctl&&ctl.userData.puntato, O=world.position;
+  sky.updateWorldMatrix(true,false);
+  if(b) _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
+  else {   // nessun astro: il punto della volta dove arriva il raggio
+    const [o,d]=raggioDi(ctl), rel=o.clone().sub(O), bd=rel.dot(d), Rs=R*SCALA;
+    const t=-bd+Math.sqrt(Math.max(0,bd*bd-(rel.lengthSq()-Rs*Rs)));
+    _w.copy(o).addScaledVector(d,t);
+  }
+  ZOOM.c.copy(_w).sub(O).normalize().applyQuaternion(world.quaternion.clone().invert());
+  ZOOM.su=b?b.nome:null;
+}
 function levetta(dt){
   // la levetta di chi la muove di piu' fra le due mani; sul Quest e' l'asse 3 (l'1 su altri controller)
-  let y=0;
+  let y=0, chi=null;
   for(const c of [c0,c1]){
     const g=c&&c.userData.src&&c.userData.src.gamepad; if(!g||!g.axes) continue;
-    const v=g.axes.length>=4?g.axes[3]:(g.axes[1]||0); if(Math.abs(v)>Math.abs(y)) y=v;
+    const v=g.axes.length>=4?g.axes[3]:(g.axes[1]||0); if(Math.abs(v)>Math.abs(y)){ y=v; chi=c; }
   }
   const MORTA=0.15;
   if(Math.abs(y)<MORTA){
-    if(levaAttiva){ levaAttiva=false;
-      try{ localStorage.setItem('sfera-vr-scala',String(SCALA)); }catch(e){}
-      diag('raggio della sfera: '+raggioSfera()+' m','ok'); }
+    if(ZOOM.att){ ZOOM.att=false; ZOOM.fermo=false; minutoMostrato=null;
+      diag(ZOOM.s===1?'zoom: vista naturale (1×)':'zoom '+testoZoom()+(ZOOM.su?' su '+ZOOM.su:''),'ok'); }
     return;
   }
-  levaAttiva=true;
-  const forza=(Math.abs(y)-MORTA)/(1-MORTA)*Math.sign(y);
-  impostaScala(SCALA*Math.exp(-forza*1.3*dt/1000));   // a fondo: la misura raddoppia in circa mezzo secondo
+  if(ZOOM.fermo) return;   // lo scatto: fermi a 1× finche' la levetta non torna in mezzo
+  if(!ZOOM.att){ ZOOM.att=true; ZOOM.ctl=chi; if(ZOOM.s===1) centraZoom(chi); }
+  const forza=(Math.abs(y)-MORTA)/(1-MORTA)*Math.sign(y);   // in avanti l'asse e' negativo
+  const l0=Math.log(ZOOM.s);
+  let l1=l0-forza*ZOOM_VEL*dt/1000;
+  if(l0!==0 && Math.sign(l1)!==Math.sign(l0)){ l1=0; ZOOM.fermo=true; vibra(chi,0.55,45); }
+  ZOOM.s=l1===0?1:Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,Math.exp(l1)));
+  if(performance.now()-oraScritta>200) minutoMostrato=null;   // l'ingrandimento accanto all'ora, dal vivo
+}
+
+// Lo shader: ogni materiale del planetario sposta i suoi vertici dove si vedono. Le linee, i cerchi e
+// la volta si deformano punto per punto («punti»); stelle, pianeti, Sole, anello e scritte si SPOSTANO
+// senza deformarsi («rigido»): si sposta il loro centro e il resto lo segue ruotando. Le scritte e i
+// glifi accanto a un astro prendono come centro l'astro (zoomRef), cosi' non se ne staccano. Il taglio
+// dell'orizzonte reale si fa sul posto vero, non su quello deformato. three.js r128 non passa la
+// matrice di vista a linee e scritte: la passa uZoomV, aggiornata prima di ogni oggetto e ogni occhio.
+const GLSL_ZOOM=`
+uniform float uZoomOn; uniform vec3 uZoomO; uniform mat4 uZoomL; uniform mat4 uZoomV;
+uniform vec3 uZoomRef; uniform float uZoomUsaRef; uniform float uZoomCresce;
+vec3 zoomRuota(vec3 v, vec3 a, vec3 b){
+  vec3 k = cross(a, b); float s = length(k); float c = dot(a, b);
+  if (s < 1e-6) return v;
+  k /= s;
+  return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c);
+}
+vec3 zoomPunto(vec3 p){
+  vec3 r = p - uZoomO; float l = length(r);
+  if (l < 1e-4) return p;
+  vec4 w = uZoomL * vec4(r / l, 1.0);
+  return uZoomO + l * normalize(w.xyz);
+}
+vec3 zoomRigido(vec3 p, vec3 rif){
+  vec3 r = rif - uZoomO; float l = length(r);
+  if (l < 1e-4) return p;
+  vec3 d = r / l;
+  vec4 w = uZoomL * vec4(d, 1.0);
+  vec3 d2 = normalize(w.xyz);
+  return uZoomO + l * d2 + zoomRuota(p - rif, d, d2) * pow(1.0 / w.w, uZoomCresce);
+}
+`;
+const PROIETTA_ZOOM=`
+vec4 zp = vec4( transformed, 1.0 );
+#ifdef USE_INSTANCING
+  zp = instanceMatrix * zp;
+#endif
+vec4 mvPosition0 = modelViewMatrix * zp;
+vec4 mvPosition = mvPosition0;
+if ( uZoomOn > 0.5 ) {
+  vec3 zW = ( modelMatrix * zp ).xyz;
+#ifdef ZOOM_PUNTI
+  mvPosition = uZoomV * vec4( zoomPunto( zW ), 1.0 );
+#else
+  vec4 zc = vec4( 0.0, 0.0, 0.0, 1.0 );
+  #ifdef ZOOM_ANCORA
+    zc = vec4( aZoomAncora, 1.0 );
+  #endif
+  #ifdef USE_INSTANCING
+    zc = instanceMatrix * zc;
+  #endif
+  vec3 zR = uZoomUsaRef > 0.5 ? uZoomRef : ( modelMatrix * zc ).xyz;
+  mvPosition = uZoomV * vec4( zoomRigido( zW, zR ), 1.0 );
+#endif
+}
+gl_Position = projectionMatrix * mvPosition;
+`;
+const TAGLIO_ZOOM=`
+#if NUM_CLIPPING_PLANES > 0
+  vClipPosition = - mvPosition0.xyz;
+#endif
+`;
+const ANCORA_SPRITE='vec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.0 );';
+function preparaZoom(o){
+  const m=o.material; if(!m||Array.isArray(m)||m.userData.zoom) return;
+  const modo=o.isSprite?'scritta':o.userData.zoomAncora?'ancora':(o.isInstancedMesh||o.userData.zoomRigido)?'rigido':'punti';
+  const zu={uZoomRef:{value:new THREE.Vector3()}, uZoomUsaRef:{value:0}, uZoomCresce:{value:o.isInstancedMesh?0.25:0}};
+  m.userData.zoom=zu; m.userData.zoomModo=modo;
+  m.onBeforeCompile=sh=>{
+    Object.assign(sh.uniforms,ZU,zu);
+    let v=sh.vertexShader.replace('#include <common>','#include <common>\n'+GLSL_ZOOM);
+    if(modo==='scritta'){
+      v=v.replace(ANCORA_SPRITE, ANCORA_SPRITE+`
+  if ( uZoomOn > 0.5 ) {
+    vec3 zA = ( modelMatrix * vec4( 0.0, 0.0, 0.0, 1.0 ) ).xyz;
+    mvPosition = uZoomV * vec4( zoomRigido( zA, uZoomUsaRef > 0.5 ? uZoomRef : zA ), 1.0 );
+  }`);
+    } else {
+      const def=modo==='punti'?'#define ZOOM_PUNTI\n':modo==='ancora'?'#define ZOOM_ANCORA\nattribute vec3 aZoomAncora;\n':'';
+      v=def+v.replace('#include <project_vertex>',PROIETTA_ZOOM).replace('#include <clipping_planes_vertex>',TAGLIO_ZOOM);
+    }
+    sh.vertexShader=v;
+  };
+  m.customProgramCacheKey=()=>'zoom-'+modo;
+  m.needsUpdate=true;
+}
+// prima di disegnare ogni oggetto (e per ogni occhio): la vista di quell'occhio, e l'astro di riferimento
+function zoomPrimaDi(r,s,cam,geo,mat){
+  ZU.uZoomV.value.copy(cam.matrixWorldInverse);
+  const zu=mat&&mat.userData.zoom; if(!zu) return;
+  const f=this.userData.zoomRef;
+  if(f && ZU.uZoomOn.value){ f(zu.uZoomRef.value); zu.uZoomUsaRef.value=1; } else zu.uZoomUsaRef.value=0;
 }
 
 function aggiornaPresa(){
@@ -1053,7 +1220,7 @@ async function entraVR(){
   }
 }
 function sessioneFinita(){
-  xrSession=null; calibrato=false;
+  xrSession=null; calibrato=false; azzeraZoom();   // fuori dal visore la sfera si guarda da fuori: niente zoom
   enter.classList.remove('small'); enter.textContent='◉ Entra in VR';
   diag('sessione terminata');
 }
@@ -1118,8 +1285,11 @@ function aggiornaOra(){
   minutoMostrato=chiave; oraScritta=ora;
   document.getElementById('sotto').textContent='φ '+coordTesto(LUOGO.lat,LUOGO.lng).split(' ')[0]+' '+
     LUOGO.nome+' · '+quandoTesto(t,true)+' · WebXR';
-  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false));
+  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false)+(ZOOM.s!==1?' · zoom '+testoZoom():''));
 }
+
+// lo zoom entra in ogni materiale del planetario (non nel pannello, nella tastiera, nei controller)
+world.traverse(o=>{ if(o.material){ preparaZoom(o); o.frustumCulled=false; o.onBeforeRender=zoomPrimaDi; } });
 
 let erroreLoop=false, nFrame=0, tUltimo=0;
 renderer.setAnimationLoop((time,frame)=>{
@@ -1161,6 +1331,7 @@ renderer.setAnimationLoop((time,frame)=>{
     } else updateOrbit();
     aggiornaIndicazioni();
     if(stato.orizReale) for(const s of SPRITE_CIELO) s.visible=!sottoOrizzonte(s);
+    aggiornaZoom();
     renderer.render(scene,camera);
   }catch(err){
     if(!erroreLoop){ erroreLoop=true; diag('ciclo: '+(err.message||err),'err'); }
