@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sfera locale VR — planetario astrologico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Spectral:wght@400&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#05070f;color:#e9e4d6;
+    font-family:'Spectral',Georgia,serif}
+  #scene{position:fixed;inset:0}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 120% at 50% 16%,#101736 0%,#0a0e20 42%,#05070f 100%)}
+  header{position:fixed;top:0;left:0;right:0;z-index:3;padding:18px 22px 8px;pointer-events:none}
+  header h1{margin:0;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:clamp(18px,3vw,26px)}
+  header .sub{margin-top:2px;font-size:12px;color:#9aa2bd;letter-spacing:.13em;text-transform:uppercase}
+  #enter{position:fixed;z-index:6;left:50%;top:50%;transform:translate(-50%,-50%);
+    padding:16px 30px;border-radius:12px;border:1px solid rgba(120,200,255,.4);
+    background:rgba(30,60,110,.5);color:#eaf3ff;font-family:'Cormorant Garamond',serif;
+    font-size:22px;letter-spacing:.02em;cursor:pointer;backdrop-filter:blur(8px)}
+  #enter:hover{background:rgba(40,80,150,.6)}
+  #enter.small{left:auto;right:18px;top:auto;bottom:18px;transform:none;font-size:16px;padding:11px 18px}
+  #panel{position:fixed;z-index:4;bottom:16px;left:16px;padding:12px 14px;min-width:196px;
+    background:rgba(10,14,28,.74);border:1px solid rgba(150,166,205,.16);border-radius:12px;
+    backdrop-filter:blur(9px)}
+  #panel .grp{font-family:'Cormorant Garamond',serif;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:#9aa2bd;margin:0 0 8px}
+  .row{display:flex;align-items:center;gap:9px;padding:4px 0;cursor:pointer;font-size:14px;user-select:none}
+  .sw{width:26px;height:15px;border-radius:9px;background:rgba(150,166,205,.22);position:relative;flex:none;transition:.2s}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#cfd6ea;transition:.2s}
+  .row.on .sw{background:var(--a,#4da3ff)} .row.on .sw::after{transform:translateX(11px);background:#fff}
+  #hint{position:fixed;z-index:3;bottom:16px;right:16px;font-size:12px;color:#9aa2bd;max-width:230px;text-align:right}
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<header>
+  <h1>Sfera locale — planetario</h1>
+  <div class="sub">φ 45° · osservatore al centro · WebXR</div>
+</header>
+
+<button id="enter">◉ Entra in VR</button>
+
+<div id="panel">
+  <p class="grp">Elementi</p>
+  <div class="row on" data-k="equator"  style="--a:#4da3ff"><span class="sw"></span>Equatore (blu)</div>
+  <div class="row on" data-k="ecliptic" style="--a:#ff5a5a"><span class="sw"></span>Eclittica (rossa)</div>
+  <div class="row on" data-k="frame"    style="--a:#57d68f"><span class="sw"></span>Orizzonte · meridiano</div>
+  <div class="row on" data-k="axis"     style="--a:#6f8fd0"><span class="sw"></span>Asse celeste</div>
+  <div class="row on" data-k="planet"   style="--a:#ffcf5a"><span class="sw"></span>Sole + cerchio diurno</div>
+  <div class="row"    data-k="spin"     style="--a:#c8b06a"><span class="sw"></span>Moto diurno</div>
+</div>
+<div id="hint">Desktop: trascina per ruotare, scorri per zoom. Nel Quest: apri questa pagina nel browser, premi <b>Entra in VR</b>, poi punta il raggio del controller sul pannello e premi il grilletto.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const R=8, DEG=Math.PI/180, TAU=Math.PI*2;
+const PHI=45*DEG, EPS=23.44*DEG, RAMC=40*DEG, cosE=Math.cos(EPS), sinE=Math.sin(EPS);
+const groups={}; let spin=false;
+
+// ---------- renderer / scene / camera ----------
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,200);
+camera.position.set(14,9,18);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.xr.enabled=true;
+document.getElementById('scene').appendChild(renderer.domElement);
+
+// ---------- desktop orbit ----------
+const orbit={radius:camera.position.length(),theta:Math.atan2(camera.position.z,camera.position.x),
+  phi:Math.acos(camera.position.y/camera.position.length()),tT:0,tP:0,tR:0,drag:false,lx:0,ly:0};
+orbit.tT=orbit.theta;orbit.tP=orbit.phi;orbit.tR=orbit.radius;
+function applyCam(){const s=Math.sin(orbit.phi),c=Math.cos(orbit.phi);
+  camera.position.set(orbit.radius*s*Math.cos(orbit.theta),orbit.radius*c,orbit.radius*s*Math.sin(orbit.theta));
+  camera.lookAt(0,0,0);}
+applyCam();
+const el=renderer.domElement; el.style.touchAction='none';
+el.addEventListener('pointerdown',e=>{orbit.drag=true;orbit.lx=e.clientX;orbit.ly=e.clientY;el.setPointerCapture(e.pointerId);});
+el.addEventListener('pointerup',()=>orbit.drag=false);
+el.addEventListener('pointermove',e=>{if(!orbit.drag)return;const dx=e.clientX-orbit.lx,dy=e.clientY-orbit.ly;
+  orbit.lx=e.clientX;orbit.ly=e.clientY;orbit.tT-=dx*0.006;orbit.tP-=dy*0.006;
+  orbit.tP=Math.max(0.05,Math.min(Math.PI-0.05,orbit.tP));});
+el.addEventListener('wheel',e=>{e.preventDefault();orbit.tR*=(1+e.deltaY*0.0012);
+  orbit.tR=Math.max(10,Math.min(45,orbit.tR));},{passive:false});
+function updateOrbit(){orbit.theta+=(orbit.tT-orbit.theta)*0.12;orbit.phi+=(orbit.tP-orbit.phi)*0.12;
+  orbit.radius+=(orbit.tR-orbit.radius)*0.12;applyCam();}
+
+// ---------- helpers ----------
+function line(pts,color,op,w){const g=new THREE.BufferGeometry().setFromPoints(pts);
+  return new THREE.Line(g,new THREE.LineBasicMaterial({color,transparent:true,opacity:op,linewidth:w||1}));}
+function label(text,color,scale){const pad=8,fs=52,c=document.createElement('canvas'),x=c.getContext('2d');
+  x.font=`600 ${fs}px 'Cormorant Garamond', Georgia, serif`;c.width=x.measureText(text).width+pad*2;c.height=fs+pad*2;
+  x.font=`600 ${fs}px 'Cormorant Garamond', Georgia, serif`;x.fillStyle=color;x.textBaseline='middle';
+  x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=8;x.fillText(text,pad,c.height/2);
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));
+  const h=scale||0.6;s.scale.set(h*c.width/c.height,h,1);s.renderOrder=10;return s;}
+function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||scene).add(g);return g;}
+
+// ---------- equatorial basis ----------
+const Pp=new THREE.Vector3(0,Math.sin(PHI),-Math.cos(PHI));
+const Mm=new THREE.Vector3(0,Math.cos(PHI),Math.sin(PHI));
+const Ww=new THREE.Vector3(-1,0,0);
+function eq(H,d){const cd=Math.cos(d),sd=Math.sin(d);
+  return new THREE.Vector3(
+    cd*Math.cos(H)*Mm.x+cd*Math.sin(H)*Ww.x+sd*Pp.x,
+    cd*Math.cos(H)*Mm.y+cd*Math.sin(H)*Ww.y+sd*Pp.y,
+    cd*Math.cos(H)*Mm.z+cd*Math.sin(H)*Ww.z+sd*Pp.z);}
+const raOf=l=>Math.atan2(Math.sin(l)*cosE,Math.cos(l));
+const decOf=l=>Math.asin(sinE*Math.sin(l));
+const eclDir=l=>eq(RAMC-raOf(l),decOf(l));
+
+// ---------- FIXED (local) elements: horizon, meridian, cardinals ----------
+{
+  const g=G('frame');
+  const hp=new THREE.Mesh(new THREE.CircleGeometry(R,96),
+    new THREE.MeshBasicMaterial({color:0x57d68f,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
+  hp.rotation.x=-Math.PI/2; g.add(hp);
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,10,200),new THREE.MeshBasicMaterial({color:0x57d68f}));
+  rim.rotation.x=Math.PI/2; g.add(rim);
+  const mer=[];for(let i=0;i<=180;i++){const t=i/180*TAU;mer.push(new THREE.Vector3(0,Math.cos(t)*R,Math.sin(t)*R));}
+  g.add(line(mer,0x8493bd,.30,1));
+  [[new THREE.Vector3(1,0,0),'Est'],[new THREE.Vector3(-1,0,0),'Ovest'],
+   [new THREE.Vector3(0,0,1),'Sud'],[new THREE.Vector3(0,0,-1),'Nord'],
+   [new THREE.Vector3(0,1,0),'Zenit'],[new THREE.Vector3(0,-1,0),'Nadir']]
+   .forEach(([v,t])=>{const s=label(t,'#c7d2ee',0.55);s.position.copy(v.multiplyScalar(R*1.05));g.add(s);});
+}
+
+// ---------- SKY (rotates with diurnal motion) ----------
+const sky=new THREE.Group(); scene.add(sky);
+{ // equator
+  const g=G('equator',sky), p=[];
+  for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,0).multiplyScalar(R));
+  g.add(line(p,0x4da3ff,.85,2));
+}
+{ // ecliptic
+  const g=G('ecliptic',sky), p=[];
+  for(let i=0;i<=360;i++)p.push(eclDir(i/360*TAU).multiplyScalar(R));
+  g.add(line(p,0xe23636,.24,5)); g.add(line(p,0xff5a5a,.95,2));
+}
+{ // celestial axis
+  const g=G('axis',sky);
+  g.add(line([Pp.clone().multiplyScalar(R*1.12),Pp.clone().multiplyScalar(-R*1.12)],0x6f8fd0,.6,1));
+  const s=label('Polo','#9db4e6',0.5); s.position.copy(Pp.clone().multiplyScalar(R*1.16)); g.add(s);
+}
+let sunAngle=60*DEG; // sun's ecliptic longitude (fixed on ecliptic; sky rotation moves it across sky)
+{ // sun + its diurnal circle
+  const g=G('planet',sky);
+  const dSun=decOf(sunAngle), p=[];
+  for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,dSun).multiplyScalar(R));
+  g.add(line(p,0xffcf5a,.30,1));
+  const sun=new THREE.Mesh(new THREE.SphereGeometry(0.22,24,24),new THREE.MeshBasicMaterial({color:0xfff1c0}));
+  sun.position.copy(eclDir(sunAngle).multiplyScalar(R));
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(0.42,20,20),
+    new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); sun.add(glow);
+  g.add(sun);
+  const s=label('Sole','#ffe6a0',0.55); s.position.copy(eclDir(sunAngle).multiplyScalar(R*1.06)); g.add(s);
+}
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
+  new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide})));
+
+// ---------- DOM toggles ----------
+function setToggle(k,on){ if(groups[k]) groups[k].visible=on; if(k==='spin') spin=on; syncVR(); }
+document.querySelectorAll('#panel .row').forEach(r=>{
+  r.addEventListener('click',()=>{const on=r.classList.toggle('on');setToggle(r.dataset.k,on);});
+});
+
+// ---------- VR: controllers + floating panel ----------
+const BUTTONS=[
+  {k:'equator', t:'Equatore', on:true, c:0x4da3ff},
+  {k:'ecliptic',t:'Eclittica',on:true, c:0xff5a5a},
+  {k:'frame',   t:'Orizzonte',on:true, c:0x57d68f},
+  {k:'axis',    t:'Asse',     on:true, c:0x6f8fd0},
+  {k:'planet',  t:'Sole',     on:true, c:0xffcf5a},
+  {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
+];
+const vrPanel=new THREE.Group();
+vrPanel.position.set(-0.42,1.15,-0.75); vrPanel.rotation.y=0.5; scene.add(vrPanel);
+function btnTexture(b){
+  const w=512,h=150,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  x.fillStyle=b.on?'rgba(30,42,70,.95)':'rgba(16,20,34,.9)';
+  roundRect(x,4,4,w-8,h-8,18);x.fill();
+  x.strokeStyle=b.on?rgbHex(b.c,1):'rgba(150,166,205,.35)';x.lineWidth=b.on?6:3;x.stroke();
+  x.fillStyle='#eef2ff';x.font="600 58px 'Cormorant Garamond', Georgia, serif";x.textBaseline='middle';
+  x.fillText(b.t,34,h/2);
+  x.beginPath();x.arc(w-56,h/2,20,0,TAU);x.fillStyle=b.on?rgbHex(b.c,1):'rgba(120,130,160,.5)';x.fill();
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t;
+}
+function roundRect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
+  x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
+function rgbHex(c,al){const r=(c>>16)&255,g=(c>>8)&255,b=c&255;return `rgba(${r},${g},${b},${al})`;}
+const btnMeshes=[];
+BUTTONS.forEach((b,i)=>{
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.10),
+    new THREE.MeshBasicMaterial({map:btnTexture(b),transparent:true}));
+  m.position.set(0,-i*0.12,0); m.userData.b=b; vrPanel.add(m); btnMeshes.push(m);
+});
+const title=label('CIELO','#cfe0ff',0.06); title.position.set(-0.09,0.10,0); // small header
+vrPanel.add(title);
+
+function toggleBtn(b){
+  b.on=!b.on; setToggle(b.k,b.on);
+  const m=btnMeshes.find(x=>x.userData.b===b); m.material.map=btnTexture(b); m.material.needsUpdate=true;
+}
+function syncVR(){ // keep VR button textures in sync with DOM state
+  BUTTONS.forEach(b=>{const dom=document.querySelector(`#panel .row[data-k="${b.k}"]`);
+    if(dom){const on=dom.classList.contains('on'); if(on!==b.on){b.on=on;
+      const m=btnMeshes.find(x=>x.userData.b===b); if(m){m.material.map=btnTexture(b);m.material.needsUpdate=true;}}}});
+}
+
+const raycaster=new THREE.Raycaster(); const tmpM=new THREE.Matrix4();
+function makeController(i){
+  const ctl=renderer.xr.getController(i); scene.add(ctl);
+  const ray=line([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-1.2)],0xffffff,.5,1);
+  ctl.add(ray);
+  const dot=new THREE.Mesh(new THREE.SphereGeometry(0.012,12,12),new THREE.MeshBasicMaterial({color:0xffffff}));
+  dot.position.z=-1.2; ctl.add(dot);
+  ctl.addEventListener('selectstart',()=>{
+    const hit=hitTest(ctl); if(hit) toggleBtn(hit.userData.b);
+  });
+  return ctl;
+}
+function hitTest(ctl){
+  tmpM.identity().extractRotation(ctl.matrixWorld);
+  raycaster.ray.origin.setFromMatrixPosition(ctl.matrixWorld);
+  raycaster.ray.direction.set(0,0,-1).applyMatrix4(tmpM);
+  const hits=raycaster.intersectObjects(btnMeshes,false);
+  return hits.length?hits[0].object:null;
+}
+let c0,c1;
+
+// ---------- Enter VR ----------
+const enter=document.getElementById('enter');
+if(navigator.xr && navigator.xr.isSessionSupported){
+  navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
+    if(!ok){ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; }
+  }).catch(()=>{ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; });
+} else { enter.textContent='WebXR non supportato dal browser'; enter.style.opacity=.6; }
+
+enter.addEventListener('click',async()=>{
+  if(!navigator.xr) return;
+  try{
+    const session=await navigator.xr.requestSession('immersive-vr',
+      {optionalFeatures:['local-floor','bounded-floor','hand-tracking','layers']});
+    renderer.xr.setReferenceSpaceType('local-floor');
+    await renderer.xr.setSession(session);
+    if(!c0){ c0=makeController(0); c1=makeController(1); }
+    enter.classList.add('small'); enter.textContent='◉ Esci';
+    session.addEventListener('end',()=>{ enter.classList.remove('small'); enter.textContent='◉ Entra in VR'; });
+  }catch(err){ enter.textContent='VR: '+(err.name||'errore'); enter.style.opacity=.7; }
+});
+
+// ---------- loop ----------
+let spinA=0;
+renderer.setAnimationLoop(()=>{
+  if(spin){ spinA-=0.06/60*Math.PI; sky.quaternion.setFromAxisAngle(Pp,spinA); }
+  // hover highlight in VR
+  if(renderer.xr.isPresenting){
+    btnMeshes.forEach(m=>m.material.color.setHex(0xffffff));
+    [c0,c1].forEach(c=>{ if(!c)return; const h=hitTest(c); if(h) h.material.color.setHex(0x9fd0ff); });
+  } else updateOrbit();
+  renderer.render(scene,camera);
+});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);});
+</script>
+</body>
+</html>
