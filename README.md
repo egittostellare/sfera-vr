@@ -40,8 +40,8 @@ In tutto 720 stelle e 657 lati di figura.
   Il cielo resta giusto rispetto al suo orizzonte; pannello e tastiera restano con chi guarda.
 - **Lo zoom, come la rotella di Stellarium**, con la **levetta** del controller: in avanti il cielo
   attorno a quello che il raggio indica si ingrandisce (fino a 16×); indietro si restringe e nel
-  visore entra più cielo di quanto il Quest ne mostri (fino a 0,35×: tutta la metà davanti in un
-  cono di 38°). Tornando verso la vista naturale c'è uno **scatto a 1×**: ci si ferma lì, e si
+  visore entra più cielo di quanto il Quest ne mostri (fino a 0,35×: la metà di cielo che si ha davanti sta entro
+  39° dal centro). Tornando verso la vista naturale c'è uno **scatto a 1×**: ci si ferma lì, e si
   riparte lasciando la levetta e puntando altrove. L'ingrandimento compare accanto all'ora.
   La deformazione è la proiezione stereografica di Stellarium portata sulla volta: attorno al
   centro gli angoli si moltiplicano, all'opposto si dividono, e **ogni cerchio resta un cerchio**
