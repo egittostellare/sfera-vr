@@ -34,6 +34,11 @@ In tutto 720 stelle e 657 lati di figura.
   equatoriali, e il luogo e l'ora sono una sola rotazione della volta.
   Il luogo viaggia nell'indirizzo: `?nome=Sydney&lat=-33.8688&lng=151.2093&tz=Australia/Sydney`
   (e con `&t=2026-09-21T20:48:00Z` anche l'istante).
+- **Girare il planetario**: entrando si guarda a nord. Per scegliere l'orientamento si punta il raggio
+  nel vuoto, si stringe il **tasto laterale** del controller e si trascina a destra o a sinistra: il
+  planetario intero (orizzonte, cardinali, cielo) segue il raggio, e rilasciato il tasto resta lì.
+  Il cielo resta giusto rispetto al suo orizzonte; pannello e tastiera restano con chi guarda.
+- **Cambiando luogo** la vista si oscura, il cielo si gira nel buio e poi si riaccende.
 - **Il moto diurno** è tempo che scorre, a quattro velocità: 1 ora di cielo al minuto, in 20 s,
   in 7,5 s, in 3 s (da 0,25° a 5° al secondo). Sole e pianeti si ricollocano man mano.
 - **L'orizzonte reale**: quello che non è ancora sorto non si vede (orizzonte geometrico).

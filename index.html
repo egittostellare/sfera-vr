@@ -111,7 +111,7 @@
 </div>
 <div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller, sul pannello si premono i tasti, nel cielo si leggono i nomi,
-  e il grilletto seleziona.</div>
+  e il grilletto seleziona. Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -180,6 +180,7 @@ const scene=new THREE.Scene();
 // degli occhi, perche' l'osservatore dev'essere AL CENTRO della sfera.
 const world=new THREE.Group(); scene.add(world);
 const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,200);
+scene.add(camera);   // nella scena, perche' il velo della dissolvenza le sta attaccato e deve seguire la testa
 camera.position.set(14,9,18);
 
 // Il contesto WebGL nasce gia' compatibile con la VR. Se non lo e', three.js r128
@@ -509,7 +510,7 @@ function visibile(b){
 }
 const _o=new THREE.Vector3(), _d=new THREE.Vector3(), _v=new THREE.Vector3(), _inv=new THREE.Matrix4();
 function puntatoDaRaggio(origine,direzione){
-  sky.updateMatrixWorld(); _inv.copy(sky.matrixWorld).invert();
+  sky.updateWorldMatrix(true,false); _inv.copy(sky.matrixWorld).invert();
   _o.copy(origine).applyMatrix4(_inv); _d.copy(direzione).transformDirection(_inv);
   let meglio=null, punteggio=Infinity;
   for(const b of BERSAGLI){
@@ -524,7 +525,7 @@ function puntatoDaRaggio(origine,direzione){
 }
 function puntatoDaSchermo(mx,my){   // sul desktop: il bersaglio piu' vicino al mouse, in pixel
   let meglio=null, dMin=14*14;
-  sky.updateMatrixWorld();
+  sky.updateWorldMatrix(true,false);
   for(const b of BERSAGLI){
     if(!visibile(b)) continue;
     _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
@@ -592,7 +593,7 @@ function aggiornaIndicazioni(){
   ET_SEL.visible=ANELLO.visible=vedoSel;
   if(vedoSel){
     collocaScritta(ET_SEL,SEL);
-    doveOra(SEL,_p); ANELLO.position.copy(_p).multiplyScalar(0.99); ANELLO.lookAt(0,0,0);
+    doveOra(SEL,_p); ANELLO.position.copy(_p).multiplyScalar(0.99); ANELLO.lookAt(world.position);   // verso il centro della sfera
   }
 }
 
@@ -750,7 +751,9 @@ function makeController(i){
   const dot=new THREE.Mesh(new THREE.SphereGeometry(0.012,12,12),new THREE.MeshBasicMaterial({color:0xffffff}));
   dot.position.z=-RAGGIO_CIELO; ctl.add(dot); ctl.userData.dot=dot;
   ctl.addEventListener('connected',e=>{ ctl.userData.src=e.data; });
-  ctl.addEventListener('disconnected',()=>{ ctl.userData.src=null; });
+  ctl.addEventListener('disconnected',()=>{ ctl.userData.src=null; lascia(ctl); });
+  ctl.addEventListener('squeezestart',()=>prendi(ctl));   // il tasto laterale: afferra il planetario
+  ctl.addEventListener('squeezeend',()=>lascia(ctl));
   ctl.addEventListener('selectstart',()=>{
     const hit=hitTest(ctl);
     if(hit){ vibra(ctl,0.6,45); hit.object.userData.fai(); return; }
@@ -784,6 +787,65 @@ function vibra(ctl,forza,ms){
 }
 let c0,c1;
 function inVista(o){ for(;o;o=o.parent) if(!o.visible) return false; return true; }
+
+// ====================== la dissolvenza ======================
+// Cambiando luogo la vista si oscura, il cielo si gira nel buio e poi si riaccende: un salto a occhi
+// aperti disorienta. Nel visore non c'e' una pagina da oscurare: il velo e' una piccola sfera nera
+// attaccata alla testa, disegnata sopra a tutto. Il cambio avviene A BUIO pieno, e una rete di
+// sicurezza lo fa comunque se i fotogrammi si fermassero (finestra coperta): il velo e' un ornamento,
+// il cambio di luogo no.
+const VELO=new THREE.Mesh(new THREE.SphereGeometry(0.3,24,16),
+  new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0,side:THREE.BackSide,depthTest:false,depthWrite:false}));
+VELO.renderOrder=9999; VELO.visible=false; camera.add(VELO);
+const VELO_SCURO=260, VELO_PAUSA=90, VELO_CHIARO=380;
+let velo=null;
+const morbido=x=>x*x*(3-2*x);
+function conDissolvenza(azione){
+  const v={fase:'scuro', t0:performance.now(), fatto:false};
+  v.esegui=()=>{ if(!v.fatto){ v.fatto=true; azione(); } };
+  // la rete di sicurezza: se i fotogrammi tardano, il velo va comunque al nero PIENO prima del cambio
+  setTimeout(()=>{ if(velo===v && !v.fatto){ VELO.material.opacity=1; VELO.visible=true;
+    v.fase='pausa'; v.t0=performance.now(); v.esegui(); } }, VELO_SCURO+60);
+  setTimeout(()=>{ if(velo===v){ velo=null; VELO.material.opacity=0; VELO.visible=false; } },
+    VELO_SCURO+60+VELO_PAUSA+VELO_CHIARO+200);
+  velo=v;
+}
+function aggiornaVelo(ora){
+  if(!velo){ VELO.visible=false; return; }
+  const t=ora-velo.t0; let op;
+  if(velo.fase==='scuro'){ op=morbido(Math.min(1,t/VELO_SCURO)); if(t>=VELO_SCURO){ velo.esegui(); velo.fase='pausa'; velo.t0=ora; op=1; } }
+  else if(velo.fase==='pausa'){ op=1; if(t>=VELO_PAUSA){ velo.fase='chiaro'; velo.t0=ora; } }
+  else { op=1-morbido(Math.min(1,t/VELO_CHIARO)); if(t>=VELO_CHIARO){ velo=null; op=0; } }
+  VELO.material.opacity=op; VELO.visible=op>0.001;
+}
+
+// ====================== girare il planetario ======================
+// Entrando si guarda a nord (e' l'orientamento del visore). Per lo studio l'orientamento lo sceglie chi
+// guarda: si punta il raggio nel vuoto, si stringe il tasto laterale del controller e si trascina a
+// destra o a sinistra — il planetario intero (orizzonte, cardinali, cielo) segue il raggio; rilasciato
+// il tasto, resta dov'e'. Gira attorno alla verticale: il cielo resta giusto rispetto al suo orizzonte.
+// Pannello e tastiera non girano: stanno con chi guarda.
+let presa=null;   // {ctl, psi0, yaw0}
+const azimutRaggio=d=>Math.atan2(d.x,d.z);
+function prendi(ctl){
+  if(hitTest(ctl)) return;                                   // sul pannello o sulla tastiera si premono tasti
+  const [,d]=raggioDi(ctl); if(Math.hypot(d.x,d.z)<0.25) return;   // dritto in su o in giu': nessun verso
+  presa={ctl, psi0:azimutRaggio(d), yaw0:world.rotation.y};
+  ctl.userData.ray.material.color.set(0xe3c169); ctl.userData.ray.material.opacity=.8;
+  vibra(ctl,0.5,40);
+}
+function lascia(ctl){
+  if(!presa||presa.ctl!==ctl) return;
+  presa=null;
+  ctl.userData.ray.material.color.set(0xffffff); ctl.userData.ray.material.opacity=.4;
+  vibra(ctl,0.3,25);
+  diag('orientamento fissato');
+}
+function aggiornaPresa(){
+  if(!presa) return;
+  const [,d]=raggioDi(presa.ctl); if(Math.hypot(d.x,d.z)<0.25) return;
+  world.rotation.y=presa.yaw0+(azimutRaggio(d)-presa.psi0);  // il punto afferrato segue il raggio
+}
 
 // ====================== la tastiera nel visore ======================
 // Dentro la VR la pagina non si vede, e con lei i suoi campi di testo: la tastiera del Quest compare
@@ -1026,7 +1088,9 @@ renderer.setAnimationLoop((time,frame)=>{
     // il tempo del cielo: agganciato all'orologio, non ai fotogrammi (un salto dopo una pausa non conta)
     const ora=performance.now(), dt=tPrec==null?0:Math.min(ora-tPrec,100); tPrec=ora;
     if(spin) avanzaCielo(dt);
+    aggiornaPresa();
     aggiornaGlifi();
+    aggiornaVelo(ora);
     aggiornaOra();
     if(renderer.xr.isPresenting){
       if(!calibrato) calibra(frame);
@@ -1098,7 +1162,8 @@ function cercaLuoghi(q,L,max){
 // Cambiare luogo e' cambiare la rotazione della volta: niente da ricostruire, niente pagina da
 // ricaricare (che dentro il visore chiuderebbe la VR). L'istante resta quello del cielo: e' il cielo di
 // adesso visto da un altro posto. L'indirizzo si aggiorna, cosi' la pagina resta condivisibile.
-function cambiaLuogo(l){
+function cambiaLuogo(l){ conDissolvenza(()=>applicaLuogo(l)); }
+function applicaLuogo(l){
   LUOGO={nome:l.nome, lat:l.lat, lng:l.lng, fuso:fusoValido(l.fuso)?l.fuso:'UTC'};
   PHI=LUOGO.lat*DEG; LST0=GAST0+LUOGO.lng*DEG;
   orientaCielo(); aggiornaGlifi();
