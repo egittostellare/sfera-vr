@@ -42,13 +42,16 @@
     padding-bottom:6px}
   #diag b{color:#7a86a6;font-weight:400;margin-right:6px}
   #diag .ok{color:#7fd6a4} #diag .warn{color:#e3c169} #diag .err{color:#ff8a8a}
+  /* la citazione che la licenza delle figure chiede */
+  #crediti{position:fixed;z-index:3;bottom:2px;left:0;right:0;text-align:center;font-size:10px;
+    color:#6f7896;pointer-events:none;letter-spacing:.02em}
 </style>
 </head>
 <body>
 <div id="scene"></div>
 <header>
   <h1>Sfera locale — planetario</h1>
-  <div class="sub">φ 45° · osservatore al centro · WebXR</div>
+  <div class="sub" id="sotto">φ 45° · osservatore al centro · WebXR</div>
 </header>
 
 <button id="enter">◉ Entra in VR</button>
@@ -61,11 +64,18 @@
   <div class="row on" data-k="frame"    style="--a:#57d68f"><span class="sw"></span>Orizzonte · meridiano</div>
   <div class="row on" data-k="axis"     style="--a:#6f8fd0"><span class="sw"></span>Asse celeste</div>
   <div class="row on" data-k="planet"   style="--a:#ffcf5a"><span class="sw"></span>Sole + cerchio diurno</div>
+  <div class="row on" data-k="pianeti"  style="--a:#e8c46a"><span class="sw"></span>Pianeti</div>
+  <div class="row on" data-k="stelle"   style="--a:#a3c0ff"><span class="sw"></span>Stelle di Regulus</div>
+  <div class="row on" data-k="costellazioni" style="--a:#8fa3d8"><span class="sw"></span>Costellazioni</div>
   <div class="row"    data-k="spin"     style="--a:#c8b06a"><span class="sw"></span>Moto diurno</div>
 </div>
 <div id="hint">Desktop: trascina per ruotare, scorri per zoom. Nel Quest: apri questa pagina nel browser, premi <b>Entra in VR</b>, poi punta il raggio del controller sul pannello e premi il grilletto.</div>
+<div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
+  stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+<script src="cielo-dati.js"></script>
 <script>
 // ====================== diario di bordo ======================
 // Va scritto prima di ogni altra cosa: se qualcosa si rompe durante l'avvio,
@@ -85,8 +95,25 @@ addEventListener('unhandledrejection',e=>{
 });
 
 const R=8, DEG=Math.PI/180, TAU=Math.PI*2;
-const PHI=45*DEG, EPS=23.44*DEG, RAMC=40*DEG, cosE=Math.cos(EPS), sinE=Math.sin(EPS);
 const groups={}; let spin=false;
+
+// ====================== il luogo e l'istante ======================
+// Il cielo e' quello VERO: di Milano, nell'istante in cui si apre la pagina. I pianeti e il tempo
+// siderale vengono da astronomy-engine (MIT), confrontata col motore di Regulus (Swiss Ephemeris)
+// su tre istanti: 0,28' al peggio sui pianeti, un quarto di secondo sul tempo siderale.
+// Senza rete la libreria non arriva: resta il cielo dimostrativo di prima, e il diario lo dice.
+const LUOGO={nome:'Milano', lat:45.4642, lng:9.19, fuso:'Europe/Rome'};
+const ISTANTE=new Date();
+const A=window.Astronomy||null;
+const TEMPO=A?A.MakeTime(ISTANTE):null;
+const PHI=LUOGO.lat*DEG;
+let EPS=23.44*DEG, RAMC=40*DEG;
+if(A){
+  RAMC=((A.SiderealTime(TEMPO)*15+LUOGO.lng)%360+360)%360*DEG;   // tempo siderale locale
+  const T=TEMPO.tt/36525;                                         // secoli dal J2000, tempo terrestre
+  EPS=(23.439291111-0.013004167*T-1.64e-7*T*T+5.036e-7*T*T*T)*DEG; // obliquita' media di data
+}else diag('effemeridi non arrivate (manca la rete?): cielo dimostrativo','warn');
+const cosE=Math.cos(EPS), sinE=Math.sin(EPS);
 
 // ====================== renderer / scena / camera ======================
 const scene=new THREE.Scene();
@@ -204,18 +231,114 @@ const sky=new THREE.Group(); world.add(sky);
   g.add(line([Pp.clone().multiplyScalar(R*1.12),Pp.clone().multiplyScalar(-R*1.12)],0x6f8fd0,.6,1));
   const s=label('Polo','#9db4e6',0.5); s.position.copy(Pp.clone().multiplyScalar(R*1.16)); g.add(s);
 }
-let sunAngle=60*DEG; // longitudine eclittica del Sole
+// ====================== dal catalogo alla sfera locale ======================
+// Stelle (J2000) e pianeti si portano all'equatore DI DATA, poi si collocano con l'angolo orario
+// (tempo siderale locale meno ascensione retta): e' lo stesso eq() dell'equatore e dell'eclittica,
+// quindi tutto combacia per costruzione.
+const ROT=A?A.Rotation_EQJ_EQD(TEMPO):null;
+function daJ2000(raDeg,deDeg){
+  if(!A) return {ra:raDeg*DEG, de:deDeg*DEG};
+  const r=raDeg*DEG, d=deDeg*DEG;
+  const v=new A.Vector(Math.cos(d)*Math.cos(r),Math.cos(d)*Math.sin(r),Math.sin(d),TEMPO);
+  const e=A.EquatorFromVector(A.RotateVector(ROT,v));
+  return {ra:e.ra*15*DEG, de:e.dec*DEG};
+}
+function diCorpo(nomeEn){   // geocentrico e apparente, sull'equatore di data: come Swiss in Regulus
+  const e=A.EquatorFromVector(A.RotateVector(ROT,A.GeoVector(A.Body[nomeEn],TEMPO,true)));
+  return {ra:e.ra*15*DEG, de:e.dec*DEG};
+}
+const dirEq=p=>eq(RAMC-p.ra,p.de);
+
+const posSole=A?diCorpo('Sun'):{ra:raOf(60*DEG), de:decOf(60*DEG)};
 { // Sole e suo cerchio diurno
   const g=G('planet',sky);
-  const dSun=decOf(sunAngle), p=[];
-  for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,dSun).multiplyScalar(R));
+  const p=[];
+  for(let i=0;i<=240;i++)p.push(eq(i/240*TAU,posSole.de).multiplyScalar(R));
   g.add(line(p,0xffcf5a,.30,1));
   const sun=new THREE.Mesh(new THREE.SphereGeometry(0.22,24,24),new THREE.MeshBasicMaterial({color:0xfff1c0}));
-  sun.position.copy(eclDir(sunAngle).multiplyScalar(R));
+  sun.position.copy(dirEq(posSole).multiplyScalar(R));
   const glow=new THREE.Mesh(new THREE.SphereGeometry(0.42,20,20),
     new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); sun.add(glow);
   g.add(sun);
-  const s=label('Sole','#ffe6a0',0.55); s.position.copy(eclDir(sunAngle).multiplyScalar(R*1.06)); g.add(s);
+  const s=label('Sole','#ffe6a0',0.55); s.position.copy(dirEq(posSole).multiplyScalar(R*1.06)); g.add(s);
+}
+
+// ====================== le stelle e le figure ======================
+// Solo le stelle che servono (criterio dell'autore): le 121 di Regulus e quelle che compongono le
+// figure delle 88 costellazioni. Niente cielo di sfondo. I dati li prepara scripts/genera-cielo.mjs.
+const RS=R*0.965;   // un poco dentro la volta, cosi' la sua velatura non le spegne
+const CIELO=window.CIELO||null;
+let quanteStelle=0;
+if(CIELO){
+  const P=CIELO.stelle.map(s=>dirEq(daJ2000(s.ra,s.de)).multiplyScalar(RS));
+  // ogni stella e' un dischetto di luce rivolto al centro: geometria vera, non un «punto» del
+  // driver grafico, che nel visore avrebbe una misura imprevedibile
+  const tex=(()=>{ const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
+    const gr=x.createRadialGradient(32,32,0,32,32,32);
+    gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(.2,'rgba(255,255,255,.9)');
+    gr.addColorStop(.45,'rgba(255,255,255,.3)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=gr; x.fillRect(0,0,64,64); return new THREE.CanvasTexture(c); })();
+  const diam=m=>Math.max(0.24,Math.min(1.4,0.24+0.18*(5.3-m)));   // gradi: una di 5ª e' un punto, Sirio un faro
+  const versoBianco=(hex,t)=>new THREE.Color(hex).lerp(new THREE.Color(0xffffff),t);
+  function campo(indici,colore,scala,opacita){
+    const im=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:opacita,depthWrite:false,
+        blending:THREE.AdditiveBlending,side:THREE.DoubleSide}), indici.length);
+    const o=new THREE.Object3D();
+    indici.forEach((k,i)=>{ const s=CIELO.stelle[k];
+      o.position.copy(P[k]); o.lookAt(0,0,0);
+      const lato=diam(s.m)*DEG*RS*scala; o.scale.set(lato,lato,1); o.updateMatrix();
+      im.setMatrixAt(i,o.matrix); im.setColorAt(i,colore(s)); });
+    im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true;
+    im.frustumCulled=false;   // le istanze stanno tutt'attorno: il riquadro del singolo dischetto non vale
+    return im;
+  }
+  // le figure: i lati, e le stelle che li reggono in una luce quieta, quasi bianca
+  const gF=G('costellazioni',sky);
+  const nelleFigure=new Set(); CIELO.figure.forEach(f=>f.l.forEach(k=>nelleFigure.add(k)));
+  const pts=[]; CIELO.figure.forEach(f=>{ for(let i=0;i<f.l.length;i+=2) pts.push(P[f.l[i]],P[f.l[i+1]]); });
+  gF.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color:0x8fa3d8,transparent:true,opacity:.34,depthWrite:false})));
+  gF.add(campo([...nelleFigure], s=>versoBianco(s.c,.7), 1, .95));
+  // le stelle di Regulus: la tinta vera (la scala osservativa di Regulus) e un alone intorno
+  const gS=G('stelle',sky);
+  const nostre=[], ammassi=[];
+  CIELO.stelle.forEach((s,k)=>{ if(s.nostra) (s.ammasso?ammassi:nostre).push(k); });
+  gS.add(campo(nostre, s=>new THREE.Color(s.c), 1.35, 1));
+  gS.add(campo(nostre, s=>new THREE.Color(s.c), 3.4, .22));
+  if(ammassi.length) gS.add(campo(ammassi, s=>new THREE.Color(s.c), 2.6, .5));   // un ammasso e' una macchia, non un punto
+  quanteStelle=CIELO.stelle.length;
+}else diag('dati delle stelle non caricati (cielo-dati.js)','warn');
+
+// ====================== i pianeti ======================
+// Glifi dell'autore (i tracciati di Regulus) e colori della sua tavolozza.
+const PIANETI_EN={Luna:'Moon',Mercurio:'Mercury',Venere:'Venus',Marte:'Mars',Giove:'Jupiter',
+  Saturno:'Saturn',Urano:'Uranus',Nettuno:'Neptune',Plutone:'Pluto'};
+function spriteGlifo(g,colore,alto){
+  const c=document.createElement('canvas'); c.width=c.height=128; const x=c.getContext('2d');
+  const [x0,y0,x1,y1]=g.b, s=128/(Math.max(x1-x0,y1-y0)*1.25);
+  x.translate(64,64); x.scale(s,-s); x.translate(-(x0+x1)/2,-(y0+y1)/2);   // unita' del font, Y in su: come Regulus
+  const p=new Path2D(g.d);
+  // un filo chiaro attorno: i colori scuri della tavolozza (Saturno) sul cielo nero sparirebbero
+  x.lineJoin='round'; x.lineWidth=5/s; x.strokeStyle='rgba(255,255,255,.55)'; x.stroke(p);
+  x.fillStyle=colore; x.fill(p);
+  const t=new THREE.CanvasTexture(c); t.anisotropy=4;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false}));
+  sp.scale.set(alto,alto,1); sp.renderOrder=11; return sp;
+}
+let quantiPianeti=0;
+if(A && CIELO){
+  const gP=G('pianeti',sky);
+  CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).forEach(p=>{
+    const pos=dirEq(diCorpo(PIANETI_EN[p.n])).multiplyScalar(RS);
+    const punto=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),new THREE.MeshBasicMaterial({color:p.c}));
+    punto.position.copy(pos); gP.add(punto);
+    // il glifo appena sopra il punto, lungo la volta
+    const dir=pos.clone().normalize(), su=new THREE.Vector3(0,1,0);
+    const tg=su.clone().addScaledVector(dir,-su.dot(dir)); if(tg.lengthSq()<1e-6) tg.set(1,0,0); tg.normalize();
+    const sp=spriteGlifo(p.g,p.c,0.42); sp.position.copy(pos).addScaledVector(tg,0.34); gP.add(sp);
+    quantiPianeti++;
+  });
 }
 world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
   new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide})));
@@ -226,7 +349,8 @@ world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
 // poi chiedeva al pannello della pagina com'era — e quello, che del clic non sapeva niente,
 // rispondeva «acceso». Il tasto tornava acceso senza riaccendere la linea: per questo le linee
 // si toglievano e non tornavano piu'.
-const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,spin:false};
+const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
+  pianeti:true,stelle:true,costellazioni:true,spin:false};
 function imposta(k,on){
   stato[k]=on;
   if(groups[k]) groups[k].visible=on;
@@ -247,12 +371,19 @@ const BUTTONS=[
   {k:'frame',   t:'Orizzonte',on:true, c:0x57d68f},
   {k:'axis',    t:'Asse',     on:true, c:0x6f8fd0},
   {k:'planet',  t:'Sole',     on:true, c:0xffcf5a},
+  {k:'pianeti', t:'Pianeti',  on:true, c:0xe8c46a},
+  {k:'stelle',  t:'Stelle di Regulus', on:true, c:0xa3c0ff},
+  {k:'costellazioni', t:'Costellazioni', on:true, c:0x8fa3d8},
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
 ];
 const vrPanel=new THREE.Group();
-vrPanel.position.set(-0.42,1.15,-0.75); vrPanel.rotation.y=0.5; scene.add(vrPanel);
+vrPanel.position.set(-0.6,1.15,-0.75); vrPanel.rotation.y=0.5; scene.add(vrPanel);
+// due colonne da sei: in una sola, con undici tasti, il pannello scendeva fino alle ginocchia
+// (provvisorio: la tastiera la disegna l'autore)
+const COLONNA=6, PASSO_X=0.37, PASSO_Y=0.12;
+const posTasto=i=>({x:Math.floor(i/COLONNA)*PASSO_X, y:-(i%COLONNA)*PASSO_Y});
 function btnTexture(b){
   const w=512,h=150,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
   x.fillStyle=b.on?'rgba(30,42,70,.95)':'rgba(16,20,34,.9)';
@@ -276,12 +407,13 @@ const btnMeshes=[];
 BUTTONS.forEach((b,i)=>{
   const m=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.10),
     new THREE.MeshBasicMaterial({map:btnTexture(b),transparent:true}));
-  m.position.set(0,-i*0.12,0); m.userData.b=b; vrPanel.add(m); btnMeshes.push(m);
+  const pt=posTasto(i);
+  m.position.set(pt.x,pt.y,0); m.userData.b=b; vrPanel.add(m); btnMeshes.push(m);
   // l'alone che si accende quando il raggio ci sta sopra: tingere il tasto non bastava,
   // il colore si moltiplica sul fondo scuro della scritta e il cambio non si vedeva
   const halo=new THREE.Mesh(new THREE.PlaneGeometry(0.372,0.132),
     new THREE.MeshBasicMaterial({color:0x9fd0ff,transparent:true,opacity:0,depthWrite:false}));
-  halo.position.set(0,-i*0.12,-0.003); vrPanel.add(halo); m.userData.halo=halo;
+  halo.position.set(pt.x,pt.y,-0.003); vrPanel.add(halo); m.userData.halo=halo;
 });
 const title=label('CIELO','#cfe0ff',0.06); title.position.set(-0.09,0.10,0);
 vrPanel.add(title);
@@ -291,7 +423,7 @@ const logCv=document.createElement('canvas'); logCv.width=600; logCv.height=280;
 const logTex=new THREE.CanvasTexture(logCv);
 const logMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.159),
   new THREE.MeshBasicMaterial({map:logTex,transparent:true,opacity:.92}));
-logMesh.position.set(0,-BUTTONS.length*0.12-0.02,0); vrPanel.add(logMesh);
+logMesh.position.set(0,-COLONNA*PASSO_Y-0.02,0); vrPanel.add(logMesh);
 let fps=0;
 function disegnaLog(){
   const x=logCv.getContext('2d'); x.clearRect(0,0,logCv.width,logCv.height);
@@ -437,7 +569,7 @@ function calibra(frame){
   let pose=null; try{ pose=frame.getViewerPose(rif); }catch(e){ return; }
   if(!pose) return;
   eyeY=pose.transform.position.y;
-  vrPanel.position.set(-0.42,eyeY+0.05,-0.75);
+  vrPanel.position.set(-0.6,eyeY+0.05,-0.75);
   calibrato=true;
   diag('occhio a '+eyeY.toFixed(2)+' m','ok');
   applicaAltezza();
@@ -499,6 +631,14 @@ renderer.setAnimationLoop((time,frame)=>{
 });
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);});
+{ // che cielo e': luogo e ora, in testa e nel diario
+  const quando=ISTANTE.toLocaleString('it-IT',{timeZone:LUOGO.fuso,day:'2-digit',month:'2-digit',
+    year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const g=Math.floor(LUOGO.lat), p=Math.round((LUOGO.lat-g)*60);
+  document.getElementById('sotto').textContent='φ '+g+'°'+String(p).padStart(2,'0')+'′ '+LUOGO.nome+' · '+quando+' · WebXR';
+  if(A) diag('cielo di '+LUOGO.nome+', '+quando+' — '+quanteStelle+' stelle, '+
+    (CIELO?CIELO.figure.length:0)+' figure, '+quantiPianeti+' pianeti','ok');
+}
 diag('scena pronta — premi «Entra in VR»','ok');
 </script>
 </body>

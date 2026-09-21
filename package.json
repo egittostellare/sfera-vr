@@ -1,0 +1,12 @@
+{
+  "name": "sfera-vr",
+  "private": true,
+  "description": "Sfera locale VR — planetario astrologico (WebXR). La pagina non ha dipendenze: questo file serve solo al generatore dei dati.",
+  "type": "module",
+  "scripts": {
+    "genera-cielo": "node scripts/genera-cielo.mjs"
+  },
+  "volta": {
+    "node": "22.23.1"
+  }
+}
