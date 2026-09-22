@@ -58,6 +58,20 @@ In tutto 720 stelle e 657 lati di figura.
   sopra la testa). La lente invece **segue lo sguardo**: le proporzioni restano, l'orizzonte resta
   dritto, e la Polare resta dietro — per vederla ci si gira, e quando la si guarda è al suo posto.
   Il prezzo: girando la testa il cielo scorre un po' più piano di lei. Da 1× a 0,40×.
+- **I due modi della lente**, col tasto **«Lente»** del cruscotto. Tre cose non stanno insieme — cielo
+  immobile girandosi, cielo compresso dove si guarda, ogni stella al suo posto — e se ne possono avere
+  **due**:
+  - *segue lo sguardo*: la lente sta sempre davanti a chi guarda. La vista è sempre estesa, ma girando
+    la testa la compressione si sposta con lei, e il cielo sembra storcersi.
+  - *ancorata*: la lente si pianta in una direzione del cielo e lì resta. Girando la testa **non si
+    muove più niente** — il cielo è un'immagine ferma, e l'orizzonte del mare resta dritto e a livello
+    anche guardando di lato. La compressione però sta in un punto fisso, e voltandosi si guarda la
+    parte non compressa: perciò la lente **si ri-ancora dove si guarda** quando la testa si ferma
+    (fuori di 22°, dopo un terzo di secondo), e il salto si nasconde dietro un **battito di ciglia**.
+    Col **tasto A** del controller destro si ri-ancora subito.
+  - *ancorata · tasto A*: come sopra, ma non si ri-ancora mai da sé: comanda solo il tasto A.
+  NB: ancorando la lente in alto, l'orizzonte del mare si alza (a 20° di ancora e 0,5× si alza di
+  9,7°); ancorata all'altezza degli occhi resta esattamente dov'è.
 - **Il bordo del mare** con la levetta **di traverso**: a destra si allontana, a sinistra si
   avvicina, da 30 metri ai 4,5 km dell'orizzonte vero. Il cielo non si muove. Le due misure
   compaiono accanto all'ora.

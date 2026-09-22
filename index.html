@@ -114,9 +114,11 @@
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller si premono i tasti del cruscotto, nel cielo si leggono i nomi,
   e il grilletto seleziona. Il <b>tasto B</b> manda via il cruscotto e lo richiama davanti allo sguardo.
   Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
-  La <b>levetta</b> in avanti allarga il <b>grandangolo</b> (entra più cielo, tutto sembra più lontano, e
-  le proporzioni restano: la Polare resta dietro); di traverso sposta il bordo del mare; col tasto
-  «Zoom con la levetta» acceso fa invece lo zoom come Stellarium.</div>
+  La <b>levetta</b> in avanti allarga il <b>grandangolo</b> (entra più cielo e tutto sembra più lontano);
+  di traverso sposta il bordo del mare; col tasto «Zoom con la levetta» acceso fa invece lo zoom come
+  Stellarium. Il tasto <b>Lente</b> sceglie se la lente <b>segue lo sguardo</b> (sempre estesa, ma girando la
+  testa il cielo sembra storcersi) o è <b>ancorata</b> al cielo (girando la testa non si muove niente; si
+  ri-ancora dove guardi quando ti fermi, o col <b>tasto A</b>).</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -540,16 +542,20 @@ const BAGLIORE=(()=>{
 // interpolare vicino ai piedi da vertici lontani chilometri (si perderebbe la precisione delle onde).
 const MARE_MESH=new THREE.Mesh(new THREE.PlaneGeometry(2*MARE_MAX,2*MARE_MAX,63,63), new THREE.ShaderMaterial({
   uniforms:{uRaggio:{value:MARE.r}, uOpacita:{value:.6}, uGrand:{value:1},
+    uGrandAsse:{value:new THREE.Vector3(0,0,-1)},
     uOnde:{value:ONDE.map(o=>new THREE.Vector4(o.x,o.z,o.k,o.a))}, uFasi:{value:ONDE.map(()=>0)},
     uProf:{value:COL_PROF}, uCielo:{value:COL_CIELO}, uBagliore:{value:COL_BAGLIORE}},
   vertexShader:`
 varying vec3 vW;
-uniform float uGrand;
+uniform float uGrand; uniform vec3 uGrandAsse;
 void main(){
   vec4 w = modelMatrix * vec4( position, 1.0 );
   vW = w.xyz;
   vec4 mv = viewMatrix * w;
-  mv.xy *= uGrand;             // il grandangolo, come per il cielo
+  if ( uGrand != 1.0 ) {       // il grandangolo, come per il cielo
+    float par = dot( mv.xyz, uGrandAsse );
+    mv.xyz = uGrandAsse * par + ( mv.xyz - uGrandAsse * par ) * uGrand;
+  }
   gl_Position = projectionMatrix * mv;
 }`,
   fragmentShader:`
@@ -586,6 +592,8 @@ void main(){
 // si disegna dopo il cielo (che cosi' copre) e prima delle scritte del cielo, del pannello e della
 // tastiera, che gli stanno davanti: renderOrder 5, fra lo 0 del cielo e il 10 delle scritte
 MARE_MESH.rotation.x=-Math.PI/2; MARE_MESH.renderOrder=5; MARE_MESH.visible=false; MARE_MESH.frustumCulled=false;
+// il mare non passa per lo shader del planetario: l'asse della lente glielo diamo qui, per ogni occhio
+MARE_MESH.onBeforeRender=(r,s,cam)=>asseVista(cam,MARE_MESH.material.uniforms.uGrandAsse.value);
 scene.add(MARE_MESH);
 function impostaMare(r){
   MARE.r=Math.max(MARE_MIN,Math.min(MARE_MAX,r));
@@ -802,6 +810,7 @@ const BUTTONS=[
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
   {k:'velocita',t:'Velocità 1 · lenta', on:false, c:0xc8b06a, azione:true},
   {k:'zoom',    t:'Zoom con la levetta', on:false, c:0x9fd0ff},   // spento: la levetta muove l'orizzonte del mare
+  {k:'lente',   t:'Lente: ancorata', on:false, c:0x9fd0ff, azione:true},
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
@@ -819,7 +828,7 @@ const CRUSCOTTO=[
   {nome:'CERCHI', tasti:['equator','ecliptic','frame','axis']},
   {nome:'ASTRI',  tasti:['planet','pianeti','stelle','costellazioni','linee']},
   {nome:'TERRA',  tasti:['orizReale','mare','altezza']},
-  {nome:'VISTA',  tasti:['zoom','recenter','luogo']},
+  {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo']},
   {nome:'TEMPO',  tasti:['spin','velocita']},
 ];
 const K_W=0.128, K_H=0.060, K_GAP=0.010, SEZ_W=0.085, MARG=0.028, QUADRO_H=0.12;
@@ -979,14 +988,19 @@ function mostraComandi(on){
   if(on){ posizionaComandi(); vrPanel.visible=true; diag('cruscotto davanti allo sguardo (tasto B)'); }
   else { vrPanel.visible=false; chiudiTastiera(); diag('cruscotto via (tasto B per rivederlo)'); }
 }
-// il tasto B del controller destro: un tocco lo fa comparire, un altro lo manda via
-function tastoB(){
+// i tasti del controller destro: B fa comparire e sparire il cruscotto, A ri-ancora la lente
+function tastiControllo(){
   for(const c of [c0,c1]){
     const s=c&&c.userData.src, g=s&&s.gamepad;
     if(!g||!g.buttons||s.handedness!=='right') continue;
-    const giu=!!(g.buttons[5]&&g.buttons[5].pressed);
-    if(giu&&!c.userData.bGiu){ vibra(c,0.4,30); mostraComandi(!vrPanel.visible); }
-    c.userData.bGiu=giu;
+    const b=!!(g.buttons[5]&&g.buttons[5].pressed), a=!!(g.buttons[4]&&g.buttons[4].pressed);
+    if(b&&!c.userData.bGiu){ vibra(c,0.4,30); mostraComandi(!vrPanel.visible); }
+    if(a&&!c.userData.aGiu&&GRAND.modo!=='sguardo'){
+      vibra(c,0.3,25);
+      if(GRAND.s===1) diag('la lente e’ a vista naturale: la levetta la allarga');
+      else { ricentraLente(); diag('lente ri-ancorata dove guardi'); }
+    }
+    c.userData.bGiu=b; c.userData.aGiu=a;
   }
 }
 
@@ -1005,6 +1019,16 @@ function impostaVelocita(i){
 }
 function toggleBtn(b){
   if(b.k==='recenter'){ calibrato=false; azzeraZoom('ricentro'); diag('ricentro…'); return; }
+  if(b.k==='lente'){   // i tre modi, in giro: segue lo sguardo · ancorata · ancorata col solo tasto A
+    const i=MODI_LENTE.findIndex(m=>m.k===GRAND.modo);
+    const m=MODI_LENTE[(i+1)%MODI_LENTE.length];
+    GRAND.modo=m.k; b.t=m.t; ridipingi(b);
+    if(m.k!=='sguardo') ricentraLente(true);
+    diag(m.k==='sguardo'?'la lente segue lo sguardo: sempre estesa, ma girandosi il cielo si storce'
+        :m.k==='ancorata'?'lente ancorata: il cielo non si muove piu’; si ri-ancora quando ti fermi'
+        :'lente ancorata: si ri-ancora solo col tasto A');
+    return;
+  }
   if(b.k==='velocita'){ impostaVelocita((livVel+1)%VELOCITA.length); return; }
   if(b.k==='luogo'){ if(TASTIERA.visible) chiudiTastiera(); else apriTastiera(); return; }
   if(b.k==='altezza'){
@@ -1081,25 +1105,28 @@ function inVista(o){ for(;o;o=o.parent) if(!o.visible) return false; return true
 const VELO=new THREE.Mesh(new THREE.SphereGeometry(0.3,24,16),
   new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0,side:THREE.BackSide,depthTest:false,depthWrite:false}));
 VELO.renderOrder=9999; VELO.visible=false; camera.add(VELO);
-const VELO_SCURO=260, VELO_PAUSA=90, VELO_CHIARO=380;
+const VELO_LENTO={scuro:260, pausa:90, chiaro:380};   // il cambio di luogo: un salto lungo
+const VELO_BATTITO={scuro:110, pausa:30, chiaro:170};  // il ri-ancoraggio della lente: un battito di ciglia
 let velo=null;
 const morbido=x=>x*x*(3-2*x);
-function conDissolvenza(azione){
-  const v={fase:'scuro', t0:performance.now(), fatto:false};
+function conDissolvenza(azione,tempi){
+  const T=tempi||VELO_LENTO;
+  const v={fase:'scuro', t0:performance.now(), fatto:false, T};
   v.esegui=()=>{ if(!v.fatto){ v.fatto=true; azione(); } };
   // la rete di sicurezza: se i fotogrammi tardano, il velo va comunque al nero PIENO prima del cambio
   setTimeout(()=>{ if(velo===v && !v.fatto){ VELO.material.opacity=1; VELO.visible=true;
-    v.fase='pausa'; v.t0=performance.now(); v.esegui(); } }, VELO_SCURO+60);
+    v.fase='pausa'; v.t0=performance.now(); v.esegui(); } }, T.scuro+60);
   setTimeout(()=>{ if(velo===v){ velo=null; VELO.material.opacity=0; VELO.visible=false; } },
-    VELO_SCURO+60+VELO_PAUSA+VELO_CHIARO+200);
+    T.scuro+60+T.pausa+T.chiaro+200);
   velo=v;
 }
+const battitoDiCiglia=azione=>conDissolvenza(azione,VELO_BATTITO);
 function aggiornaVelo(ora){
   if(!velo){ VELO.visible=false; return; }
-  const t=ora-velo.t0; let op;
-  if(velo.fase==='scuro'){ op=morbido(Math.min(1,t/VELO_SCURO)); if(t>=VELO_SCURO){ velo.esegui(); velo.fase='pausa'; velo.t0=ora; op=1; } }
-  else if(velo.fase==='pausa'){ op=1; if(t>=VELO_PAUSA){ velo.fase='chiaro'; velo.t0=ora; } }
-  else { op=1-morbido(Math.min(1,t/VELO_CHIARO)); if(t>=VELO_CHIARO){ velo=null; op=0; } }
+  const t=ora-velo.t0, T=velo.T; let op;
+  if(velo.fase==='scuro'){ op=morbido(Math.min(1,t/T.scuro)); if(t>=T.scuro){ velo.esegui(); velo.fase='pausa'; velo.t0=ora; op=1; } }
+  else if(velo.fase==='pausa'){ op=1; if(t>=T.pausa){ velo.fase='chiaro'; velo.t0=ora; } }
+  else { op=1-morbido(Math.min(1,t/T.chiaro)); if(t>=T.chiaro){ velo=null; op=0; } }
   VELO.material.opacity=op; VELO.visible=op>0.001;
 }
 
@@ -1145,7 +1172,8 @@ function lascia(ctl){
 const ZOOM={s:1, c:new THREE.Vector3(0,0,-1), su:null, att:false, fermo:false, ctl:null};   // c: nel sistema del planetario
 const ZOOM_MIN=0.35, ZOOM_MAX=16, ZOOM_VEL=1.2;   // a levetta piena: da 1× a 10× in due secondi
 const ZU={uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()}, uZoomL:{value:new THREE.Matrix4()},
-          uZoomV:{value:new THREE.Matrix4()}, uGrand:{value:1}};
+          uZoomV:{value:new THREE.Matrix4()}, uGrand:{value:1},
+          uGrandAsse:{value:new THREE.Vector3(0,0,-1)}};
 
 // ====================== il grandangolo: la levetta ======================
 // Nel visore si vede un campo di un centinaio di gradi, dove l'occhio nudo ne vede quasi duecento:
@@ -1162,14 +1190,56 @@ const ZU={uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()}, uZoomL:{value:n
 // Vive nello shader: ogni cosa del planetario, nelle coordinate della vista di quell'occhio, si
 // stringe di uGrand attorno all'asse dello sguardo (e' una moltiplicazione, quindi le rette
 // restano rette e i piani restano piani: il mare non si incurva).
+// Due modi, da confrontare nel visore (tasto «Lente» del cruscotto):
+//   «segue lo sguardo» — la lente sta sempre davanti a dove si guarda: la vista e' sempre estesa, ma
+//      girando la testa la compressione si sposta con lei, e il cielo sembra storcersi.
+//   «ancorata»         — la lente si pianta in una direzione del CIELO e li' resta: girando la testa
+//      non si muove piu' niente (il cielo e' un'immagine ferma), ma la compressione sta in un punto
+//      fisso, e voltandosi si guarda la parte non compressa. Percio' si RI-ANCORA dove si guarda:
+//      da se' quando la testa si ferma fuori dall'ancora, o subito col tasto A; e il salto si
+//      nasconde dietro un battito di ciglia.
+// Le tre cose — cielo immobile girandosi, cielo compresso dove si guarda, ogni stella al suo posto —
+// non stanno insieme: se ne possono avere due. Qui si sceglie quali.
 const GRAND_MIN=0.40, GRAND_VEL=0.85;
-const GRAND={s:1, att:false};
+const GRAND_SOGLIA=22*DEG, GRAND_FERMA=10*DEG, GRAND_ATTESA=350;   // fuori di 22°, testa ferma per 350 ms
+const MODI_LENTE=[
+  {k:'sguardo',  t:'Lente: segue lo sguardo'},
+  {k:'ancorata', t:'Lente: ancorata'},
+  {k:'manuale',  t:'Lente: ancorata · tasto A'},
+];
+const GRAND={s:1, att:false, modo:'ancorata', asse:new THREE.Vector3(0,0,-1),
+             prec:new THREE.Vector3(0,0,-1), fermoDa:0};
 function impostaGrand(s){
   GRAND.s=Math.max(GRAND_MIN,Math.min(1,s));
   ZU.uGrand.value=GRAND.s;
   MARE_MESH.material.uniforms.uGrand.value=GRAND.s;
 }
 const testoGrand=()=>GRAND.s.toFixed(2).replace('.',',')+'×';
+// l'asse della lente nelle coordinate della vista di quell'occhio (lo shader lavora li')
+function asseVista(cam,out){ return out.copy(GRAND.asse).transformDirection(cam.matrixWorldInverse); }
+const _sguardo=new THREE.Vector3();
+function sguardoOra(out){
+  const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
+  return cam.getWorldDirection(out);
+}
+// ri-ancorare la lente dove si guarda: il salto sta dentro un battito di ciglia
+function ricentraLente(subito){
+  GRAND.fermoDa=0;
+  if(GRAND.s===1 || subito){ GRAND.asse.copy(sguardoOra(_sguardo)); return; }
+  battitoDiCiglia(()=>{ GRAND.asse.copy(sguardoOra(_sguardo)); });
+}
+// ogni fotogramma: dove sta l'asse della lente
+function aggiornaLente(dt){
+  sguardoOra(_sguardo);   // fuori dal visore e' la camera del desktop: con la lente a 1× non fa nulla
+  if(GRAND.modo==='sguardo' || GRAND.s===1){ GRAND.asse.copy(_sguardo); GRAND.prec.copy(_sguardo); return; }
+  if(GRAND.modo!=='ancorata') return;               // «tasto A»: si ri-ancora solo quando lo chiede lui
+  const velocita=dt>0?_sguardo.angleTo(GRAND.prec)/(dt/1000):0;
+  GRAND.prec.copy(_sguardo);
+  if(_sguardo.angleTo(GRAND.asse)>GRAND_SOGLIA && velocita<GRAND_FERMA){
+    GRAND.fermoDa+=dt;
+    if(GRAND.fermoDa>=GRAND_ATTESA) ricentraLente();   // la testa si e' fermata altrove: la lente lo segue
+  } else GRAND.fermoDa=0;
+}
 function grandRicordato(){
   try{ const s=parseFloat(localStorage.getItem('sfera-vr-grandangolo')); if(s>=GRAND_MIN&&s<=1) return s; }catch(e){}
   return 1;
@@ -1202,13 +1272,16 @@ function deforma(p,out){
 const testoZoom=()=>(ZOOM.s>=10?String(Math.round(ZOOM.s)):ZOOM.s.toFixed(ZOOM.s<1?2:1).replace('.',','))+'×';
 // dove un punto del cielo SI VEDE: prima lo zoom, poi il grandangolo. Serve a chi vive fuori dal
 // planetario e non passa per lo shader: il raggio del controller e il suo mirino.
-const _vmG=new THREE.Matrix4();
+const _occhioG=new THREE.Vector3(), _relG=new THREE.Vector3();
 function vista(p,out){
   out=deforma(p,out||new THREE.Vector3());
   if(GRAND.s===1) return out;
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
-  _vmG.copy(cam.matrixWorld).invert();
-  out.applyMatrix4(_vmG); out.x*=GRAND.s; out.y*=GRAND.s; out.applyMatrix4(cam.matrixWorld);
+  cam.getWorldPosition(_occhioG);
+  _relG.copy(out).sub(_occhioG);                      // la stessa moltiplicazione dello shader,
+  const par=_relG.dot(GRAND.asse);                    // qui attorno all'occhio, in coordinate del mondo
+  _relG.addScaledVector(GRAND.asse,-par).multiplyScalar(GRAND.s);
+  out.copy(_occhioG).addScaledVector(GRAND.asse,par).add(_relG);
   return out;
 }
 function azzeraZoom(motivo){
@@ -1285,7 +1358,15 @@ function levetta(dt){
 const GLSL_ZOOM=`
 uniform float uZoomOn; uniform vec3 uZoomO; uniform mat4 uZoomL; uniform mat4 uZoomV;
 uniform vec3 uZoomRef; uniform float uZoomUsaRef; uniform float uZoomCresce;
-uniform float uGrand;
+uniform float uGrand; uniform vec3 uGrandAsse;
+// il grandangolo: attorno all'asse della lente gli angoli si stringono di uGrand. E' una
+// moltiplicazione lineare, percio' le rette restano rette e i piani restano piani: l'orizzonte del
+// mare non si incurva mai. Con la lente «che segue lo sguardo» l'asse e' la direzione dell'occhio.
+vec3 grandangolo(vec3 p){
+  if (uGrand == 1.0) return p;
+  float par = dot(p, uGrandAsse);
+  return uGrandAsse * par + (p - uGrandAsse * par) * uGrand;
+}
 vec3 zoomRuota(vec3 v, vec3 a, vec3 b){
   vec3 k = cross(a, b); float s = length(k); float c = dot(a, b);
   if (s < 1e-6) return v;
@@ -1358,7 +1439,7 @@ function preparaZoom(o){
     }
     // il grandangolo: nelle coordinate della vista di quell'occhio, prima della proiezione
     const RIGA='gl_Position = projectionMatrix * mvPosition;';
-    if(v.includes(RIGA)) v=v.replace(RIGA,'mvPosition.xy *= uGrand;\n  '+RIGA);
+    if(v.includes(RIGA)) v=v.replace(RIGA,'mvPosition.xyz = grandangolo( mvPosition.xyz );\n  '+RIGA);
     else diag('grandangolo: proiezione non trovata in un materiale','warn');
     sh.vertexShader=v;
   };
@@ -1368,6 +1449,7 @@ function preparaZoom(o){
 // prima di disegnare ogni oggetto (e per ogni occhio): la vista di quell'occhio, e l'astro di riferimento
 function zoomPrimaDi(r,s,cam,geo,mat){
   ZU.uZoomV.value.copy(cam.matrixWorldInverse);
+  asseVista(cam,ZU.uGrandAsse.value);   // l'asse della lente, nella vista di quell'occhio
   const zu=mat&&mat.userData.zoom; if(!zu) return;
   const f=this.userData.zoomRef;
   if(f && ZU.uZoomOn.value){ f(zu.uZoomRef.value); zu.uZoomUsaRef.value=1; } else zu.uZoomUsaRef.value=0;
@@ -1675,7 +1757,8 @@ renderer.setAnimationLoop((time,frame)=>{
     aggiornaOra();
     if(renderer.xr.isPresenting){
       if(!calibrato) calibra(frame);
-      tastoB();
+      tastiControllo();
+      aggiornaLente(dt);
       INTERATTIVI.forEach(m=>{ m.userData.halo.material.opacity=0; m.scale.setScalar(1); });
       renderer.xr.getCamera(camera).getWorldPosition(_testa);
       indica(aggiornaRaggi());
