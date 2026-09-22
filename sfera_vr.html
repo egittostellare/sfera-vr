@@ -93,6 +93,7 @@
   <div class="row on" data-k="costellazioni" style="--a:#8fa3d8"><span class="sw"></span>Costellazioni (stelle)</div>
   <div class="row on" data-k="linee"    style="--a:#8fa3d8"><span class="sw"></span>Linee delle costellazioni</div>
   <div class="row"    data-k="orizReale" style="--a:#57d68f"><span class="sw"></span>Orizzonte reale</div>
+  <div class="row on" data-k="mare"     style="--a:#5b8fc0"><span class="sw"></span>Mare (nel visore)</div>
   <div class="row"    data-k="spin"     style="--a:#c8b06a"><span class="sw"></span>Moto diurno</div>
   <div class="vel" id="vel" title="Velocità del moto diurno">
     <button data-v="0" class="on">1</button><button data-v="1">2</button><button data-v="2">3</button><button data-v="3">4</button>
@@ -112,8 +113,9 @@
 <div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller, sul pannello si premono i tasti, nel cielo si leggono i nomi,
   e il grilletto seleziona. Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
-  La levetta allontana (avanti) o avvicina (indietro) la volta, senza spostare nessun astro; col tasto
-  «Zoom con la levetta» acceso fa invece lo zoom come Stellarium.</div>
+  Col tasto «Mare» acceso si sta su un mare calmo: la levetta allontana (avanti) o avvicina (indietro)
+  il suo orizzonte, e il cielo non si muove; col tasto «Zoom con la levetta» acceso fa invece lo zoom
+  come Stellarium.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -139,7 +141,8 @@ addEventListener('unhandledrejection',e=>{
 });
 
 const R=8, DEG=Math.PI/180, TAU=Math.PI*2;
-const groups={}; let spin=false;
+const groups={}; let spin=false, DISCO=null;   // DISCO: il piano verde dell'orizzonte (col mare si toglie)
+const CARDINALI=[];   // Est, Ovest, Sud, Nord: a cavallo dell'orizzonte; col mare salgono appena sopra
 
 // ====================== il luogo e l'istante ======================
 // Il cielo e' quello VERO: del luogo scelto (Milano, se non se ne sceglie un altro), nell'istante in
@@ -181,12 +184,14 @@ const scene=new THREE.Scene();
 // Tutto il cielo sta dentro "world": entrando in VR lo alziamo all'altezza
 // degli occhi, perche' l'osservatore dev'essere AL CENTRO della sfera.
 const world=new THREE.Group(); scene.add(world);
-// La grandezza della sfera: 1 = 8 metri di raggio; si parte da 32. Nel visore la levetta la allontana
-// o l'avvicina (impostaDistanza, piu' sotto), e allora cambia la scala di «world».
+// La grandezza della sfera: 1 = 8 metri di raggio, cioe' 32 metri. Nel visore, col mare, la volta va
+// dietro il suo orizzonte, a 6 km (applicaMare, piu' sotto): tutto cresce insieme, e dal centro il
+// cielo si vede identico, con le stesse proporzioni.
 const SCALA=4;
 world.scale.setScalar(SCALA);
-try{ localStorage.removeItem('sfera-vr-scala'); }catch(e){}   // la misura ricordata dalla prova di prima
-const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,4000);
+try{ localStorage.removeItem('sfera-vr-scala'); localStorage.removeItem('sfera-vr-distanza'); }catch(e){}   // le misure delle prove di prima
+// la camera vede fino a 20 km: col mare la volta sta a 6 km (three.js passa near e far anche al visore)
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,20000);
 scene.add(camera);   // nella scena, perche' il velo della dissolvenza le sta attaccato e deve seguire la testa
 camera.position.set(14,9,18);
 
@@ -290,7 +295,7 @@ function orientaCielo(){
   const g=G('frame');
   const hp=new THREE.Mesh(new THREE.CircleGeometry(R,96),
     new THREE.MeshBasicMaterial({color:0x57d68f,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
-  hp.rotation.x=-Math.PI/2; g.add(hp);
+  hp.rotation.x=-Math.PI/2; g.add(hp); DISCO=hp;
   const rim=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,10,200),new THREE.MeshBasicMaterial({color:0x57d68f}));
   rim.rotation.x=Math.PI/2; g.add(rim);
   // per lo zoom: ogni vertice del tubo segue il punto del cerchio su cui sta, cosi' il tubo resta
@@ -298,13 +303,14 @@ function orientaCielo(){
   { const p=rim.geometry.attributes.position, a=new Float32Array(p.count*3);
     for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), l=Math.hypot(x,y)||1; a[i*3]=x/l*R; a[i*3+1]=y/l*R; }
     rim.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3));
-    rim.userData.zoomAncora=rim.userData.zoomPicc=true; }   // allontanando la volta la linea si assottiglia
+    rim.userData.zoomAncora=true; }
   const mer=[];for(let i=0;i<=180;i++){const t=i/180*TAU;mer.push(new THREE.Vector3(0,Math.cos(t)*R,Math.sin(t)*R));}
   g.add(line(mer,0x8493bd,.30,1));
   [[new THREE.Vector3(1,0,0),'Est'],[new THREE.Vector3(-1,0,0),'Ovest'],
    [new THREE.Vector3(0,0,1),'Sud'],[new THREE.Vector3(0,0,-1),'Nord'],
    [new THREE.Vector3(0,1,0),'Zenit'],[new THREE.Vector3(0,-1,0),'Nadir']]
-   .forEach(([v,t])=>{const s=label(t,'#c7d2ee',0.55);s.position.copy(v.multiplyScalar(R*1.05));g.add(s);});
+   .forEach(([v,t])=>{const s=label(t,'#c7d2ee',0.55);s.position.copy(v.multiplyScalar(R*1.05));g.add(s);
+     if(!v.y) CARDINALI.push(s);});
 }
 
 // ====================== il cielo (in equatoriali; lo orienta orientaCielo) ======================
@@ -356,7 +362,6 @@ function cerchioDiurno(de){ const p=[]; for(let i=0;i<=240;i++)p.push(eqv(i/240*
   const glow=new THREE.Mesh(new THREE.SphereGeometry(0.42,20,20),
     new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); SOLE.mesh.add(glow);
   SOLE.mesh.userData.zoomRigido=glow.userData.zoomRigido=true;   // con lo zoom si sposta, non si gonfia
-  SOLE.mesh.userData.zoomPicc=glow.userData.zoomPicc=true;       // e allontanando la volta si fa piu' piccolo
   g.add(SOLE.mesh);
   // la scritta appena SOPRA il Sole, non dietro: visto dal centro starebbe coperta dal disco
   SOLE.et=label('Sole','#ffe6a0',0.55); g.add(SOLE.et);   // la colloca aggiornaGlifi, appena sopra il disco
@@ -466,7 +471,7 @@ if(A && CIELO){
   const gP=G('pianeti',sky);
   CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).forEach(p=>{
     const punto=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),new THREE.MeshBasicMaterial({color:p.c}));
-    punto.userData.zoomRigido=punto.userData.zoomPicc=true; gP.add(punto);
+    punto.userData.zoomRigido=true; gP.add(punto);
     const sp=spriteGlifo(p.g,p.c,0.42); gP.add(sp);
     sp.userData.zoomRef=v=>punto.getWorldPosition(v);   // con lo zoom il glifo resta sopra il suo punto
     PIANETI.push({en:PIANETI_EN[p.n], punto, sp});
@@ -490,6 +495,131 @@ function collocaPianeti(){
 // dietro (i cardinali, a 8,4 m) devono restare visibili ora che si lasciano coprire dal pannello
 world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
   new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide,depthWrite:false})));
+
+// ====================== il mare ======================
+// L'autore: «quello che vedo ora e' perfetto ma e' claustrofobico; vorrei le proporzioni di ora,
+// allontanando l'orizzonte». L'occhio non misura l'orizzonte guardando il cielo — dal centro una volta
+// a 32 metri e una a 6 km si vedono identiche, e due prove lo hanno mostrato — ma dal SUOLO che ci
+// arriva: il disco verde, liscio e finito a 32 metri, si leggeva come una piattaforma rotonda. Nel
+// visore, col tasto «Mare», si sta in piedi su un mare calmo, e la volta va dietro il suo orizzonte a
+// 6 km con tutto cio' che porta: stesse proporzioni, nessun astro spostato, la Polare dov'e'. La
+// levetta allontana o avvicina il bordo del mare, da 30 metri ai 4,5 km dell'orizzonte vero di chi
+// sta in piedi sul mare. A far leggere la distanza sono tre cose: le increspature, nette vicino e
+// sempre piu' minute lontano; il riflesso, che a sguardo radente si accende (Fresnel) e rimanda il
+// chiarore basso del cielo; la foschia, che mangia i chilometri. Sul desktop il mare non c'e': la
+// sfera si guarda da fuori.
+const MARE_MIN=30, MARE_MAX=4500, MARE_VEL=2.0, CIELO_MARE=6000;   // metri; col mare la volta sta a 6 km
+const MARE={r:MARE_MAX, att:false, acceso:false, avvisato:false};
+// le increspature: direzione, lunghezza d'onda (metri), pendenza; corrono a meta' della velocita' del
+// mare vero, in cinque direzioni diverse, cosi' non trascinano lo sguardo da nessuna parte
+const ONDE=[[1,.3,3.1,.05],[-.4,1,1.9,.045],[.8,-.9,1.1,.04],[-1,-.2,.65,.035],[.2,1,5.3,.04]].map(([x,z,l,a])=>{
+  const n=Math.hypot(x,z), k=TAU/l; return {x:x/n, z:z/n, k, a, w:Math.sqrt(9.81*k)*0.5}; });
+// il chiarore basso del cielo: di notte, verso l'orizzonte, il cielo e' un poco piu' chiaro che in
+// alto; il mare lo riflette a sguardo radente, e cosi' la linea dell'orizzonte si vede. Una fascia
+// sulla volta (acceso il mare), che cala d'intensita' di e volte ogni 8 gradi d'altezza.
+const COL_BAGLIORE=new THREE.Color(0x1b2741), COL_CIELO=new THREE.Color(0x03050d), COL_PROF=new THREE.Color(0x020409);
+const BAGLIORE=(()=>{
+  const H=1024, dati=new Uint8Array(H*4);
+  for(let j=0;j<H;j++){   // dal nadir (riga 0) allo zenit
+    const alt=-90+(j+0.5)/H*180;
+    dati.set([42,60,96,Math.round(0.62*Math.exp(-Math.abs(alt)/8)*255)], j*4);
+  }
+  const tx=new THREE.DataTexture(dati,1,H,THREE.RGBAFormat);
+  tx.magFilter=tx.minFilter=THREE.LinearFilter; tx.needsUpdate=true;
+  const m=new THREE.Mesh(new THREE.SphereGeometry(R*.985,64,48),
+    new THREE.MeshBasicMaterial({map:tx,transparent:true,side:THREE.BackSide,depthWrite:false}));
+  m.visible=false; world.add(m); return m;
+})();
+// Il mare e' una griglia fissa di 9 km di lato, ritagliata a cerchio nello shader: la levetta sposta
+// solo il ritaglio. Un disco avrebbe il vertice centrale sotto i piedi: guardando dritto all'orizzonte
+// quel vertice cade sul piano dell'occhio, e la scheda grafica (provato) sbaglia tutto il mare in quel
+// fotogramma. I riquadri sono in numero DISPARI, cosi' sotto i piedi cade il centro di un riquadro e i
+// vertici piu' vicini stanno a 70 metri; e sono abbastanza piccoli da non chiedere alla scheda di
+// interpolare vicino ai piedi da vertici lontani chilometri (si perderebbe la precisione delle onde).
+const MARE_MESH=new THREE.Mesh(new THREE.PlaneGeometry(2*MARE_MAX,2*MARE_MAX,63,63), new THREE.ShaderMaterial({
+  uniforms:{uRaggio:{value:MARE.r}, uOpacita:{value:.6},
+    uOnde:{value:ONDE.map(o=>new THREE.Vector4(o.x,o.z,o.k,o.a))}, uFasi:{value:ONDE.map(()=>0)},
+    uProf:{value:COL_PROF}, uCielo:{value:COL_CIELO}, uBagliore:{value:COL_BAGLIORE}},
+  vertexShader:`
+varying vec3 vW;
+void main(){
+  vec4 w = modelMatrix * vec4( position, 1.0 );
+  vW = w.xyz;
+  gl_Position = projectionMatrix * viewMatrix * w;
+}`,
+  fragmentShader:`
+varying vec3 vW;
+uniform float uRaggio; uniform float uOpacita;
+uniform vec4 uOnde[5]; uniform float uFasi[5];
+uniform vec3 uProf; uniform vec3 uCielo; uniform vec3 uBagliore;
+void main(){
+  vec3 v = vW - cameraPosition;
+  vec2 p = vW.xz;
+  // la pendenza della superficie: la somma delle increspature; quelle che in un pixel fanno piu' di
+  // mezza onda si spengono (sarebbero solo sfarfallio): lontano il mare si fa liscio da se'
+  vec2 g = vec2( 0.0 );
+  for ( int i = 0; i < 5; i ++ ) {
+    float f = dot( p, uOnde[ i ].xy ) * uOnde[ i ].z - uFasi[ i ];
+    float nitida = clamp( 1.0 - fwidth( f ) * 0.35, 0.0, 1.0 );
+    g += uOnde[ i ].xy * ( uOnde[ i ].w * cos( f ) * nitida );
+  }
+  vec3 n = normalize( vec3( - g.x, 1.0, - g.y ) );
+  vec3 e = normalize( - v );
+  // il riflesso (Fresnel, acqua): quasi nulla guardando in giu', quasi tutto a sguardo radente
+  float c = clamp( dot( n, e ), 0.0, 1.0 );
+  float fres = 0.02 + 0.98 * pow( 1.0 - c, 5.0 );
+  vec3 r = reflect( - e, n );
+  vec3 cielo = mix( uCielo, uBagliore, exp( - max( r.y, 0.0 ) / 0.14 ) );
+  vec3 col = mix( uProf, cielo, fres );
+  col = mix( col, uBagliore, 1.0 - exp( - length( v.xz ) / 1600.0 ) );                    // la foschia
+  col = mix( col, uBagliore, smoothstep( uRaggio * 0.88, uRaggio, length( p ) ) );     // il bordo sfuma
+  // il quadrato si ritaglia a cerchio: in fondo, dopo le derivate (fwidth) delle increspature
+  if ( length( p ) > uRaggio ) discard;
+  gl_FragColor = vec4( col, uOpacita );
+}`,
+  transparent:true, depthWrite:false, extensions:{derivatives:true}}));
+// si disegna dopo il cielo (che cosi' copre) e prima delle scritte del cielo, del pannello e della
+// tastiera, che gli stanno davanti: renderOrder 5, fra lo 0 del cielo e il 10 delle scritte
+MARE_MESH.rotation.x=-Math.PI/2; MARE_MESH.renderOrder=5; MARE_MESH.visible=false; MARE_MESH.frustumCulled=false;
+scene.add(MARE_MESH);
+function impostaMare(r){
+  MARE.r=Math.max(MARE_MIN,Math.min(MARE_MAX,r));
+  MARE_MESH.material.uniforms.uRaggio.value=MARE.r;
+}
+function mareRicordato(){
+  try{ const r=parseFloat(localStorage.getItem('sfera-vr-mare')); if(r>=MARE_MIN&&r<=MARE_MAX) return r; }catch(e){}
+  return MARE_MAX;
+}
+const testoMare=()=>MARE.r>=1000?(MARE.r/1000).toFixed(1).replace('.',',')+' km':Math.round(MARE.r)+' m';
+// il mare e' acceso solo dentro il visore; acceso, la volta va a 6 km e il disco verde si toglie
+function applicaMare(presente){
+  if(presente===undefined) presente=renderer.xr.isPresenting;
+  MARE.acceso=!!(stato.mare&&presente);
+  world.scale.setScalar(MARE.acceso?CIELO_MARE/R:SCALA);
+  if(DISCO) DISCO.visible=!MARE.acceso;
+  BAGLIORE.visible=MARE.acceso;
+  // le scritte dei cardinali stanno a cavallo dell'orizzonte: il mare opaco ne taglierebbe la meta'
+  // di sotto, e allora salgono di 2,3° (la loro mezza altezza e' 1,9°)
+  for(const s of CARDINALI) s.position.y=MARE.acceso?R*1.05*Math.tan(2.3*DEG):0;
+  trasparenzaMare(); minutoMostrato=null;
+}
+// con l'orizzonte reale il mare e' acqua vera e nasconde cio' che non e' sorto; senza, e' un vetro
+// scuro attraverso cui il cielo di sotto si vede, come prima attraverso il disco verde
+function trasparenzaMare(){
+  const m=MARE_MESH.material, reale=!!stato.orizReale;
+  m.uniforms.uOpacita.value=reale?1:.6; m.depthWrite=reale;
+}
+function aggiornaMare(ora){
+  MARE_MESH.visible=MARE.acceso&&ZOOM.s===1;   // con lo zoom il cielo si deforma e il mare no: si toglie
+  if(!MARE_MESH.visible) return;
+  const t=ora/1000, f=MARE_MESH.material.uniforms.uFasi.value;
+  for(let i=0;i<ONDE.length;i++) f[i]=(ONDE[i].w*t)%TAU;   // la fase qui, in doppia precisione
+}
+// pannello, tastiera e raggi si disegnano DOPO il mare: le loro parti che non scrivono la profondita'
+// (lo sfondo della tastiera, gli aloni dei tasti) se no il mare le cancellerebbe
+function inPrimoPiano(g){
+  g.traverse(o=>{ if(!o.userData.primoPiano){ o.userData.primoPiano=true; o.renderOrder=(o.renderOrder||0)+30; } });
+}
 
 // ====================== il tempo del cielo ======================
 // Il moto diurno e' TEMPO che scorre, non una rotazione a piacere: la volta gira alla velocita'
@@ -518,8 +648,8 @@ const PIANO=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 function aggiornaPiano(){ PIANO.constant=-world.position.y; }
 function applicaOrizzonte(on){
   sky.traverse(o=>{ if(o.material && !o.isSprite){ o.material.clippingPlanes=on?[PIANO]:null; o.material.needsUpdate=true; } });
-  const disco=groups.frame&&groups.frame.children[0];   // il piano dell'orizzonte si fa terra
-  if(disco&&disco.material) disco.material.opacity=on?.42:.16;
+  if(DISCO) DISCO.material.opacity=on?.42:.16;   // il piano dell'orizzonte si fa terra
+  trasparenzaMare();                            // e il mare, da vetro, si fa acqua
   if(!on) SPRITE_CIELO.forEach(s=>s.visible=true);      // spento: le scritte tornano tutte
   diag(on?'orizzonte reale: quello che non è sorto non si vede':'orizzonte trasparente');
 }
@@ -636,14 +766,15 @@ function aggiornaIndicazioni(){
 // rispondeva «acceso». Il tasto tornava acceso senza riaccendere la linea: per questo le linee
 // si toglievano e non tornavano piu'.
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
-  pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false};
+  pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,mare:true};
 function imposta(k,on){
   stato[k]=on;
   if(groups[k]) groups[k].visible=on;
   if(k==='spin'){ spin=on; tPrec=null; }
   if(k==='orizReale') applicaOrizzonte(on);
-  if(k==='zoom'){ if(!on) azzeraZoom(); distAtt=false;
-    diag(on?'la levetta fa lo zoom (avanti ingrandisce, indietro più cielo)':'la levetta allontana e avvicina la volta'); }
+  if(k==='mare'){ applicaMare(); if(MARE.acceso) diag('mare calmo, orizzonte a '+testoMare()); }
+  if(k==='zoom'){ if(!on) azzeraZoom(); MARE.att=false;
+    diag(on?'la levetta fa lo zoom (avanti ingrandisce, indietro più cielo)':'la levetta allontana e avvicina l’orizzonte del mare'); }
   const dom=document.querySelector('#panel .row[data-k="'+k+'"]');
   if(dom) dom.classList.toggle('on',on);
   const b=BUTTONS.find(x=>x.k===k);
@@ -665,9 +796,10 @@ const BUTTONS=[
   {k:'costellazioni', t:'Costellazioni', on:true, c:0x8fa3d8},
   {k:'linee',   t:'Linee',    on:true, c:0x8fa3d8},
   {k:'orizReale', t:'Orizzonte reale', on:false, c:0x57d68f},
+  {k:'mare',    t:'Mare',     on:true, c:0x5b8fc0},
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
   {k:'velocita',t:'Velocità 1 · lenta', on:false, c:0xc8b06a, azione:true},
-  {k:'zoom',    t:'Zoom con la levetta', on:false, c:0x9fd0ff},   // spento: la levetta allontana la volta
+  {k:'zoom',    t:'Zoom con la levetta', on:false, c:0x9fd0ff},   // spento: la levetta muove l'orizzonte del mare
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
@@ -676,9 +808,9 @@ const BUTTONS=[
 const INTERATTIVI=[];
 const vrPanel=new THREE.Group();
 vrPanel.position.set(-0.6,1.15,-0.75); vrPanel.rotation.y=0.5; scene.add(vrPanel);
-// due colonne da otto: in una sola il pannello scendeva fino alle ginocchia
+// due colonne da nove: in una sola il pannello scendeva fino alle ginocchia
 // (provvisorio: la pulsantiera la disegna l'autore)
-const COLONNA=8, PASSO_X=0.37, PASSO_Y=0.12;
+const COLONNA=9, PASSO_X=0.37, PASSO_Y=0.12;
 const posTasto=i=>({x:Math.floor(i/COLONNA)*PASSO_X, y:-(i%COLONNA)*PASSO_Y});
 function btnTexture(b){
   const w=512,h=150,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
@@ -733,6 +865,7 @@ const logMesh=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.159),
   new THREE.MeshBasicMaterial({map:logTex,transparent:true,opacity:.92}));
 // il diario nel primo posto libero della seconda colonna, non in fondo alla prima (troppo in basso)
 logMesh.position.set(PASSO_X,-(BUTTONS.length-COLONNA)*PASSO_Y-0.03,0); vrPanel.add(logMesh);
+inPrimoPiano(vrPanel);   // tutto il pannello, diario compreso, si disegna dopo il mare
 let fps=0;
 function disegnaLog(){
   const x=logCv.getContext('2d'); x.clearRect(0,0,logCv.width,logCv.height);
@@ -786,6 +919,7 @@ function makeController(i){
   ray.scale.z=RAGGIO_CIELO; ctl.add(ray); ctl.userData.ray=ray;
   const dot=new THREE.Mesh(new THREE.SphereGeometry(0.012,12,12),new THREE.MeshBasicMaterial({color:0xffffff}));
   dot.position.z=-RAGGIO_CIELO; ctl.add(dot); ctl.userData.dot=dot;
+  inPrimoPiano(ctl);
   ctl.addEventListener('connected',e=>{ ctl.userData.src=e.data; });
   ctl.addEventListener('disconnected',()=>{ ctl.userData.src=null; lascia(ctl); });
   ctl.addEventListener('squeezestart',()=>prendi(ctl));   // il tasto laterale: afferra il planetario
@@ -881,7 +1015,8 @@ function lascia(ctl){
 // Come la rotella di Stellarium: levetta in avanti, il cielo attorno a quello che il raggio indica si
 // ingrandisce; indietro, si restringe e nel visore entra piu' cielo di quanto il Quest ne mostri.
 // Sposta le direzioni (la Polare puo' finire sopra la testa): per questo sta dietro un tasto, e la
-// levetta, di suo, allontana la volta (sopra). Spegnendo il tasto lo zoom si toglie.
+// levetta, di suo, muove l'orizzonte del mare. Spegnendo il tasto lo zoom si toglie; mentre c'e', il
+// mare si toglie (il cielo si deforma, il mare no).
 // Ingrandire la sfera dal centro non si vedrebbe (gli angoli resterebbero quelli): lo zoom invece
 // CAMBIA GLI ANGOLI. La deformazione e' la «proiezione stereografica» di Stellarium portata sulla
 // volta: attorno al centro scelto gli angoli si moltiplicano per l'ingrandimento, all'opposto si
@@ -896,30 +1031,8 @@ function lascia(ctl){
 const ZOOM={s:1, c:new THREE.Vector3(0,0,-1), su:null, att:false, fermo:false, ctl:null};   // c: nel sistema del planetario
 const ZOOM_MIN=0.35, ZOOM_MAX=16, ZOOM_VEL=1.2;   // a levetta piena: da 1× a 10× in due secondi
 const ZU={uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()}, uZoomL:{value:new THREE.Matrix4()},
-          uZoomV:{value:new THREE.Matrix4()}, uZoomScala:{value:1}};
+          uZoomV:{value:new THREE.Matrix4()}};
 
-// ====================== la distanza della volta: la levetta ======================
-// La levetta (a tasto «Zoom» spento) allontana o avvicina la volta SENZA spostare nessun astro: la
-// Polare resta dov'e', dietro chi guarda. Dal centro una volta piu' lontana ha lo stesso aspetto, se
-// ogni cosa cresce con lei (la prima prova: non si vedeva nulla). Qui invece crescono le distanze ma
-// non le cose disegnate sulla volta — stelle, pianeti, Sole, la linea dell'orizzonte — che quindi si
-// rimpiccioliscono, come ogni cosa da cui ci si allontana; e i due occhi la sentono piu' lontana. I
-// nomi e i glifi restano della loro misura, per restare leggibili. La misura non e' quella fisica
-// (a 400 metri una stella di 5ª sparirebbe): e' un rimpicciolimento dolce, distanza^−0,45, che a
-// 400 m da' punti fini di un paio di pixel e a 8 m stelle grandi il doppio. Si va da 8 a 400 metri,
-// si parte da 32, e la misura scelta la ricorda il visore.
-const DIST_MIN=0.25, DIST_MAX=12.5, DIST_VEL=1.3, PICC_K=0.45;   // in unita' di 32 metri
-let DIST=1, distAtt=false;
-function impostaDistanza(d){
-  DIST=Math.max(DIST_MIN,Math.min(DIST_MAX,d));
-  world.scale.setScalar(SCALA*DIST);
-  ZU.uZoomScala.value=Math.pow(DIST,-PICC_K);
-}
-const raggioVolta=()=>Math.round(R*SCALA*DIST);
-function distanzaRicordata(){
-  try{ const d=parseFloat(localStorage.getItem('sfera-vr-distanza')); if(d>=DIST_MIN&&d<=DIST_MAX) return d; }catch(e){}
-  return 1;
-}
 const _nZ=new THREE.Vector3(), _v4Z=new THREE.Vector4();
 // il boost lungo n che moltiplica per s gli angoli attorno a n: agisce su (direzione, 1)
 function matriceZoom(n,s,out){
@@ -931,8 +1044,7 @@ function matriceZoom(n,s,out){
     sh*n.x,      sh*n.y,      sh*n.z,      ch);
 }
 function aggiornaZoom(){
-  // lo shader lavora se c'e' uno zoom o se la volta non e' alla sua distanza di partenza
-  ZU.uZoomOn.value=(ZOOM.s!==1||DIST!==1)?1:0;
+  ZU.uZoomOn.value=ZOOM.s!==1?1:0;   // lo shader lavora solo se c'e' uno zoom
   ZU.uZoomO.value.copy(world.position);   // il centro della sfera, dove sta chi guarda
   if(ZOOM.s!==1) matriceZoom(_nZ.copy(ZOOM.c).applyQuaternion(world.quaternion), ZOOM.s, ZU.uZoomL.value);
   else ZU.uZoomL.value.identity();
@@ -972,16 +1084,21 @@ function levetta(dt){
     const v=g.axes.length>=4?g.axes[3]:(g.axes[1]||0); if(Math.abs(v)>Math.abs(y)){ y=v; chi=c; }
   }
   const MORTA=0.15;
-  if(!stato.zoom){   // la distanza della volta
+  if(!stato.zoom){   // l'orizzonte del mare
     if(Math.abs(y)<MORTA){
-      if(distAtt){ distAtt=false; minutoMostrato=null;
-        try{ localStorage.setItem('sfera-vr-distanza',String(DIST)); }catch(e){}
-        diag('volta a '+raggioVolta()+' m','ok'); }
+      MARE.avvisato=false;
+      if(MARE.att){ MARE.att=false; minutoMostrato=null;
+        try{ localStorage.setItem('sfera-vr-mare',String(MARE.r)); }catch(e){}
+        diag('orizzonte del mare a '+testoMare(),'ok'); }
       return;
     }
-    distAtt=true;
+    if(!MARE.acceso){   // senza mare la levetta non ha niente da muovere: lo si dice, una volta
+      if(!MARE.avvisato){ MARE.avvisato=true; diag('la levetta muove l’orizzonte del mare: accendi «Mare»','warn'); }
+      return;
+    }
+    MARE.att=true;
     const f=(Math.abs(y)-MORTA)/(1-MORTA)*Math.sign(y);   // in avanti l'asse e' negativo: si allontana
-    impostaDistanza(DIST*Math.exp(-f*DIST_VEL*dt/1000));   // a fondo: da 32 a 400 metri in due secondi
+    impostaMare(MARE.r*Math.exp(-f*MARE_VEL*dt/1000));   // a fondo: da 30 m a 4,5 km in due secondi e mezzo
     if(performance.now()-oraScritta>200) minutoMostrato=null;
     return;
   }
@@ -1009,7 +1126,6 @@ function levetta(dt){
 const GLSL_ZOOM=`
 uniform float uZoomOn; uniform vec3 uZoomO; uniform mat4 uZoomL; uniform mat4 uZoomV;
 uniform vec3 uZoomRef; uniform float uZoomUsaRef; uniform float uZoomCresce;
-uniform float uZoomScala; uniform float uZoomPicc;
 vec3 zoomRuota(vec3 v, vec3 a, vec3 b){
   vec3 k = cross(a, b); float s = length(k); float c = dot(a, b);
   if (s < 1e-6) return v;
@@ -1028,7 +1144,7 @@ vec3 zoomRigido(vec3 p, vec3 rif){
   vec3 d = r / l;
   vec4 w = uZoomL * vec4(d, 1.0);
   vec3 d2 = normalize(w.xyz);
-  return uZoomO + l * d2 + zoomRuota(p - rif, d, d2) * pow(1.0 / w.w, uZoomCresce) * mix(1.0, uZoomScala, uZoomPicc);
+  return uZoomO + l * d2 + zoomRuota(p - rif, d, d2) * pow(1.0 / w.w, uZoomCresce);
 }
 `;
 const PROIETTA_ZOOM=`
@@ -1065,8 +1181,7 @@ const ANCORA_SPRITE='vec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.
 function preparaZoom(o){
   const m=o.material; if(!m||Array.isArray(m)||m.userData.zoom) return;
   const modo=o.isSprite?'scritta':o.userData.zoomAncora?'ancora':(o.isInstancedMesh||o.userData.zoomRigido)?'rigido':'punti';
-  const zu={uZoomRef:{value:new THREE.Vector3()}, uZoomUsaRef:{value:0}, uZoomCresce:{value:o.isInstancedMesh?0.25:0},
-            uZoomPicc:{value:(o.isInstancedMesh||o.userData.zoomPicc)?1:0}};   // si rimpicciolisce allontanando la volta
+  const zu={uZoomRef:{value:new THREE.Vector3()}, uZoomUsaRef:{value:0}, uZoomCresce:{value:o.isInstancedMesh?0.25:0}};
   m.userData.zoom=zu; m.userData.zoomModo=modo;
   m.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,ZU,zu);
@@ -1159,6 +1274,7 @@ function costruisciTastiera(){
     const m=creaTasto('',0,yb-0.078-i*0.056,larg,0.05,()=>scegliRisultatoVR(i),{sinistra:true});
     m.visible=false; tastiRis.push(m);
   }
+  inPrimoPiano(TASTIERA);
 }
 function aggiornaCampo(){
   riscriviTasto(campoLuogo, testoLuogo ? testoLuogo+'▏' : 'scrivi una città, o «lat lon»…',
@@ -1251,8 +1367,9 @@ async function entraVR(){
     calibrato=false;
     await renderer.xr.setSession(session);
     diag('renderer agganciato — il cielo dovrebbe esserci','ok');
-    impostaDistanza(distanzaRicordata());   // la volta alla distanza scelta l'ultima volta su questo visore
-    if(DIST!==1) diag('volta a '+raggioVolta()+' m (la levetta la sposta)');
+    impostaMare(mareRicordato());   // l'orizzonte alla distanza scelta l'ultima volta su questo visore
+    applicaMare();
+    if(MARE.acceso) diag('mare calmo, orizzonte a '+testoMare()+' (la levetta lo sposta)');
 
     if(!c0){ c0=makeController(0); c1=makeController(1); }
     enter.classList.add('small'); enter.textContent='◉ Esci';
@@ -1268,7 +1385,7 @@ async function entraVR(){
 }
 function sessioneFinita(){
   xrSession=null; calibrato=false; azzeraZoom();   // fuori dal visore la sfera si guarda da fuori: niente zoom
-  impostaDistanza(1); distAtt=false;               // e la volta torna alla sua misura
+  MARE.att=false; applicaMare(false);              // e niente mare: la volta torna a 32 metri
   enter.classList.remove('small'); enter.textContent='◉ Entra in VR';
   diag('sessione terminata');
 }
@@ -1298,6 +1415,7 @@ function calibra(frame){
 function applicaAltezza(){
   const aiPiedi = rifTipo==='local-floor' ? 0 : eyeY-1.6;   // senza pavimento lo si stima
   world.position.y = modoAltezza==='occhi' ? eyeY : aiPiedi;
+  MARE_MESH.position.y = aiPiedi;   // il mare sta ai piedi, in tutti e due i modi
   aggiornaPiano();   // il piano dell'orizzonte reale segue
   diag(modoAltezza==='occhi' ? 'occhi all’orizzonte (centro della sfera)'
                              : 'piedi all’orizzonte (in piedi sulla Terra)','ok');
@@ -1333,7 +1451,7 @@ function aggiornaOra(){
   minutoMostrato=chiave; oraScritta=ora;
   document.getElementById('sotto').textContent='φ '+coordTesto(LUOGO.lat,LUOGO.lng).split(' ')[0]+' '+
     LUOGO.nome+' · '+quandoTesto(t,true)+' · WebXR';
-  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false)+(DIST!==1?' · volta '+raggioVolta()+' m':'')+
+  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false)+(MARE.acceso?' · orizzonte '+testoMare():'')+
     (ZOOM.s!==1?' · zoom '+testoZoom():''));
 }
 
@@ -1381,6 +1499,7 @@ renderer.setAnimationLoop((time,frame)=>{
     aggiornaIndicazioni();
     if(stato.orizReale) for(const s of SPRITE_CIELO) s.visible=!sottoOrizzonte(s);
     aggiornaZoom();
+    aggiornaMare(ora);
     renderer.render(scene,camera);
   }catch(err){
     if(!erroreLoop){ erroreLoop=true; diag('ciclo: '+(err.message||err),'err'); }

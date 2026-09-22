@@ -38,13 +38,19 @@ In tutto 720 stelle e 657 lati di figura.
   nel vuoto, si stringe il **tasto laterale** del controller e si trascina a destra o a sinistra: il
   planetario intero (orizzonte, cardinali, cielo) segue il raggio, e rilasciato il tasto resta lì.
   Il cielo resta giusto rispetto al suo orizzonte; pannello e tastiera restano con chi guarda.
-- **Allontanare la volta** con la **levetta** del controller: in avanti si allontana, indietro si
-  avvicina, da 8 a 400 metri (si parte da 32; la misura scelta la ricorda il visore). **Nessun astro
-  si sposta**: la Polare resta dov'è, dietro chi guarda. Si rimpiccioliscono le cose disegnate sulla
-  volta — stelle, pianeti, Sole, la linea dell'orizzonte — come ogni cosa da cui ci si allontana, e i
-  due occhi la sentono più lontana; i nomi e i glifi restano leggibili. Il rimpicciolimento non è
-  quello fisico (a 400 m una stella di 5ª sparirebbe) ma dolce, distanza^−0,45: a 400 m le stelle
-  sono punti fini, a 8 m grandi il doppio. La distanza compare accanto all'ora.
+- **Il mare**: nel visore, col tasto **«Mare»** (acceso di partenza), si sta in piedi su un mare calmo
+  che arriva fino all'orizzonte. L'occhio misura la distanza dell'orizzonte dal suolo che ci arriva,
+  non dal cielo: il vecchio disco verde, liscio e finito a 32 metri, si leggeva come una piattaforma
+  rotonda. Il mare ha **increspature** nette vicino e sempre più minute lontano, un **riflesso** che a
+  sguardo radente si accende (Fresnel) e rimanda il chiarore basso del cielo, e la **foschia** che
+  mangia i chilometri. La volta va dietro il suo orizzonte, a 6 km, con tutto ciò che porta: **stesse
+  proporzioni, nessun astro spostato**, la Polare dov'è. Con l'orizzonte reale il mare è acqua vera e
+  nasconde ciò che non è sorto; senza, è un vetro scuro attraverso cui il cielo di sotto si vede.
+  Sul desktop il mare non c'è: la sfera si guarda da fuori.
+- **Allontanare l'orizzonte** con la **levetta** del controller: in avanti il bordo del mare si
+  allontana, indietro si avvicina, da 30 metri ai 4,5 km dell'orizzonte vero di chi sta in piedi sul
+  mare (si parte da lì; la misura scelta la ricorda il visore). Il cielo non si muove. La distanza
+  compare accanto all'ora.
 - **Lo zoom, come la rotella di Stellarium**, col tasto **«Zoom con la levetta»** acceso: in avanti il cielo
   attorno a quello che il raggio indica si ingrandisce (fino a 16×); indietro si restringe e nel
   visore entra più cielo di quanto il Quest ne mostri (fino a 0,35×: la metà di cielo che si ha davanti sta entro
@@ -56,7 +62,8 @@ In tutto 720 stelle e 657 lati di figura.
   deformata resta ferma nel mondo, così girando la testa ci si guarda attorno senza che il cielo
   scivoli davanti agli occhi. Le stelle si spostano ma non si gonfiano; nomi e glifi restano
   attaccati al loro astro. Lo zoom sposta le direzioni (la Polare può finire sopra la testa): per
-  questo sta dietro un tasto. Spegnendo il tasto, o con *Ricentra*, lo zoom si toglie.
+  questo sta dietro un tasto. Spegnendo il tasto, o con *Ricentra*, lo zoom si toglie. Mentre c'è
+  lo zoom il mare si toglie: il cielo si deforma, il mare no.
 - **Cambiando luogo** la vista si oscura, il cielo si gira nel buio e poi si riaccende.
 - **Il moto diurno** è tempo che scorre, a quattro velocità: 1 ora di cielo al minuto, in 20 s,
   in 7,5 s, in 3 s (da 0,25° a 5° al secondo). Sole e pianeti si ricollocano man mano.
