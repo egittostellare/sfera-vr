@@ -112,8 +112,8 @@
 <div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller, sul pannello si premono i tasti, nel cielo si leggono i nomi,
   e il grilletto seleziona. Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
-  La levetta fa lo zoom come la rotella di Stellarium: avanti ingrandisce quello che il raggio indica,
-  indietro fa entrare più cielo; a 1× c'è uno scatto.</div>
+  La levetta allontana (avanti) o avvicina (indietro) la volta, senza spostare nessun astro; col tasto
+  «Zoom con la levetta» acceso fa invece lo zoom come Stellarium.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -181,9 +181,8 @@ const scene=new THREE.Scene();
 // Tutto il cielo sta dentro "world": entrando in VR lo alziamo all'altezza
 // degli occhi, perche' l'osservatore dev'essere AL CENTRO della sfera.
 const world=new THREE.Group(); scene.add(world);
-// La grandezza della sfera: 1 = 8 metri di raggio; e' di 32. Ingrandirla dal centro non cambia nessun
-// angolo (e' stata provata con la levetta, e non si vedeva): serve solo a dare ai due occhi una volta
-// lontana. La levetta ora fa lo zoom (piu' sotto).
+// La grandezza della sfera: 1 = 8 metri di raggio; si parte da 32. Nel visore la levetta la allontana
+// o l'avvicina (impostaDistanza, piu' sotto), e allora cambia la scala di «world».
 const SCALA=4;
 world.scale.setScalar(SCALA);
 try{ localStorage.removeItem('sfera-vr-scala'); }catch(e){}   // la misura ricordata dalla prova di prima
@@ -298,7 +297,8 @@ function orientaCielo(){
   // sottile anche ingrandito (deformandolo tutto diventerebbe una fascia larga)
   { const p=rim.geometry.attributes.position, a=new Float32Array(p.count*3);
     for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), l=Math.hypot(x,y)||1; a[i*3]=x/l*R; a[i*3+1]=y/l*R; }
-    rim.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3)); rim.userData.zoomAncora=true; }
+    rim.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3));
+    rim.userData.zoomAncora=rim.userData.zoomPicc=true; }   // allontanando la volta la linea si assottiglia
   const mer=[];for(let i=0;i<=180;i++){const t=i/180*TAU;mer.push(new THREE.Vector3(0,Math.cos(t)*R,Math.sin(t)*R));}
   g.add(line(mer,0x8493bd,.30,1));
   [[new THREE.Vector3(1,0,0),'Est'],[new THREE.Vector3(-1,0,0),'Ovest'],
@@ -356,6 +356,7 @@ function cerchioDiurno(de){ const p=[]; for(let i=0;i<=240;i++)p.push(eqv(i/240*
   const glow=new THREE.Mesh(new THREE.SphereGeometry(0.42,20,20),
     new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); SOLE.mesh.add(glow);
   SOLE.mesh.userData.zoomRigido=glow.userData.zoomRigido=true;   // con lo zoom si sposta, non si gonfia
+  SOLE.mesh.userData.zoomPicc=glow.userData.zoomPicc=true;       // e allontanando la volta si fa piu' piccolo
   g.add(SOLE.mesh);
   // la scritta appena SOPRA il Sole, non dietro: visto dal centro starebbe coperta dal disco
   SOLE.et=label('Sole','#ffe6a0',0.55); g.add(SOLE.et);   // la colloca aggiornaGlifi, appena sopra il disco
@@ -465,7 +466,7 @@ if(A && CIELO){
   const gP=G('pianeti',sky);
   CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).forEach(p=>{
     const punto=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),new THREE.MeshBasicMaterial({color:p.c}));
-    punto.userData.zoomRigido=true; gP.add(punto);
+    punto.userData.zoomRigido=punto.userData.zoomPicc=true; gP.add(punto);
     const sp=spriteGlifo(p.g,p.c,0.42); gP.add(sp);
     sp.userData.zoomRef=v=>punto.getWorldPosition(v);   // con lo zoom il glifo resta sopra il suo punto
     PIANETI.push({en:PIANETI_EN[p.n], punto, sp});
@@ -635,12 +636,14 @@ function aggiornaIndicazioni(){
 // rispondeva «acceso». Il tasto tornava acceso senza riaccendere la linea: per questo le linee
 // si toglievano e non tornavano piu'.
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
-  pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false};
+  pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false};
 function imposta(k,on){
   stato[k]=on;
   if(groups[k]) groups[k].visible=on;
   if(k==='spin'){ spin=on; tPrec=null; }
   if(k==='orizReale') applicaOrizzonte(on);
+  if(k==='zoom'){ if(!on) azzeraZoom(); distAtt=false;
+    diag(on?'la levetta fa lo zoom (avanti ingrandisce, indietro più cielo)':'la levetta allontana e avvicina la volta'); }
   const dom=document.querySelector('#panel .row[data-k="'+k+'"]');
   if(dom) dom.classList.toggle('on',on);
   const b=BUTTONS.find(x=>x.k===k);
@@ -664,6 +667,7 @@ const BUTTONS=[
   {k:'orizReale', t:'Orizzonte reale', on:false, c:0x57d68f},
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
   {k:'velocita',t:'Velocità 1 · lenta', on:false, c:0xc8b06a, azione:true},
+  {k:'zoom',    t:'Zoom con la levetta', on:false, c:0x9fd0ff},   // spento: la levetta allontana la volta
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
@@ -873,9 +877,11 @@ function lascia(ctl){
   vibra(ctl,0.3,25);
   diag('orientamento fissato');
 }
-// ====================== lo zoom: la levetta ======================
+// ====================== lo zoom: la levetta, col tasto «Zoom con la levetta» ======================
 // Come la rotella di Stellarium: levetta in avanti, il cielo attorno a quello che il raggio indica si
 // ingrandisce; indietro, si restringe e nel visore entra piu' cielo di quanto il Quest ne mostri.
+// Sposta le direzioni (la Polare puo' finire sopra la testa): per questo sta dietro un tasto, e la
+// levetta, di suo, allontana la volta (sopra). Spegnendo il tasto lo zoom si toglie.
 // Ingrandire la sfera dal centro non si vedrebbe (gli angoli resterebbero quelli): lo zoom invece
 // CAMBIA GLI ANGOLI. La deformazione e' la «proiezione stereografica» di Stellarium portata sulla
 // volta: attorno al centro scelto gli angoli si moltiplicano per l'ingrandimento, all'opposto si
@@ -890,7 +896,30 @@ function lascia(ctl){
 const ZOOM={s:1, c:new THREE.Vector3(0,0,-1), su:null, att:false, fermo:false, ctl:null};   // c: nel sistema del planetario
 const ZOOM_MIN=0.35, ZOOM_MAX=16, ZOOM_VEL=1.2;   // a levetta piena: da 1× a 10× in due secondi
 const ZU={uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()}, uZoomL:{value:new THREE.Matrix4()},
-          uZoomV:{value:new THREE.Matrix4()}};
+          uZoomV:{value:new THREE.Matrix4()}, uZoomScala:{value:1}};
+
+// ====================== la distanza della volta: la levetta ======================
+// La levetta (a tasto «Zoom» spento) allontana o avvicina la volta SENZA spostare nessun astro: la
+// Polare resta dov'e', dietro chi guarda. Dal centro una volta piu' lontana ha lo stesso aspetto, se
+// ogni cosa cresce con lei (la prima prova: non si vedeva nulla). Qui invece crescono le distanze ma
+// non le cose disegnate sulla volta — stelle, pianeti, Sole, la linea dell'orizzonte — che quindi si
+// rimpiccioliscono, come ogni cosa da cui ci si allontana; e i due occhi la sentono piu' lontana. I
+// nomi e i glifi restano della loro misura, per restare leggibili. La misura non e' quella fisica
+// (a 400 metri una stella di 5ª sparirebbe): e' un rimpicciolimento dolce, distanza^−0,45, che a
+// 400 m da' punti fini di un paio di pixel e a 8 m stelle grandi il doppio. Si va da 8 a 400 metri,
+// si parte da 32, e la misura scelta la ricorda il visore.
+const DIST_MIN=0.25, DIST_MAX=12.5, DIST_VEL=1.3, PICC_K=0.45;   // in unita' di 32 metri
+let DIST=1, distAtt=false;
+function impostaDistanza(d){
+  DIST=Math.max(DIST_MIN,Math.min(DIST_MAX,d));
+  world.scale.setScalar(SCALA*DIST);
+  ZU.uZoomScala.value=Math.pow(DIST,-PICC_K);
+}
+const raggioVolta=()=>Math.round(R*SCALA*DIST);
+function distanzaRicordata(){
+  try{ const d=parseFloat(localStorage.getItem('sfera-vr-distanza')); if(d>=DIST_MIN&&d<=DIST_MAX) return d; }catch(e){}
+  return 1;
+}
 const _nZ=new THREE.Vector3(), _v4Z=new THREE.Vector4();
 // il boost lungo n che moltiplica per s gli angoli attorno a n: agisce su (direzione, 1)
 function matriceZoom(n,s,out){
@@ -902,10 +931,11 @@ function matriceZoom(n,s,out){
     sh*n.x,      sh*n.y,      sh*n.z,      ch);
 }
 function aggiornaZoom(){
-  const on=ZOOM.s!==1;
-  ZU.uZoomOn.value=on?1:0;
+  // lo shader lavora se c'e' uno zoom o se la volta non e' alla sua distanza di partenza
+  ZU.uZoomOn.value=(ZOOM.s!==1||DIST!==1)?1:0;
   ZU.uZoomO.value.copy(world.position);   // il centro della sfera, dove sta chi guarda
-  if(on) matriceZoom(_nZ.copy(ZOOM.c).applyQuaternion(world.quaternion), ZOOM.s, ZU.uZoomL.value);
+  if(ZOOM.s!==1) matriceZoom(_nZ.copy(ZOOM.c).applyQuaternion(world.quaternion), ZOOM.s, ZU.uZoomL.value);
+  else ZU.uZoomL.value.identity();
 }
 // dove si vede un punto della scena (la stessa formula dello shader, per il raggio e per le prove)
 function deforma(p,out){
@@ -927,7 +957,7 @@ function centraZoom(ctl){
   sky.updateWorldMatrix(true,false);
   if(b) _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
   else {   // nessun astro: il punto della volta dove arriva il raggio
-    const [o,d]=raggioDi(ctl), rel=o.clone().sub(O), bd=rel.dot(d), Rs=R*SCALA;
+    const [o,d]=raggioDi(ctl), rel=o.clone().sub(O), bd=rel.dot(d), Rs=R*world.scale.x;
     const t=-bd+Math.sqrt(Math.max(0,bd*bd-(rel.lengthSq()-Rs*Rs)));
     _w.copy(o).addScaledVector(d,t);
   }
@@ -942,6 +972,19 @@ function levetta(dt){
     const v=g.axes.length>=4?g.axes[3]:(g.axes[1]||0); if(Math.abs(v)>Math.abs(y)){ y=v; chi=c; }
   }
   const MORTA=0.15;
+  if(!stato.zoom){   // la distanza della volta
+    if(Math.abs(y)<MORTA){
+      if(distAtt){ distAtt=false; minutoMostrato=null;
+        try{ localStorage.setItem('sfera-vr-distanza',String(DIST)); }catch(e){}
+        diag('volta a '+raggioVolta()+' m','ok'); }
+      return;
+    }
+    distAtt=true;
+    const f=(Math.abs(y)-MORTA)/(1-MORTA)*Math.sign(y);   // in avanti l'asse e' negativo: si allontana
+    impostaDistanza(DIST*Math.exp(-f*DIST_VEL*dt/1000));   // a fondo: da 32 a 400 metri in due secondi
+    if(performance.now()-oraScritta>200) minutoMostrato=null;
+    return;
+  }
   if(Math.abs(y)<MORTA){
     if(ZOOM.att){ ZOOM.att=false; ZOOM.fermo=false; minutoMostrato=null;
       diag(ZOOM.s===1?'zoom: vista naturale (1×)':'zoom '+testoZoom()+(ZOOM.su?' su '+ZOOM.su:''),'ok'); }
@@ -966,6 +1009,7 @@ function levetta(dt){
 const GLSL_ZOOM=`
 uniform float uZoomOn; uniform vec3 uZoomO; uniform mat4 uZoomL; uniform mat4 uZoomV;
 uniform vec3 uZoomRef; uniform float uZoomUsaRef; uniform float uZoomCresce;
+uniform float uZoomScala; uniform float uZoomPicc;
 vec3 zoomRuota(vec3 v, vec3 a, vec3 b){
   vec3 k = cross(a, b); float s = length(k); float c = dot(a, b);
   if (s < 1e-6) return v;
@@ -984,7 +1028,7 @@ vec3 zoomRigido(vec3 p, vec3 rif){
   vec3 d = r / l;
   vec4 w = uZoomL * vec4(d, 1.0);
   vec3 d2 = normalize(w.xyz);
-  return uZoomO + l * d2 + zoomRuota(p - rif, d, d2) * pow(1.0 / w.w, uZoomCresce);
+  return uZoomO + l * d2 + zoomRuota(p - rif, d, d2) * pow(1.0 / w.w, uZoomCresce) * mix(1.0, uZoomScala, uZoomPicc);
 }
 `;
 const PROIETTA_ZOOM=`
@@ -1021,7 +1065,8 @@ const ANCORA_SPRITE='vec4 mvPosition = modelViewMatrix * vec4( 0.0, 0.0, 0.0, 1.
 function preparaZoom(o){
   const m=o.material; if(!m||Array.isArray(m)||m.userData.zoom) return;
   const modo=o.isSprite?'scritta':o.userData.zoomAncora?'ancora':(o.isInstancedMesh||o.userData.zoomRigido)?'rigido':'punti';
-  const zu={uZoomRef:{value:new THREE.Vector3()}, uZoomUsaRef:{value:0}, uZoomCresce:{value:o.isInstancedMesh?0.25:0}};
+  const zu={uZoomRef:{value:new THREE.Vector3()}, uZoomUsaRef:{value:0}, uZoomCresce:{value:o.isInstancedMesh?0.25:0},
+            uZoomPicc:{value:(o.isInstancedMesh||o.userData.zoomPicc)?1:0}};   // si rimpicciolisce allontanando la volta
   m.userData.zoom=zu; m.userData.zoomModo=modo;
   m.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,ZU,zu);
@@ -1206,6 +1251,8 @@ async function entraVR(){
     calibrato=false;
     await renderer.xr.setSession(session);
     diag('renderer agganciato — il cielo dovrebbe esserci','ok');
+    impostaDistanza(distanzaRicordata());   // la volta alla distanza scelta l'ultima volta su questo visore
+    if(DIST!==1) diag('volta a '+raggioVolta()+' m (la levetta la sposta)');
 
     if(!c0){ c0=makeController(0); c1=makeController(1); }
     enter.classList.add('small'); enter.textContent='◉ Esci';
@@ -1221,6 +1268,7 @@ async function entraVR(){
 }
 function sessioneFinita(){
   xrSession=null; calibrato=false; azzeraZoom();   // fuori dal visore la sfera si guarda da fuori: niente zoom
+  impostaDistanza(1); distAtt=false;               // e la volta torna alla sua misura
   enter.classList.remove('small'); enter.textContent='◉ Entra in VR';
   diag('sessione terminata');
 }
@@ -1285,7 +1333,8 @@ function aggiornaOra(){
   minutoMostrato=chiave; oraScritta=ora;
   document.getElementById('sotto').textContent='φ '+coordTesto(LUOGO.lat,LUOGO.lng).split(' ')[0]+' '+
     LUOGO.nome+' · '+quandoTesto(t,true)+' · WebXR';
-  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false)+(ZOOM.s!==1?' · zoom '+testoZoom():''));
+  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false)+(DIST!==1?' · volta '+raggioVolta()+' m':'')+
+    (ZOOM.s!==1?' · zoom '+testoZoom():''));
 }
 
 // lo zoom entra in ogni materiale del planetario (non nel pannello, nella tastiera, nei controller)

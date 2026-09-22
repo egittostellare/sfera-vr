@@ -38,7 +38,14 @@ In tutto 720 stelle e 657 lati di figura.
   nel vuoto, si stringe il **tasto laterale** del controller e si trascina a destra o a sinistra: il
   planetario intero (orizzonte, cardinali, cielo) segue il raggio, e rilasciato il tasto resta lì.
   Il cielo resta giusto rispetto al suo orizzonte; pannello e tastiera restano con chi guarda.
-- **Lo zoom, come la rotella di Stellarium**, con la **levetta** del controller: in avanti il cielo
+- **Allontanare la volta** con la **levetta** del controller: in avanti si allontana, indietro si
+  avvicina, da 8 a 400 metri (si parte da 32; la misura scelta la ricorda il visore). **Nessun astro
+  si sposta**: la Polare resta dov'è, dietro chi guarda. Si rimpiccioliscono le cose disegnate sulla
+  volta — stelle, pianeti, Sole, la linea dell'orizzonte — come ogni cosa da cui ci si allontana, e i
+  due occhi la sentono più lontana; i nomi e i glifi restano leggibili. Il rimpicciolimento non è
+  quello fisico (a 400 m una stella di 5ª sparirebbe) ma dolce, distanza^−0,45: a 400 m le stelle
+  sono punti fini, a 8 m grandi il doppio. La distanza compare accanto all'ora.
+- **Lo zoom, come la rotella di Stellarium**, col tasto **«Zoom con la levetta»** acceso: in avanti il cielo
   attorno a quello che il raggio indica si ingrandisce (fino a 16×); indietro si restringe e nel
   visore entra più cielo di quanto il Quest ne mostri (fino a 0,35×: la metà di cielo che si ha davanti sta entro
   39° dal centro). Tornando verso la vista naturale c'è uno **scatto a 1×**: ci si ferma lì, e si
@@ -48,7 +55,8 @@ In tutto 720 stelle e 657 lati di figura.
   (orizzonte, equatore, eclittica); nessuna stella passa dall'altra parte dell'orizzonte. La volta
   deformata resta ferma nel mondo, così girando la testa ci si guarda attorno senza che il cielo
   scivoli davanti agli occhi. Le stelle si spostano ma non si gonfiano; nomi e glifi restano
-  attaccati al loro astro. *Ricentra* toglie lo zoom. La sfera è di 32 metri.
+  attaccati al loro astro. Lo zoom sposta le direzioni (la Polare può finire sopra la testa): per
+  questo sta dietro un tasto. Spegnendo il tasto, o con *Ricentra*, lo zoom si toglie.
 - **Cambiando luogo** la vista si oscura, il cielo si gira nel buio e poi si riaccende.
 - **Il moto diurno** è tempo che scorre, a quattro velocità: 1 ora di cielo al minuto, in 20 s,
   in 7,5 s, in 3 s (da 0,25° a 5° al secondo). Sole e pianeti si ricollocano man mano.
