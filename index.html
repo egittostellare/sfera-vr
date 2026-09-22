@@ -116,9 +116,11 @@
   Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
   La <b>levetta</b> in avanti allarga il <b>grandangolo</b> (entra più cielo e tutto sembra più lontano);
   di traverso sposta il bordo del mare; col tasto «Zoom con la levetta» acceso fa invece lo zoom come
-  Stellarium. Il tasto <b>Lente</b> sceglie se la lente <b>segue lo sguardo</b> (sempre estesa, ma girando la
-  testa il cielo sembra storcersi) o è <b>ancorata</b> al cielo (girando la testa non si muove niente; si
-  ri-ancora dove guardi quando ti fermi, o col <b>tasto A</b>).</div>
+  Stellarium. Il tasto <b>Lente</b> sceglie fra cinque modi: <b>cede girando</b> (vale da fermi e si ritira
+  appena giri la testa), <b>solo periferia</b> (il centro resta esatto, si stringe l'anello esterno),
+  <b>segue lo sguardo</b>, <b>ancorata</b> e <b>ancorata · tasto A</b>. I tasti <b>Onda lunga</b> e <b>Quota</b> cambiano la
+  scala del mare: l'onda del mare aperto, e l'altezza dell'occhio (battigia, terrazza, ponte di nave),
+  che porta l'orizzonte da 4,5 a 19,6 km.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
   stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
 
@@ -194,8 +196,9 @@ const SCALA=4;
 world.scale.setScalar(SCALA);
 try{ localStorage.removeItem('sfera-vr-scala'); localStorage.removeItem('sfera-vr-distanza');
      localStorage.removeItem('sfera-vr-mare'); }catch(e){}   // le misure delle prove di prima
-// la camera vede fino a 20 km: col mare la volta sta a 6 km (three.js passa near e far anche al visore)
-const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,20000);
+// la camera vede fino a 60 km: col mare la volta sta dietro l'orizzonte, che dal ponte di una nave
+// e' a 20 km (three.js passa near e far anche al visore)
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.05,60000);
 scene.add(camera);   // nella scena, perche' il velo della dissolvenza le sta attaccato e deve seguire la testa
 camera.position.set(14,9,18);
 
@@ -500,6 +503,37 @@ function collocaPianeti(){
 world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
   new THREE.MeshBasicMaterial({color:0x0c1330,transparent:true,opacity:.28,side:THREE.BackSide,depthWrite:false})));
 
+// ====================== la lente: gli uniform e la formula ======================
+// La lente (il grandangolo) e' spiegata piu' sotto, dove sta la levetta. Qui stanno i suoi uniform —
+// che servono sia al cielo sia al mare, e sono gli STESSI oggetti, cosi' basta cambiarli in un posto —
+// e la sua formula in GLSL, che i due shader si dividono.
+const UG={uGrand:{value:1}, uGrandAsse:{value:new THREE.Vector3(0,0,-1)},
+          uGrandModo:{value:0}, uGrandCentro:{value:26*DEG}, uGrandW:{value:14*DEG}};
+const GLSL_GRANDANGOLO=`
+uniform float uGrand; uniform vec3 uGrandAsse; uniform float uGrandModo;
+uniform float uGrandCentro; uniform float uGrandW;
+vec3 grandangolo(vec3 p){
+  if ( uGrand == 1.0 ) return p;
+  float par = dot( p, uGrandAsse );
+  if ( uGrandModo < 0.5 )   // tutta la vista: e' una moltiplicazione, e le rette restano rette
+    return uGrandAsse * par + ( p - uGrandAsse * par ) * uGrand;
+  // solo la periferia: dentro il cono del centro non si tocca niente, e fuori si stringe dolcemente
+  // (la pendenza vale 1 sul bordo del cono, cosi' non si vede nessuna cucitura)
+  float r = length( p );
+  if ( r < 1e-6 ) return p;
+  vec3 d = p / r;
+  float c = clamp( dot( d, uGrandAsse ), -1.0, 1.0 );
+  float th = acos( c );
+  if ( th <= uGrandCentro ) return p;
+  float dd = th - uGrandCentro;
+  float th2 = uGrandCentro + uGrand * dd + ( 1.0 - uGrand ) * uGrandW * ( 1.0 - exp( - dd / uGrandW ) );
+  vec3 u = d - uGrandAsse * c;
+  float lu = length( u );
+  if ( lu < 1e-6 ) return p;
+  return ( uGrandAsse * cos( th2 ) + ( u / lu ) * sin( th2 ) ) * r;
+}
+`;
+
 // ====================== il mare ======================
 // L'autore: «quello che vedo ora e' perfetto ma e' claustrofobico; vorrei le proporzioni di ora,
 // allontanando l'orizzonte». L'occhio non misura l'orizzonte guardando il cielo — dal centro una volta
@@ -512,12 +546,25 @@ world.add(new THREE.Mesh(new THREE.SphereGeometry(R*.99,48,32),
 // sempre piu' minute lontano; il riflesso, che a sguardo radente si accende (Fresnel) e rimanda il
 // chiarore basso del cielo; la foschia, che mangia i chilometri. Sul desktop il mare non c'e': la
 // sfera si guarda da fuori.
-const MARE_MIN=30, MARE_MAX=4500, MARE_VEL=2.0, CIELO_MARE=6000;   // metri; col mare la volta sta a 6 km
-const MARE={r:MARE_MAX, att:false, acceso:false};
-// le increspature: direzione, lunghezza d'onda (metri), pendenza; corrono a meta' della velocita' del
-// mare vero, in cinque direzioni diverse, cosi' non trascinano lo sguardo da nessuna parte
-const ONDE=[[1,.3,3.1,.05],[-.4,1,1.9,.045],[.8,-.9,1.1,.04],[-1,-.2,.65,.035],[.2,1,5.3,.04]].map(([x,z,l,a])=>{
+const MARE_MIN=30, MARE_VEL=2.0;
+// LA QUOTA dell'occhio sul mare decide dove sta l'orizzonte: 3570·√h metri (curvatura della Terra).
+// Sulla battigia l'occhio e' a 1,6 m e l'orizzonte a 4,5 km; da una terrazza a 10 m e' a 11,3 km; da
+// un ponte di nave a 30 m a 19,6 km. Piu' in alto si sta, piu' la fascia di mare sotto l'orizzonte si
+// allarga e il suo digradare si legge: e' un indizio di distanza che non costa nessuna deformazione.
+const QUOTE=[{t:'battigia', h:1.6},{t:'terrazza', h:10},{t:'ponte di nave', h:30}];
+const orizzonteDi=h=>Math.round(3570*Math.sqrt(h));
+const MARE_LATO=20000;   // il piano del mare: 40 km di lato, ritagliato a cerchio nello shader
+const MARE={r:orizzonteDi(QUOTE[0].h), max:orizzonteDi(QUOTE[0].h), quota:0, att:false, acceso:false};
+const cieloDelMare=()=>Math.max(6000,Math.round(1.35*MARE.max));   // la volta sta dietro l'orizzonte
+// Le increspature: direzione, lunghezza d'onda (metri), pendenza; corrono a meta' della velocita' del
+// mare vero, in direzioni diverse, cosi' non trascinano lo sguardo da nessuna parte. Le prime cinque
+// sono le increspature (da 65 cm a 5 m); le ultime tre sono l'ONDA LUNGA del mare aperto (28, 60 e
+// 110 m, bassissime): senza di loro il cervello legge «stagno», e un orizzonte di stagno e' vicino
+// per definizione, qualunque cosa si faccia con gli angoli.
+const ONDE=[[1,.3,3.1,.05],[-.4,1,1.9,.045],[.8,-.9,1.1,.04],[-1,-.2,.65,.035],[.2,1,5.3,.04],
+            [.9,.2,28,.022],[-.3,1,60,.030],[.6,-.8,110,.025]].map(([x,z,l,a])=>{
   const n=Math.hypot(x,z), k=TAU/l; return {x:x/n, z:z/n, k, a, w:Math.sqrt(9.81*k)*0.5}; });
+const ONDE_CORTE=5;   // le prime cinque; le altre sono l'onda lunga, che ha il suo tasto
 // il chiarore basso del cielo: di notte, verso l'orizzonte, il cielo e' un poco piu' chiaro che in
 // alto; il mare lo riflette a sguardo radente, e cosi' la linea dell'orizzonte si vede. Una fascia
 // sulla volta (acceso il mare), che cala d'intensita' di e volte ogni 8 gradi d'altezza.
@@ -540,39 +587,37 @@ const BAGLIORE=(()=>{
 // fotogramma. I riquadri sono in numero DISPARI, cosi' sotto i piedi cade il centro di un riquadro e i
 // vertici piu' vicini stanno a 70 metri; e sono abbastanza piccoli da non chiedere alla scheda di
 // interpolare vicino ai piedi da vertici lontani chilometri (si perderebbe la precisione delle onde).
-const MARE_MESH=new THREE.Mesh(new THREE.PlaneGeometry(2*MARE_MAX,2*MARE_MAX,63,63), new THREE.ShaderMaterial({
-  uniforms:{uRaggio:{value:MARE.r}, uOpacita:{value:.6}, uGrand:{value:1},
-    uGrandAsse:{value:new THREE.Vector3(0,0,-1)},
+const MARE_MESH=new THREE.Mesh(new THREE.PlaneGeometry(2*MARE_LATO,2*MARE_LATO,63,63), new THREE.ShaderMaterial({
+  uniforms:Object.assign({uRaggio:{value:MARE.r}, uOpacita:{value:.6}, uOndaLunga:{value:1},
     uOnde:{value:ONDE.map(o=>new THREE.Vector4(o.x,o.z,o.k,o.a))}, uFasi:{value:ONDE.map(()=>0)},
-    uProf:{value:COL_PROF}, uCielo:{value:COL_CIELO}, uBagliore:{value:COL_BAGLIORE}},
+    uProf:{value:COL_PROF}, uCielo:{value:COL_CIELO}, uBagliore:{value:COL_BAGLIORE}}, UG),
   vertexShader:`
 varying vec3 vW;
-uniform float uGrand; uniform vec3 uGrandAsse;
+`+GLSL_GRANDANGOLO+`
 void main(){
   vec4 w = modelMatrix * vec4( position, 1.0 );
   vW = w.xyz;
   vec4 mv = viewMatrix * w;
-  if ( uGrand != 1.0 ) {       // il grandangolo, come per il cielo
-    float par = dot( mv.xyz, uGrandAsse );
-    mv.xyz = uGrandAsse * par + ( mv.xyz - uGrandAsse * par ) * uGrand;
-  }
+  mv.xyz = grandangolo( mv.xyz );   // la stessa lente del cielo
   gl_Position = projectionMatrix * mv;
 }`,
   fragmentShader:`
 varying vec3 vW;
-uniform float uRaggio; uniform float uOpacita;
-uniform vec4 uOnde[5]; uniform float uFasi[5];
+uniform float uRaggio; uniform float uOpacita; uniform float uOndaLunga;
+uniform vec4 uOnde[8]; uniform float uFasi[8];
 uniform vec3 uProf; uniform vec3 uCielo; uniform vec3 uBagliore;
 void main(){
   vec3 v = vW - cameraPosition;
   vec2 p = vW.xz;
-  // la pendenza della superficie: la somma delle increspature; quelle che in un pixel fanno piu' di
-  // mezza onda si spengono (sarebbero solo sfarfallio): lontano il mare si fa liscio da se'
+  // la pendenza della superficie: la somma delle onde; quelle che in un pixel fanno piu' di mezza
+  // onda si spengono (sarebbero solo sfarfallio): lontano il mare si fa liscio da se'. Le ultime tre
+  // sono l'onda lunga del mare aperto, che il suo tasto accende e spegne.
   vec2 g = vec2( 0.0 );
-  for ( int i = 0; i < 5; i ++ ) {
+  for ( int i = 0; i < 8; i ++ ) {
     float f = dot( p, uOnde[ i ].xy ) * uOnde[ i ].z - uFasi[ i ];
     float nitida = clamp( 1.0 - fwidth( f ) * 0.35, 0.0, 1.0 );
-    g += uOnde[ i ].xy * ( uOnde[ i ].w * cos( f ) * nitida );
+    float amp = uOnde[ i ].w * ( i < 5 ? 1.0 : uOndaLunga );
+    g += uOnde[ i ].xy * ( amp * cos( f ) * nitida );
   }
   vec3 n = normalize( vec3( - g.x, 1.0, - g.y ) );
   vec3 e = normalize( - v );
@@ -588,7 +633,10 @@ void main(){
   if ( length( p ) > uRaggio ) discard;
   gl_FragColor = vec4( col, uOpacita );
 }`,
-  transparent:true, depthWrite:false, extensions:{derivatives:true}}));
+  transparent:true, depthWrite:false, extensions:{derivatives:true},
+  // a venti chilometri il mare e la volta si contendono la profondita' (la linea dell'orizzonte si
+  // spezzava a tratti): il mare, che e' davanti, ha la precedenza scritta
+  polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4}));
 // si disegna dopo il cielo (che cosi' copre) e prima delle scritte del cielo, del pannello e della
 // tastiera, che gli stanno davanti: renderOrder 5, fra lo 0 del cielo e il 10 delle scritte
 MARE_MESH.rotation.x=-Math.PI/2; MARE_MESH.renderOrder=5; MARE_MESH.visible=false; MARE_MESH.frustumCulled=false;
@@ -596,16 +644,28 @@ MARE_MESH.rotation.x=-Math.PI/2; MARE_MESH.renderOrder=5; MARE_MESH.visible=fals
 MARE_MESH.onBeforeRender=(r,s,cam)=>asseVista(cam,MARE_MESH.material.uniforms.uGrandAsse.value);
 scene.add(MARE_MESH);
 function impostaMare(r){
-  MARE.r=Math.max(MARE_MIN,Math.min(MARE_MAX,r));
+  MARE.r=Math.max(MARE_MIN,Math.min(MARE.max,r));
   MARE_MESH.material.uniforms.uRaggio.value=MARE.r;
 }
+// la quota dell'occhio sul mare: cambia l'altezza del piano d'acqua e con essa l'orizzonte
+function impostaQuota(i){
+  MARE.quota=((i%QUOTE.length)+QUOTE.length)%QUOTE.length;
+  const q=QUOTE[MARE.quota];
+  MARE.max=orizzonteDi(q.h);
+  impostaMare(MARE.max);
+  const b=BUTTONS.find(x=>x.k==='quota');
+  if(b){ b.t='Quota: '+q.t; ridipingi(b); }
+  applicaAltezza();   // rimette il mare alla sua altezza sotto l'occhio
+  applicaMare();      // e la volta dietro il nuovo orizzonte
+}
+const testoQuota=()=>QUOTE[MARE.quota].t+' ('+QUOTE[MARE.quota].h.toString().replace('.',',')+' m) · orizzonte a '+(MARE.max/1000).toFixed(1).replace('.',',')+' km';
 
 const testoMare=()=>MARE.r>=1000?(MARE.r/1000).toFixed(1).replace('.',',')+' km':Math.round(MARE.r)+' m';
 // il mare e' acceso solo dentro il visore; acceso, la volta va a 6 km e il disco verde si toglie
 function applicaMare(presente){
   if(presente===undefined) presente=renderer.xr.isPresenting;
   MARE.acceso=!!(stato.mare&&presente);
-  world.scale.setScalar(MARE.acceso?CIELO_MARE/R:SCALA);
+  world.scale.setScalar(MARE.acceso?cieloDelMare()/R:SCALA);
   if(DISCO) DISCO.visible=!MARE.acceso;
   BAGLIORE.visible=MARE.acceso;
   // le scritte dei cardinali stanno a cavallo dell'orizzonte: il mare opaco ne taglierebbe la meta'
@@ -776,13 +836,16 @@ function aggiornaIndicazioni(){
 // rispondeva «acceso». Il tasto tornava acceso senza riaccendere la linea: per questo le linee
 // si toglievano e non tornavano piu'.
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
-  pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,mare:true};
+  pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,
+  mare:true,onda:true};
 function imposta(k,on){
   stato[k]=on;
   if(groups[k]) groups[k].visible=on;
   if(k==='spin'){ spin=on; tPrec=null; }
   if(k==='orizReale') applicaOrizzonte(on);
   if(k==='mare'){ applicaMare(); if(MARE.acceso) diag('mare calmo, orizzonte a '+testoMare()); }
+  if(k==='onda'){ MARE_MESH.material.uniforms.uOndaLunga.value=on?1:0;
+    diag(on?'onda lunga del mare aperto (28, 60 e 110 metri)':'solo le increspature: il mare di uno stagno'); }
   if(k==='zoom'){ if(!on) azzeraZoom(); MARE.att=false; GRAND.att=false;
     diag(on?'la levetta fa lo zoom (avanti ingrandisce, indietro più cielo)':'la levetta fa il grandangolo; di traverso, il bordo del mare'); }
   const dom=document.querySelector('#panel .row[data-k="'+k+'"]');
@@ -807,10 +870,12 @@ const BUTTONS=[
   {k:'linee',   t:'Linee',    on:true, c:0x8fa3d8},
   {k:'orizReale', t:'Orizzonte reale', on:false, c:0x57d68f},
   {k:'mare',    t:'Mare',     on:true, c:0x5b8fc0},
+  {k:'onda',    t:'Onda lunga', on:true, c:0x5b8fc0},
+  {k:'quota',   t:'Quota: battigia', on:false, c:0x5b8fc0, azione:true},
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
   {k:'velocita',t:'Velocità 1 · lenta', on:false, c:0xc8b06a, azione:true},
   {k:'zoom',    t:'Zoom con la levetta', on:false, c:0x9fd0ff},   // spento: la levetta muove l'orizzonte del mare
-  {k:'lente',   t:'Lente: ancorata', on:false, c:0x9fd0ff, azione:true},
+  {k:'lente',   t:'Lente: cede girando', on:false, c:0x9fd0ff, azione:true},
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
@@ -827,7 +892,7 @@ const INTERATTIVI=[];
 const CRUSCOTTO=[
   {nome:'CERCHI', tasti:['equator','ecliptic','frame','axis']},
   {nome:'ASTRI',  tasti:['planet','pianeti','stelle','costellazioni','linee']},
-  {nome:'TERRA',  tasti:['orizReale','mare','altezza']},
+  {nome:'TERRA',  tasti:['orizReale','mare','onda','quota','altezza']},
   {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo']},
   {nome:'TEMPO',  tasti:['spin','velocita']},
 ];
@@ -1030,6 +1095,7 @@ function toggleBtn(b){
     return;
   }
   if(b.k==='velocita'){ impostaVelocita((livVel+1)%VELOCITA.length); return; }
+  if(b.k==='quota'){ impostaQuota(MARE.quota+1); diag('quota: '+testoQuota()); return; }
   if(b.k==='luogo'){ if(TASTIERA.visible) chiudiTastiera(); else apriTastiera(); return; }
   if(b.k==='altezza'){
     modoAltezza = modoAltezza==='occhi' ? 'piedi' : 'occhi';
@@ -1171,9 +1237,8 @@ function lascia(ctl){
 // aver lasciato la levetta, puntando dove si vuole.
 const ZOOM={s:1, c:new THREE.Vector3(0,0,-1), su:null, att:false, fermo:false, ctl:null};   // c: nel sistema del planetario
 const ZOOM_MIN=0.35, ZOOM_MAX=16, ZOOM_VEL=1.2;   // a levetta piena: da 1× a 10× in due secondi
-const ZU={uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()}, uZoomL:{value:new THREE.Matrix4()},
-          uZoomV:{value:new THREE.Matrix4()}, uGrand:{value:1},
-          uGrandAsse:{value:new THREE.Vector3(0,0,-1)}};
+const ZU=Object.assign({uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()},
+          uZoomL:{value:new THREE.Matrix4()}, uZoomV:{value:new THREE.Matrix4()}}, UG);
 
 // ====================== il grandangolo: la levetta ======================
 // Nel visore si vede un campo di un centinaio di gradi, dove l'occhio nudo ne vede quasi duecento:
@@ -1202,17 +1267,38 @@ const ZU={uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()}, uZoomL:{value:n
 // non stanno insieme: se ne possono avere due. Qui si sceglie quali.
 const GRAND_MIN=0.40, GRAND_VEL=0.85;
 const GRAND_SOGLIA=22*DEG, GRAND_FERMA=10*DEG, GRAND_ATTESA=350;   // fuori di 22°, testa ferma per 350 ms
+// I cinque modi, da confrontare nel visore (tasto «Lente» del cruscotto):
+//   «cede girando»    — la lente vale solo da FERMI: appena la testa gira si ritira alla vista
+//      naturale in un paio di decimi, e quando ci si ferma torna. Girando non c'e' piu' niente da
+//      storcere. (Il mestiere contrario — restringere il campo MENTRE ci si muove — e' quello che in
+//      letteratura toglie la nausea, e si e' visto che i cambi fatti durante il movimento non si
+//      notano: e' il momento in cui l'occhio e' meno sensibile.)
+//   «solo periferia»  — il centro della vista (26°) resta ESATTO e immobile, e si stringe solo
+//      l'anello esterno: cosi' quello che si fissa non si deforma mai, e ai bordi entra piu' cielo.
+//      E' la stessa idea degli occhiali per la vista a cannocchiale, che mettono l'espansione in
+//      periferia per non confondere la visione centrale. Fuori dal cono le rette si incurvano un po':
+//      e' il prezzo, e non si puo' evitare (una lente che non tocca il centro non puo' essere lineare).
+//   «segue lo sguardo» — sempre estesa, ma la compressione si sposta con la testa: e' lo storcersi.
+//   «ancorata» / «ancorata · tasto A» — piantata nel cielo: girandosi non si muove nulla, ma la
+//      compressione resta dov'e'; si ri-ancora da se' quando la testa si ferma, o col tasto A.
 const MODI_LENTE=[
+  {k:'cedevole', t:'Lente: cede girando'},
+  {k:'periferia',t:'Lente: solo periferia'},
   {k:'sguardo',  t:'Lente: segue lo sguardo'},
   {k:'ancorata', t:'Lente: ancorata'},
   {k:'manuale',  t:'Lente: ancorata · tasto A'},
 ];
-const GRAND={s:1, att:false, modo:'ancorata', asse:new THREE.Vector3(0,0,-1),
+const GRAND={s:1, eff:1, att:false, modo:'cedevole', asse:new THREE.Vector3(0,0,-1),
              prec:new THREE.Vector3(0,0,-1), fermoDa:0};
+const GRAND_CEDE=[6*DEG,25*DEG];   // fra questi due gradi al secondo la lente si ritira
+function applicaGrand(){
+  UG.uGrand.value=GRAND.eff;                          // cielo e mare hanno gli stessi uniform
+  UG.uGrandModo.value=GRAND.modo==='periferia'?1:0;
+}
 function impostaGrand(s){
   GRAND.s=Math.max(GRAND_MIN,Math.min(1,s));
-  ZU.uGrand.value=GRAND.s;
-  MARE_MESH.material.uniforms.uGrand.value=GRAND.s;
+  GRAND.eff=GRAND.s;   // la levetta comanda subito; poi, nel modo cedevole, e' il movimento a ritirarla
+  applicaGrand();
 }
 const testoGrand=()=>GRAND.s.toFixed(2).replace('.',',')+'×';
 // l'asse della lente nelle coordinate della vista di quell'occhio (lo shader lavora li')
@@ -1228,17 +1314,31 @@ function ricentraLente(subito){
   if(GRAND.s===1 || subito){ GRAND.asse.copy(sguardoOra(_sguardo)); return; }
   battitoDiCiglia(()=>{ GRAND.asse.copy(sguardoOra(_sguardo)); });
 }
-// ogni fotogramma: dove sta l'asse della lente
+// ogni fotogramma: dove sta l'asse della lente, e quanta lente si applica davvero
 function aggiornaLente(dt){
   sguardoOra(_sguardo);   // fuori dal visore e' la camera del desktop: con la lente a 1× non fa nulla
-  if(GRAND.modo==='sguardo' || GRAND.s===1){ GRAND.asse.copy(_sguardo); GRAND.prec.copy(_sguardo); return; }
-  if(GRAND.modo!=='ancorata') return;               // «tasto A»: si ri-ancora solo quando lo chiede lui
   const velocita=dt>0?_sguardo.angleTo(GRAND.prec)/(dt/1000):0;
   GRAND.prec.copy(_sguardo);
-  if(_sguardo.angleTo(GRAND.asse)>GRAND_SOGLIA && velocita<GRAND_FERMA){
-    GRAND.fermoDa+=dt;
-    if(GRAND.fermoDa>=GRAND_ATTESA) ricentraLente();   // la testa si e' fermata altrove: la lente lo segue
-  } else GRAND.fermoDa=0;
+  let mira=GRAND.s;
+  if(GRAND.modo==='cedevole'){
+    // quanto la testa gira, tanto la lente si ritira: a 6°/s ancora tutta, a 25°/s vista naturale
+    const f=Math.min(1,Math.max(0,(velocita-GRAND_CEDE[0])/(GRAND_CEDE[1]-GRAND_CEDE[0])));
+    mira=1+(GRAND.s-1)*(1-f);
+    GRAND.asse.copy(_sguardo);
+  } else if(GRAND.modo==='sguardo' || GRAND.modo==='periferia' || GRAND.s===1){
+    GRAND.asse.copy(_sguardo);
+  } else if(GRAND.modo==='ancorata'){
+    if(_sguardo.angleTo(GRAND.asse)>GRAND_SOGLIA && velocita<GRAND_FERMA){
+      GRAND.fermoDa+=dt;
+      if(GRAND.fermoDa>=GRAND_ATTESA) ricentraLente();   // la testa si e' fermata altrove: la lente lo segue
+    } else GRAND.fermoDa=0;
+  }
+  // il grandangolo che si applica insegue quello voluto: si RITIRA in fretta (la testa ha gia'
+  // cominciato a girare, e li' non deve esserci piu' niente da storcere) e TORNA piano, che non si noti
+  const k=dt>0?Math.min(1,dt/(mira>GRAND.eff?70:420)):1;
+  GRAND.eff+=(mira-GRAND.eff)*k;
+  if(Math.abs(GRAND.eff-mira)<0.002) GRAND.eff=mira;
+  applicaGrand();
 }
 function grandRicordato(){
   try{ const s=parseFloat(localStorage.getItem('sfera-vr-grandangolo')); if(s>=GRAND_MIN&&s<=1) return s; }catch(e){}
@@ -1275,14 +1375,27 @@ const testoZoom=()=>(ZOOM.s>=10?String(Math.round(ZOOM.s)):ZOOM.s.toFixed(ZOOM.s
 const _occhioG=new THREE.Vector3(), _relG=new THREE.Vector3();
 function vista(p,out){
   out=deforma(p,out||new THREE.Vector3());
-  if(GRAND.s===1) return out;
+  const s=GRAND.eff;
+  if(s===1) return out;
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
   cam.getWorldPosition(_occhioG);
-  _relG.copy(out).sub(_occhioG);                      // la stessa moltiplicazione dello shader,
-  const par=_relG.dot(GRAND.asse);                    // qui attorno all'occhio, in coordinate del mondo
-  _relG.addScaledVector(GRAND.asse,-par).multiplyScalar(GRAND.s);
-  out.copy(_occhioG).addScaledVector(GRAND.asse,par).add(_relG);
-  return out;
+  _relG.copy(out).sub(_occhioG);   // la stessa formula dello shader, qui attorno all'occhio
+  const a=GRAND.asse, r=_relG.length();
+  if(r<1e-6) return out;
+  if(UG.uGrandModo.value<0.5){                        // tutta la vista
+    const par=_relG.dot(a);
+    _relG.addScaledVector(a,-par).multiplyScalar(s);
+    return out.copy(_occhioG).addScaledVector(a,par).add(_relG);
+  }
+  const c=Math.max(-1,Math.min(1,_relG.dot(a)/r)), th=Math.acos(c);   // solo la periferia
+  const th0=UG.uGrandCentro.value, w=UG.uGrandW.value;
+  if(th<=th0) return out;
+  const dd=th-th0, th2=th0+s*dd+(1-s)*w*(1-Math.exp(-dd/w));
+  _relG.addScaledVector(a,-c*r);
+  const lu=_relG.length();
+  if(lu<1e-6) return out;
+  _relG.multiplyScalar(Math.sin(th2)*r/lu);
+  return out.copy(_occhioG).addScaledVector(a,Math.cos(th2)*r).add(_relG);
 }
 function azzeraZoom(motivo){
   if(ZOOM.s===1 && !ZOOM.att) return;
@@ -1358,15 +1471,7 @@ function levetta(dt){
 const GLSL_ZOOM=`
 uniform float uZoomOn; uniform vec3 uZoomO; uniform mat4 uZoomL; uniform mat4 uZoomV;
 uniform vec3 uZoomRef; uniform float uZoomUsaRef; uniform float uZoomCresce;
-uniform float uGrand; uniform vec3 uGrandAsse;
-// il grandangolo: attorno all'asse della lente gli angoli si stringono di uGrand. E' una
-// moltiplicazione lineare, percio' le rette restano rette e i piani restano piani: l'orizzonte del
-// mare non si incurva mai. Con la lente «che segue lo sguardo» l'asse e' la direzione dell'occhio.
-vec3 grandangolo(vec3 p){
-  if (uGrand == 1.0) return p;
-  float par = dot(p, uGrandAsse);
-  return uGrandAsse * par + (p - uGrandAsse * par) * uGrand;
-}
+${GLSL_GRANDANGOLO}
 vec3 zoomRuota(vec3 v, vec3 a, vec3 b){
   vec3 k = cross(a, b); float s = length(k); float c = dot(a, b);
   if (s < 1e-6) return v;
@@ -1613,7 +1718,7 @@ async function entraVR(){
     calibrato=false;
     await renderer.xr.setSession(session);
     diag('renderer agganciato — il cielo dovrebbe esserci','ok');
-    impostaMare(MARE_MAX); applicaMare();   // il mare fino all'orizzonte vero
+    impostaMare(MARE.max); applicaMare();   // il mare fino all'orizzonte vero della quota
     impostaGrand(grandRicordato());          // il grandangolo scelto l'ultima volta su questo visore
     if(MARE.acceso) diag('mare calmo, orizzonte a '+testoMare());
     diag(GRAND.s===1?'levetta: avanti il grandangolo, di traverso il bordo del mare'
@@ -1633,7 +1738,7 @@ async function entraVR(){
 }
 function sessioneFinita(){
   xrSession=null; calibrato=false; azzeraZoom();   // fuori dal visore la sfera si guarda da fuori: niente zoom
-  MARE.att=false; GRAND.att=false; impostaGrand(1);   // niente grandangolo
+  MARE.att=false; GRAND.att=false; GRAND.eff=1; impostaGrand(1);   // niente grandangolo
   applicaMare(false);                                 // e niente mare: la volta torna a 32 metri
   enter.classList.remove('small'); enter.textContent='◉ Entra in VR';
   diag('sessione terminata');
@@ -1664,7 +1769,7 @@ function calibra(frame){
 function applicaAltezza(){
   const aiPiedi = rifTipo==='local-floor' ? 0 : eyeY-1.6;   // senza pavimento lo si stima
   world.position.y = modoAltezza==='occhi' ? eyeY : aiPiedi;
-  MARE_MESH.position.y = aiPiedi;   // il mare sta ai piedi, in tutti e due i modi
+  MARE_MESH.position.y = eyeY-QUOTE[MARE.quota].h;   // il pelo dell'acqua, sotto l'occhio della quota
   aggiornaPiano();   // il piano dell'orizzonte reale segue
   diag(modoAltezza==='occhi' ? 'occhi all’orizzonte (centro della sfera)'
                              : 'piedi all’orizzonte (in piedi sulla Terra)','ok');

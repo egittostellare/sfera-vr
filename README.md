@@ -70,11 +70,28 @@ In tutto 720 stelle e 657 lati di figura.
     (fuori di 22°, dopo un terzo di secondo), e il salto si nasconde dietro un **battito di ciglia**.
     Col **tasto A** del controller destro si ri-ancora subito.
   - *ancorata · tasto A*: come sopra, ma non si ri-ancora mai da sé: comanda solo il tasto A.
+  - *cede girando*: la lente vale **da fermi**. Appena la testa gira si ritira alla vista naturale in
+    sette centesimi di secondo, e quando ci si ferma torna piano (mezzo secondo buono, che non si
+    noti). Girando non c'è più niente da storcere. È il mestiere contrario di quello che in
+    letteratura toglie la nausea — restringere il campo *mentre* ci si muove — e si fonda sullo stesso
+    fatto: i cambi fatti durante il movimento non si notano.
+  - *solo periferia*: il centro della vista (26°) resta **esatto e immobile**, e si stringe solo
+    l'anello esterno: quello che si fissa non si deforma mai, e ai bordi entra più cielo. È l'idea
+    degli occhiali per la vista a cannocchiale, che mettono l'espansione in periferia per non
+    confondere la visione centrale. Fuori dal cono le rette si incurvano un poco: è il prezzo, e non
+    si può evitare (una lente che non tocca il centro non può essere lineare).
   NB: ancorando la lente in alto, l'orizzonte del mare si alza (a 20° di ancora e 0,5× si alza di
   9,7°); ancorata all'altezza degli occhi resta esattamente dov'è.
 - **Il bordo del mare** con la levetta **di traverso**: a destra si allontana, a sinistra si
-  avvicina, da 30 metri ai 4,5 km dell'orizzonte vero. Il cielo non si muove. Le due misure
+  avvicina, da 30 metri all'orizzonte vero della quota. Il cielo non si muove. Le due misure
   compaiono accanto all'ora.
+- **L'onda lunga e la quota**, due tasti che cambiano la *scala* del mare senza toccare nessun angolo:
+  - *Onda lunga*: sotto le increspature (da 65 cm a 5 m) corre l'onda del mare aperto, **28, 60 e
+    110 metri**, bassissima. Senza di lei il cervello legge «stagno», e l'orizzonte di uno stagno è
+    vicino per definizione, qualunque cosa si faccia con gli angoli.
+  - *Quota*: l'altezza dell'occhio sul mare — **battigia 1,6 m · terrazza 10 m · ponte di nave 30 m** —
+    e con essa la distanza dell'orizzonte, che è 3570·√h: **4,5 · 11,3 · 19,6 km**. Più in alto si sta,
+    più la fascia di mare si allarga e il suo digradare si legge.
 - **Lo zoom, come la rotella di Stellarium**, col tasto **«Zoom con la levetta»** acceso: in avanti il cielo
   attorno a quello che il raggio indica si ingrandisce (fino a 16×); indietro si restringe e nel
   visore entra più cielo di quanto il Quest ne mostri (fino a 0,35×: la metà di cielo che si ha davanti sta entro
