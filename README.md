@@ -47,10 +47,20 @@ In tutto 720 stelle e 657 lati di figura.
   proporzioni, nessun astro spostato**, la Polare dov'è. Con l'orizzonte reale il mare è acqua vera e
   nasconde ciò che non è sorto; senza, è un vetro scuro attraverso cui il cielo di sotto si vede.
   Sul desktop il mare non c'è: la sfera si guarda da fuori.
-- **Allontanare l'orizzonte** con la **levetta** del controller: in avanti il bordo del mare si
-  allontana, indietro si avvicina, da 30 metri ai 4,5 km dell'orizzonte vero di chi sta in piedi sul
-  mare (si parte da lì; la misura scelta la ricorda il visore). Il cielo non si muove. La distanza
-  compare accanto all'ora.
+- **Il grandangolo**, con la **levetta** in avanti (indietro si torna alla vista naturale; la misura
+  scelta la ricorda il visore). Nel visore si vede un campo di un centinaio di gradi, dove l'occhio
+  nudo ne vede quasi duecento, e le lenti tengono la messa a fuoco ferma a un metro e mezzo: per
+  questo tutto sembra più vicino che all'aperto. Il grandangolo stringe gli angoli attorno alla
+  direzione in cui si guarda — come allargare la maschera — e nella vista entra più cielo: tutto
+  sembra più lontano. È l'**unico** rimpicciolimento che non storce il cielo: rimpicciolire gli
+  angoli tenendo il cielo fermo non si può (una sfera non si restringe dentro se stessa, e se le
+  stelle davanti si stringono quelle dietro devono venire avanti — è lo zoom, che porta la Polare
+  sopra la testa). La lente invece **segue lo sguardo**: le proporzioni restano, l'orizzonte resta
+  dritto, e la Polare resta dietro — per vederla ci si gira, e quando la si guarda è al suo posto.
+  Il prezzo: girando la testa il cielo scorre un po' più piano di lei. Da 1× a 0,40×.
+- **Il bordo del mare** con la levetta **di traverso**: a destra si allontana, a sinistra si
+  avvicina, da 30 metri ai 4,5 km dell'orizzonte vero. Il cielo non si muove. Le due misure
+  compaiono accanto all'ora.
 - **Lo zoom, come la rotella di Stellarium**, col tasto **«Zoom con la levetta»** acceso: in avanti il cielo
   attorno a quello che il raggio indica si ingrandisce (fino a 16×); indietro si restringe e nel
   visore entra più cielo di quanto il Quest ne mostri (fino a 0,35×: la metà di cielo che si ha davanti sta entro
@@ -69,7 +79,13 @@ In tutto 720 stelle e 657 lati di figura.
   in 7,5 s, in 3 s (da 0,25° a 5° al secondo). Sole e pianeti si ricollocano man mano.
 - **L'orizzonte reale**: quello che non è ancora sorto non si vede (orizzonte geometrico).
 - **Puntare**: col raggio del controller (o col mouse) compare il nome della stella o del pianeta;
-  col grilletto (o col clic) lo si seleziona, con un anello e la sua scheda.
+  col grilletto (o col clic) lo si seleziona, con un anello e la sua scheda. Nel visore il raggio
+  arriva **fino alla volta** e ci posa un **mirino**, un cerchietto vuoto sempre largo un grado: col
+  grandangolo si posa dove la stella **si vede**, non dove sta.
+- **Il cruscotto**: i tasti stanno tutti in una tastiera rettangolare divisa per sezioni (cerchi,
+  astri, terra, vista, tempo), col quadro dell'ora e il diario di bordo in alto. Il **tasto B** del
+  controller destro lo manda via e lo richiama, sempre davanti a dove si sta guardando.
+  (Misure e colori sono provvisori: la pulsantiera definitiva la disegna l'autore.)
 - Interruttori per equatore, eclittica, orizzonte, asse, Sole, pianeti, stelle di Regulus,
   stelle delle costellazioni e **linee delle costellazioni**, ognuno per conto suo.
 
