@@ -126,7 +126,11 @@
 <div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller si premono i tasti del cruscotto, nel cielo si leggono i nomi,
   e il grilletto seleziona. Il <b>tasto B</b> manda via il cruscotto e lo richiama davanti allo sguardo.
-  Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
+  Per girare il planetario: raggio nel vuoto, stringi il tasto laterale <b>destro</b> e trascina di lato.
+  Col tasto laterale <b>sinistro</b> lo fai scorrere in <b>altitudine</b>: si corica nel piano verticale in cui
+  punti, fino a novanta gradi, e lo zenit ti scende all'altezza degli occhi. Mentre è coricato il mare
+  si toglie (non gira col cielo, e mostrerebbe sopra l'acqua stelle non sorte); raddrizzando torna, e
+  il tasto <b>Ricentra</b> raddrizza.
   Il tasto <b>Elementi ›</b> (accanto a «Pianeti») apre a destra l'ala col sottomenu: ci stanno tutti gli
   <b>elementi celesti</b> di Regulus — i dieci pianeti uno per uno, i nodi e le absidi (veri e medi), i
   quattro angoli col Vertex, le quattro Sorti e le cinque parti planetarie. Sono gradi dello zodiaco, e
@@ -954,7 +958,9 @@ function trasparenzaMare(){
   m.uniforms.uOpacita.value=reale?1:.6; m.depthWrite=reale;
 }
 function aggiornaMare(ora){
-  MARE_MESH.visible=MARE.acceso&&ZOOM.s===1;   // con lo zoom il cielo si deforma e il mare no: si toglie
+  // col zoom il cielo si deforma e il mare no; coricata la sfera, il mare non la segue (sta nella
+  // scena) e mostrerebbe sopra l'acqua stelle non sorte: nei due casi si toglie
+  MARE_MESH.visible=MARE.acceso&&ZOOM.s===1&&!inclinata();
   if(!MARE_MESH.visible) return;
   const t=ora/1000, f=MARE_MESH.material.uniforms.uFasi.value;
   for(let i=0;i<ONDE.length;i++) f[i]=(ONDE[i].w*t)%TAU;   // la fase qui, in doppia precisione
@@ -989,7 +995,13 @@ collocaPianeti();
 // L'orizzonte e' quello geometrico: lo stesso «sorgere» di Regulus.
 renderer.localClippingEnabled=true;
 const PIANO=new THREE.Plane(new THREE.Vector3(0,1,0),0);
-function aggiornaPiano(){ PIANO.constant=-world.position.y; }
+// Il piano segue l'orientamento della sfera: coricandola, l'orizzonte che taglia e' quello DEL
+// PLANETARIO (il suo cerchio verde), non quello della stanza.
+const _nPiano=new THREE.Vector3();
+function aggiornaPiano(){
+  _nPiano.set(0,1,0).applyQuaternion(world.quaternion);
+  PIANO.normal.copy(_nPiano); PIANO.constant=-_nPiano.dot(world.position);
+}
 function applicaOrizzonte(on){
   sky.traverse(o=>{ if(o.material && !o.isSprite){ o.material.clippingPlanes=on?[PIANO]:null; o.material.needsUpdate=true; } });
   if(DISCO) DISCO.material.opacity=on?.42:.16;   // il piano dell'orizzonte si fa terra
@@ -998,7 +1010,7 @@ function applicaOrizzonte(on){
   diag(on?'orizzonte reale: quello che non è sorto non si vede':'orizzonte trasparente');
 }
 const _w=new THREE.Vector3();
-const sottoOrizzonte=o=>{ o.getWorldPosition(_w); return _w.y<world.position.y; };
+const sottoOrizzonte=o=>{ o.getWorldPosition(_w); return PIANO.distanceToPoint(_w)<0; };
 const SPRITE_CIELO=[]; sky.traverse(o=>{ if(o.isSprite) SPRITE_CIELO.push(o); });   // glifi, «Sole», «Polo»
 
 // ====================== puntare: il nome al passaggio, la selezione al clic ======================
@@ -1022,7 +1034,7 @@ function puntatoDaRaggio(origine,direzione){
     _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
     const ang=direzione.angleTo(vista(_w,_v).sub(origine))/DEG;
     if(ang>1.8) continue;
-    if(stato.orizReale && _w.y<world.position.y) continue;
+    if(stato.orizReale && PIANO.distanceToPoint(_w)<0) continue;
     const p=ang-(b.tipo==='pianeta'?0.6:0.12*(5-b.m));   // a parita', vince la piu' luminosa
     if(p<punteggio){ punteggio=p; meglio=b; }
   }
@@ -1034,7 +1046,7 @@ function puntatoDaSchermo(mx,my){   // sul desktop: il bersaglio piu' vicino al 
   for(const b of BERSAGLI){
     if(!visibile(b)) continue;
     _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
-    if(stato.orizReale && _w.y<world.position.y) continue;
+    if(stato.orizReale && PIANO.distanceToPoint(_w)<0) continue;
     vista(_w,_v).project(camera); if(_v.z>1||_v.z<-1) continue;
     const sx=(_v.x+1)/2*innerWidth, sy=(1-_v.y)/2*innerHeight;
     const d=(sx-mx)**2+(sy-my)**2-(b.tipo==='pianeta'?40:(5-b.m)*6);
@@ -1548,7 +1560,7 @@ function impostaVelocita(i){
   diag('velocità '+(i+1)+': '+VELOCITA[i].d);
 }
 function toggleBtn(b){
-  if(b.k==='recenter'){ calibrato=false; azzeraZoom('ricentro'); diag('ricentro…'); return; }
+  if(b.k==='recenter'){ calibrato=false; azzeraZoom('ricentro'); const dritta=raddrizza(); diag('ricentro…'+(dritta?' e sfera raddrizzata':'')); return; }
   if(b.k==='elementi'){ apriAletta(!alettaAperta); return; }
   if(b.k==='lente'){   // due soli modi: vista normale · lente solo in periferia
     const i=MODI_LENTE.findIndex(m=>m.k===GRAND.modo);
@@ -1667,21 +1679,63 @@ function aggiornaVelo(ora){
 // destra o a sinistra — il planetario intero (orizzonte, cardinali, cielo) segue il raggio; rilasciato
 // il tasto, resta dov'e'. Gira attorno alla verticale: il cielo resta giusto rispetto al suo orizzonte.
 // Pannello e tastiera non girano: stanno con chi guarda.
-let presa=null;   // {ctl, psi0, yaw0}
+// LA MANO SINISTRA INCLINA. Il tasto laterale destro gira il planetario sull'azimut (sopra); quello
+// SINISTRO lo fa scorrere in ALTITUDINE, cioe' lo corica nel piano verticale in cui si sta puntando:
+// il punto afferrato segue il raggio anche in su e in giu', e cosi' lo zenit si porta all'altezza
+// degli occhi senza doversi spezzare il collo. Si ferma a 90°, che bastano: con novanta gradi di
+// inclinazione ogni punto della sfera — zenit e nadir compresi — si puo' portare all'orizzonte.
+// L'orientamento e' UNA sola verita': world.quaternion = inclinazione (in coordinate di scena) per
+// giro (attorno alla verticale della sfera). Il piano dell'orizzonte reale segue l'inclinazione,
+// perche' e' l'orizzonte DELLA SFERA, non quello della stanza.
+// Mentre la sfera e' coricata IL MARE SI TOGLIE, come gia' fa con lo zoom: il mare non gira col
+// cielo (sta nella scena, non nel planetario) e lasciarlo li' vorrebbe dire mostrare sopra l'acqua
+// stelle che non sono sorte. Raddrizzando, il mare torna da se'. «Ricentra» raddrizza.
+const SU=new THREE.Vector3(0,1,0);
+const ORIENT={yaw:0, tilt:new THREE.Quaternion()};
+const TILT_MAX=Math.PI/2;
+const _qY=new THREE.Quaternion(), _qD=new THREE.Quaternion(), _qT=new THREE.Quaternion();
+const _up=new THREE.Vector3();
+function applicaOrientamento(){
+  world.quaternion.copy(ORIENT.tilt).multiply(_qY.setFromAxisAngle(SU,ORIENT.yaw));
+  world.updateMatrixWorld(true);
+  aggiornaPiano();
+}
+// quanto la sfera e' coricata: l'angolo fra il suo zenit e la verticale vera
+function inclinazione(){ return _up.set(0,1,0).applyQuaternion(ORIENT.tilt).angleTo(SU); }
+const inclinata=()=>inclinazione()>0.004;     // sotto un quarto di grado non e' inclinata
+function raddrizza(){ if(!inclinata()) return false; ORIENT.tilt.identity(); applicaOrientamento(); return true; }
+
+let presa=null;   // {ctl, modo:'azimut'|'altezza', …}
 const azimutRaggio=d=>Math.atan2(d.x,d.z);
+const altezzaRaggio=d=>Math.asin(Math.max(-1,Math.min(1,d.y/(d.length()||1))));
 function prendi(ctl){
   if(hitTest(ctl)) return;                                   // sul pannello o sulla tastiera si premono tasti
-  const [,d]=raggioDi(ctl); if(Math.hypot(d.x,d.z)<0.25) return;   // dritto in su o in giu': nessun verso
-  presa={ctl, psi0:azimutRaggio(d), yaw0:world.rotation.y};
+  const [,d]=raggioDi(ctl);
+  const mano=ctl.userData.src&&ctl.userData.src.handedness;
+  // Dritto in su o in giu' il raggio non ha AZIMUT: la mano destra li' non afferra nulla. Per
+  // l'ALTITUDINE invece va benissimo, e serve: e' proprio puntando in alto che si corica la sfera.
+  // Basta che l'asse non sia degenere, cioe' che il raggio non sia esattamente verticale.
+  if(Math.hypot(d.x,d.z) < (mano==='left'?0.02:0.25)) return;
+  if(mano==='left'){
+    // l'asse dell'inclinazione: orizzontale, di traverso al raggio. Cosi' il punto afferrato sale e
+    // scende col raggio invece di scappare di lato.
+    presa={ctl, modo:'altezza', el0:altezzaRaggio(d), q0:ORIENT.tilt.clone(),
+           asse:new THREE.Vector3().crossVectors(d,SU).normalize()};
+  } else {
+    presa={ctl, modo:'azimut', psi0:azimutRaggio(d), yaw0:ORIENT.yaw};
+  }
   ctl.userData.ray.material.color.set(0xe3c169); ctl.userData.ray.material.opacity=.8;
   vibra(ctl,0.5,40);
 }
 function lascia(ctl){
   if(!presa||presa.ctl!==ctl) return;
+  const modo=presa.modo;
   presa=null;
   ctl.userData.ray.material.color.set(0xffffff); ctl.userData.ray.material.opacity=.4;
   vibra(ctl,0.3,25);
-  diag('orientamento fissato');
+  diag(modo==='altezza'
+    ? 'sfera coricata di '+(inclinazione()/DEG).toFixed(0)+'° ('+(inclinata()?'il mare torna raddrizzando, o col tasto «Ricentra»':'dritta')+')'
+    : 'orientamento fissato');
 }
 // ====================== lo zoom: la levetta, col tasto «Zoom con la levetta» ======================
 // Come la rotella di Stellarium: levetta in avanti, il cielo attorno a quello che il raggio indica si
@@ -1993,8 +2047,17 @@ function zoomPrimaDi(r,s,cam,geo,mat){
 
 function aggiornaPresa(){
   if(!presa) return;
-  const [,d]=raggioDi(presa.ctl); if(Math.hypot(d.x,d.z)<0.25) return;
-  world.rotation.y=presa.yaw0+(azimutRaggio(d)-presa.psi0);  // il punto afferrato segue il raggio
+  const [,d]=raggioDi(presa.ctl);
+  if(presa.modo!=='altezza' && Math.hypot(d.x,d.z)<0.25) return;   // l'azimut, li', non c'e'
+  if(presa.modo==='altezza'){
+    _qD.setFromAxisAngle(presa.asse, altezzaRaggio(d)-presa.el0);
+    _qT.multiplyQuaternions(_qD,presa.q0);
+    _up.set(0,1,0).applyQuaternion(_qT);
+    if(_up.angleTo(SU)<=TILT_MAX+1e-6) ORIENT.tilt.copy(_qT);   // oltre i novanta gradi non si corica
+  } else {
+    ORIENT.yaw=presa.yaw0+(azimutRaggio(d)-presa.psi0);         // il punto afferrato segue il raggio
+  }
+  applicaOrientamento();
 }
 
 // ====================== la tastiera nel visore ======================
