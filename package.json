@@ -4,7 +4,8 @@
   "description": "Sfera locale VR — planetario astrologico (WebXR). La pagina non ha dipendenze: questo file serve solo al generatore dei dati.",
   "type": "module",
   "scripts": {
-    "genera-cielo": "node scripts/genera-cielo.mjs"
+    "genera-cielo": "node scripts/genera-cielo.mjs",
+    "scarica-pianeti": "node scripts/scarica-pianeti.mjs"
   },
   "volta": {
     "node": "22.23.1"

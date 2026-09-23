@@ -140,6 +140,12 @@
   <b>elementi celesti</b> di Regulus — i dieci pianeti uno per uno, i nodi e le absidi (veri e medi), i
   quattro angoli col Vertex, le quattro Sorti e le cinque parti planetarie. Sono gradi dello zodiaco, e
   compaiono sull'eclittica: l'<b>Ascendente</b> resta appeso all'orizzonte a oriente mentre il cielo gira.
+  Ogni pianeta è un <b>globo vero</b>, con la sua mappa avvolta sopra e <b>illuminato dal Sole</b>: la luce
+  arriva dalla direzione in cui, da quel pianeta, il Sole si trova davvero — perciò Venere e Mercurio
+  mostrano la falce e la Luna la fase che ha quella sera. È orientato come il corpo vero (polo e
+  meridiano d'origine da astronomy-engine), così Urano sta coricato e l'anello di Saturno si apre e si
+  chiude con gli anni. Sulla volta un pianeta è largo due terzi di grado: per vedergli la faccia,
+  accendi lo <b>Zoom con la levetta</b> — i dischi si ingrandiscono col campo, le stelle no.
   I tasti <b>Azimut</b>, <b>Meridiano</b>, <b>Primo verticale</b>, <b>Zodiaco</b> e <b>Latitudini</b> graduano l'orizzonte,
   mostrano i due grandi cerchi della sfera locale (verde e giallo cupo), dividono l'eclittica nei
   dodici segni e tracciano i diciannove fili delle latitudini eclittiche.
@@ -155,7 +161,9 @@
   scala del mare: l'onda del mare aperto, e l'altezza dell'occhio (battigia, terrazza, ponte di nave),
   che porta l'orizzonte da 4,5 a 19,6 km.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
-  stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris</div>
+  stelle: Yale Bright Star Catalogue · pianeti: astronomy-engine (MIT) · le stelle di Regulus: Swiss Ephemeris ·
+  facce dei pianeti: <a href="https://www.solarsystemscope.com/textures/">Solar System Scope</a> (CC BY 4.0),
+  Plutone NASA / JHU APL / SwRI (pubblico dominio)</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
@@ -596,15 +604,59 @@ function aggiornaGlifi(){
   _dG.copy(SOLE.mesh.position).normalize();
   SOLE.et.position.copy(SOLE.mesh.position).addScaledVector(tangenteSu(_dG,_suV),0.72);
 }
+// ====================== i globi: la faccia vera dei pianeti ======================
+// Ogni pianeta non e' un dischetto colorato ma un GLOBO, con la sua mappa avvolta sopra e
+// ILLUMINATO DAL SOLE VERO: la luce arriva dalla direzione in cui, da quel pianeta, il Sole si
+// trova davvero — percio' Venere e Mercurio mostrano la falce, Marte il suo quartiere, e la Luna la
+// fase che ha quella sera. Non e' un effetto: e' la stessa geometria che fa le fasi in cielo.
+// Le mappe (pianeti/, 0,55 MB in tutto) si scaricano DOPO che la pagina e' in piedi: finche' non
+// arrivano il pianeta e' il dischetto del suo colore, come prima.
+// Il globo e' orientato come il corpo vero — polo e meridiano d'origine vengono da
+// astronomy-engine (RotationAxis) — percio' Urano sta coricato e l'anello di Saturno si apre e si
+// chiude con gli anni, come si vede al telescopio.
+const TEX_PIANETI={Mercurio:'mercurio', Venere:'venere', Luna:'luna', Marte:'marte', Giove:'giove',
+  Saturno:'saturno', Urano:'urano', Nettuno:'nettuno', Plutone:'plutone'};
+const NOTTE=0.06;   // quanto resta acceso il lato in ombra: a zero il pianeta si mangerebbe un pezzo
+// L'anello di Saturno: dal bordo interno del C (1,24 raggi) al bordo esterno dell'A (2,27).
+const AN_DENTRO=1.24, AN_FUORI=2.27;
+const RAGGIO_PIANETA=0.045;
 if(A && CIELO){
   const gP=G('pianeti',sky);
+  const caricaTex=(nome,mat,extra)=>{
+    const f=TEX_PIANETI[nome]; if(!f) return;
+    new THREE.TextureLoader().load('pianeti/'+f+'.jpg',t=>{
+      t.anisotropy=4; mat.map=t; mat.color.set(0xffffff); mat.needsUpdate=true;
+      if(extra) extra();
+    },undefined,()=>diag('la faccia di '+nome+' non è arrivata: resta il dischetto','warn'));
+  };
   CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).forEach(p=>{
     const gp=G('el-'+p.n,gP);   // un gruppo per pianeta: dal sottomenu si accendono uno per uno
-    const punto=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),new THREE.MeshBasicMaterial({color:p.c}));
-    punto.userData.zoomRigido=true; gp.add(punto);
+    const mat=new THREE.MeshBasicMaterial({color:p.c});
+    const punto=new THREE.Mesh(new THREE.SphereGeometry(RAGGIO_PIANETA,40,24),mat);
+    punto.userData.zoomRigido=true;
+    punto.userData.sole={value:new THREE.Vector3(0,0,1)};   // la direzione del Sole, per lo shader
+    gp.add(punto);
+    caricaTex(p.n,mat);
+    if(p.n==='Saturno'){
+      // l'anello: un nastro piatto nel piano dell'equatore del pianeta, che percio' si apre e si
+      // chiude da se'. Ritagliato col taglio dell'alfa invece che trasparente, cosi' si ordina in
+      // profondita' col globo: la meta' davanti copre, quella dietro passa sotto.
+      const gan=new THREE.RingGeometry(RAGGIO_PIANETA*AN_DENTRO,RAGGIO_PIANETA*AN_FUORI,128,1);
+      const pos=gan.attributes.position, uv=gan.attributes.uv;
+      for(let i=0;i<pos.count;i++){
+        const r=Math.hypot(pos.getX(i),pos.getY(i));
+        uv.setXY(i,(r-RAGGIO_PIANETA*AN_DENTRO)/(RAGGIO_PIANETA*(AN_FUORI-AN_DENTRO)),0.5);
+      }
+      gan.rotateX(-Math.PI/2);   // dal piano del disegno al piano dell'equatore
+      const man=new THREE.MeshBasicMaterial({side:THREE.DoubleSide,alphaTest:0.5,transparent:false});
+      const anello=new THREE.Mesh(gan,man);
+      anello.userData.zoomRigido=true; punto.add(anello);
+      new THREE.TextureLoader().load('pianeti/anello-saturno.png',t=>{ t.anisotropy=4; man.map=t; man.needsUpdate=true; },
+        undefined,()=>diag('l’anello di Saturno non è arrivato','warn'));
+    }
     const sp=spriteGlifo(p.g,p.c,0.42); gp.add(sp);
     sp.userData.zoomRef=v=>punto.getWorldPosition(v);   // con lo zoom il glifo resta sopra il suo punto
-    PIANETI.push({en:PIANETI_EN[p.n], nome:p.n, c:p.c, punto, sp});
+    PIANETI.push({en:PIANETI_EN[p.n], nome:p.n, c:p.c, punto, sp, sole:new THREE.Vector3(0,0,1)});
     BERSAGLI.push({tipo:'pianeta', gruppo:'pianeti', sotto:'el-'+p.n, nome:p.n, pos:punto.position, m:-3, c:p.c});
     quantiPianeti++;
   });
@@ -645,6 +697,12 @@ const VIS_R=R*0.995, VIS=[];
 }
 // il cerchio guarda il suo pianeta, e si spegne col pianeta: chi toglie Marte dal cielo non deve
 // ritrovarsi il suo orbe appeso al nulla
+const _qSky=new THREE.Quaternion();
+function aggiornaFasi(){
+  if(!PIANETI.length) return;
+  sky.getWorldQuaternion(_qSky);   // il cielo e' dentro il planetario: se lo si corica, la luce segue
+  for(const p of PIANETI) p.punto.userData.sole.value.copy(p.sole).applyQuaternion(_qSky);
+}
 const _vY=new THREE.Vector3(0,1,0), _vD=new THREE.Vector3();
 function aggiornaVis(){
   if(!groups.vis||!groups.vis.visible) return;
@@ -661,10 +719,45 @@ const testoVis=()=>'vis luminis: l’orbe di ciascuno (al-Bīrūnī) — '+
 
 // Ricolloca Sole e pianeti all'istante del cielo: la Luna fa mezzo grado l'ora, e col moto
 // diurno veloce si vedrebbe restare indietro fra le stelle.
+// un vettore di astronomy-engine portato alla data e ai nostri assi (x al punto gamma, z al polo)
+const _vAE=new THREE.Vector3();
+function aDate(v,rot,t,out){
+  const w=A.RotateVector(rot,new A.Vector(v.x,v.y,v.z,t));
+  return (out||_vAE).set(w.x,w.y,w.z);
+}
+// L'ORIENTAMENTO DEL GLOBO. Il polo nord del corpo e il suo meridiano d'origine vengono da
+// astronomy-engine (RotationAxis, convenzione IAU): il meridiano d'origine si conta verso EST dal
+// nodo dell'equatore del corpo. Nella sfera di three.js la colonna u=0 della mappa cade sul −X
+// locale e u cresce verso est attorno al +Y: percio' la base e' (−X del corpo, polo, Y del corpo).
+const _oZ=new THREE.Vector3(), _oX=new THREE.Vector3(), _oY=new THREE.Vector3(),
+      _oN=new THREE.Vector3(), _oT=new THREE.Vector3(), _oM=new THREE.Matrix4();
+function orientaCorpo(p,t,rot){
+  let ax=null; try{ ax=A.RotationAxis(A.Body[p.en],t); }catch(e){ return; }
+  if(!ax) return;
+  const ra0=ax.ra*15*DEG, de0=ax.dec*DEG, W=ax.spin*DEG;
+  _oZ.copy(eqv(ra0,de0));
+  _oN.set(-Math.sin(ra0),Math.cos(ra0),0);                 // il nodo dell'equatore del corpo
+  _oT.crossVectors(_oZ,_oN);
+  _oX.copy(_oN).multiplyScalar(Math.cos(W)).addScaledVector(_oT,Math.sin(W));
+  aDate(_oZ,rot,t,_oZ); aDate(_oX,rot,t,_oX);              // alla data, come tutto il resto del cielo
+  _oZ.normalize(); _oX.normalize();
+  _oY.crossVectors(_oZ,_oX);
+  _oM.makeBasis(_oT.copy(_oX).negate(),_oZ,_oY);
+  p.punto.quaternion.setFromRotationMatrix(_oM);
+}
+const _vSole=new THREE.Vector3(), _vP=new THREE.Vector3();
 function collocaPianeti(){
   if(!A) return;
   const t=A.MakeTime(istanteCielo()), rot=A.Rotation_EQJ_EQD(t);
-  for(const p of PIANETI) p.punto.position.copy(dirEq(diCorpo(p.en,t,rot)).multiplyScalar(RS));
+  aDate(A.GeoVector(A.Body.Sun,t,true),rot,t,_vSole);
+  for(const p of PIANETI){
+    aDate(A.GeoVector(A.Body[p.en],t,true),rot,t,_vP);
+    p.punto.position.copy(_vP).normalize().multiplyScalar(RS);
+    // LA LUCE VIENE DA DOVE STA IL SOLE VISTO DA QUEL CORPO: e' questa differenza — e non la
+    // direzione del Sole vista da noi — che fa la falce di Venere e la fase della Luna
+    p.sole.copy(_vSole).sub(_vP).normalize();
+    orientaCorpo(p,t,rot);
+  }
   posSole=diCorpo('Sun',t,rot);
   SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R_SOLE));
   SOLE.cerchio.geometry.setFromPoints(cerchioDiurno(posSole.de));
@@ -2261,6 +2354,7 @@ function preparaZoom(o){
   const m=o.material; if(!m||Array.isArray(m)||m.userData.zoom) return;
   const modo=o.isSprite?'scritta':o.userData.zoomAncora?'ancora':(o.isInstancedMesh||o.userData.zoomRigido)?'rigido':'punti';
   const zu={uZoomRef:{value:new THREE.Vector3()}, uZoomUsaRef:{value:0}, uZoomCresce:{value:o.isInstancedMesh?0.25:0}};
+  if(o.userData.sole) zu.uSole=o.userData.sole;
   m.userData.zoom=zu; m.userData.zoomModo=modo;
   m.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,ZU,zu);
@@ -2279,9 +2373,21 @@ function preparaZoom(o){
     const RIGA='gl_Position = projectionMatrix * mvPosition;';
     if(v.includes(RIGA)) v=v.replace(RIGA,'mvPosition.xyz = grandangolo( mvPosition.xyz );\n  '+RIGA);
     else diag('grandangolo: proiezione non trovata in un materiale','warn');
+    // IL SOLE SUL GLOBO. Il pianeta e' una sfera con la sua mappa avvolta: la parte illuminata e'
+    // quella che guarda il Sole, e la fase viene da se'. Il lato in ombra non va a zero — un morso
+    // nero nel cielo si legge peggio di un lato spento.
+    if(o.userData.sole){
+      v='varying vec3 vNrmSole;\n'+v.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n  vNrmSole = normalize( mat3( modelMatrix ) * normal );');
+      sh.fragmentShader='uniform vec3 uSole;\nvarying vec3 vNrmSole;\n'+
+        sh.fragmentShader.replace('#include <dithering_fragment>',
+          '  gl_FragColor.rgb *= mix( '+NOTTE.toFixed(3)+', 1.0,\n'+
+          '    smoothstep( -0.06, 0.12, dot( normalize( vNrmSole ), uSole ) ) );\n'+
+          '#include <dithering_fragment>');
+    }
     sh.vertexShader=v;
   };
-  m.customProgramCacheKey=()=>'zoom-'+modo;
+  m.customProgramCacheKey=()=>'zoom-'+modo+(o.userData.sole?'-sole':'');
   m.needsUpdate=true;
 }
 // prima di disegnare ogni oggetto (e per ogni occhio): la vista di quell'occhio, e l'astro di riferimento
@@ -2555,6 +2661,11 @@ function aggiornaOra(){
 
 // lo zoom entra in ogni materiale del planetario (non nel pannello, nella tastiera, nei controller)
 world.traverse(o=>{ if(o.material){ preparaZoom(o); o.frustumCulled=false; o.onBeforeRender=zoomPrimaDi; } });
+// I pianeti sono DISCHI veri, non punti: ingrandendo il campo come fa Stellarium devono crescere
+// con lui, se no la loro faccia non si vedrebbe mai. Le stelle restano punti e non si gonfiano.
+for(const p of PIANETI){
+  p.punto.traverse(o=>{ const z=o.material&&o.material.userData.zoom; if(z) z.uZoomCresce.value=1; });
+}
 
 let erroreLoop=false, nFrame=0, tUltimo=0;
 // I raggi dei controller: sul cruscotto si fermano sul tasto e mostrano il puntino; fuori arrivano
@@ -2602,6 +2713,7 @@ renderer.setAnimationLoop((time,frame)=>{
     if(renderer.xr.isPresenting) levetta(dt);
     aggiornaGlifi();
     aggiornaVis();
+    aggiornaFasi();
     aggiornaPunti();
     aggiornaVelo(ora);
     aggiornaOra();
