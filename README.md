@@ -20,7 +20,11 @@ Niente «cielo di sfondo»: solo le stelle che servono.
 - le **697 stelle che compongono le figure** delle 88 costellazioni, in una luce quasi bianca
   (98 sono anche fra le nostre). Il limite è la 5ª magnitudine; 23 stelle delle figure stanno fra
   la 5 e la 5,5 e sono tenute, altrimenti dodici figure si spezzerebbero e la Mensa sparirebbe;
-- i **pianeti**, dalla Luna a Plutone, geocentrici e apparenti.
+- i **pianeti**, dalla Luna a Plutone, geocentrici e apparenti — ognuno un **globo vero**, con la
+  sua mappa avvolta sopra e illuminato dal Sole vero: la luce arriva dalla direzione in cui, da
+  quel pianeta, il Sole si trova davvero, perciò Venere e Mercurio mostrano la falce e la Luna la
+  fase che ha quella sera. Il globo è orientato come il corpo (polo e meridiano d'origine dalla
+  convenzione IAU), così Urano sta coricato e l'anello di Saturno si apre e si chiude con gli anni.
 
 In tutto 720 stelle e 657 lati di figura.
 
@@ -38,6 +42,22 @@ In tutto 720 stelle e 657 lati di figura.
   nel vuoto, si stringe il **tasto laterale** del controller e si trascina a destra o a sinistra: il
   planetario intero (orizzonte, cardinali, cielo) segue il raggio, e rilasciato il tasto resta lì.
   Il cielo resta giusto rispetto al suo orizzonte; pannello e tastiera restano con chi guarda.
+  Il tasto laterale è quello **destro**; col **sinistro** la sfera si fa scorrere in **altitudine**:
+  si corica nel piano verticale in cui si punta, fino a novanta gradi — che bastano, perché con
+  novanta gradi ogni punto della volta, zenit e nadir compresi, si porta all'altezza degli occhi.
+  Mentre è coricata il mare si toglie (non gira col cielo, e mostrerebbe sopra l'acqua stelle non
+  sorte); raddrizzando torna, e *Ricentra* raddrizza.
+- **Il riquadro di una stella**, col **tasto Y** (mano sinistra): scelta una stella col grilletto, si
+  apre un riquadro con tutto quello che Regulus sa di lei — il significato del nome, la natura coi
+  suoi testimoni, il significato, l'accidentalità, le qualità (regale, beheniana, nebulare), il
+  colore della tradizione con la sua fonte, la longitudine. Ripremendo Y sparisce; scegliendo
+  un'altra stella si rifà da sé. Si sposta prendendolo per la **cornice** col grilletto: segue la
+  mano e resta dove lo si lascia. I testi si scaricano la prima volta che si apre.
+- **La vis luminis**, col tasto omonimo accanto a *Latitudini*: attorno a ogni pianeta si stende il
+  suo **orbe** — il corpo di luce entro cui la sua virtù opera — come una velatura del suo colore,
+  con l'orlo segnato. Due pianeti si incontrano quando i loro orbi si toccano, e qui lo si vede.
+  Gli orbi sono quelli di al-Bīrūnī e di Bonatti: ☉ 15° · ☽ 12° · ☿ 7° · ♀ 7° · ♂ 8° · ♃ 9° · ♄ 9°.
+  I tre transaturnini non ne hanno uno nella tradizione, e restano senza.
 - **Il mare**: nel visore, col tasto **«Mare»** (acceso di partenza), si sta in piedi su un mare calmo
   che arriva fino all'orizzonte. L'occhio misura la distanza dell'orizzonte dal suolo che ci arriva,
   non dal cielo: il vecchio disco verde, liscio e finito a 32 metri, si leggeva come una piattaforma
@@ -142,6 +162,9 @@ In tutto 720 stelle e 657 lati di figura.
 | glifi dei pianeti e dei dodici segni, colori dei quattro elementi | Regulus (`glifi-path.js`, `ruota.js`) | dell'autore |
 | pianeti e tempo siderale, nel browser | [astronomy-engine](https://github.com/cosinekitty/astronomy) di Don Cross | MIT |
 | grafica 3D | [three.js](https://threejs.org) r128 | MIT |
+| facce dei pianeti | [Solar System Scope](https://www.solarsystemscope.com/textures/) | CC BY 4.0 |
+| faccia di Plutone | NASA / Johns Hopkins University APL / Southwest Research Institute (New Horizons) | pubblico dominio |
+| testi delle stelle | Regulus (`stelle-dati.js`) | dell'autore |
 
 Il file dei dati `cielo-dati.js`, derivato dalle figure, è distribuito con la stessa licenza
 **CC BY-SA 4.0**. (L'intestazione del file delle figure dice CC BY-SA, il README di quel progetto
@@ -162,4 +185,15 @@ npm run genera-cielo
 ```
 
 Serve la cartella di **Regulus** accanto a questa (o `REGULUS=<percorso>`): il generatore usa
-il suo Swiss Ephemeris, i dati delle stelle, i glifi e la tavolozza dei pianeti.
+il suo Swiss Ephemeris, i dati delle stelle, i glifi e la tavolozza dei pianeti. Scrive anche
+`stelle-testi.js`, i testi delle 121 stelle, che si carica solo aprendo il riquadro di una stella.
+
+Le **facce dei pianeti** (`pianeti/`, 0,55 MB) le porta un secondo script, e si rilancia solo se
+si vogliono cambiare le mappe:
+
+```
+npm run scarica-pianeti
+```
+
+Scarica gli originali (che restano fuori dal repo: pesano megabyte), li riduce a 1024×512 e scrive
+`pianeti/CREDITI.md`. Serve la rete una volta sola e, per ridurre le immagini, Windows.
