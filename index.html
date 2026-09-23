@@ -97,6 +97,9 @@
   <div class="row on" data-k="meridiano" style="--a:#57d68f"><span class="sw"></span>Meridiano</div>
   <div class="row"    data-k="primovert" style="--a:#d9a400"><span class="sw"></span>Primo verticale</div>
   <div class="row"    data-k="azimut"   style="--a:#57d68f"><span class="sw"></span>Azimut (orizzonte graduato)</div>
+  <div class="row"    data-k="grigliaEq" style="--a:#4da3ff"><span class="sw"></span>Griglia equatoriale</div>
+  <div class="row"    data-k="grigliaEcl" style="--a:#ff5a5a"><span class="sw"></span>Griglia eclittica</div>
+  <div class="row"    data-k="grigliaAz" style="--a:#57d68f"><span class="sw"></span>Griglia azimutale</div>
   <div class="row"    data-k="zodiaco"  style="--a:#ff9a9a"><span class="sw"></span>Zodiaco (dodici segni)</div>
   <div class="row"    data-k="latitudini" style="--a:#c9a8e0"><span class="sw"></span>Latitudini eclittiche</div>
   <div class="row"    data-k="vis"      style="--a:#f2d08a"><span class="sw"></span>Vis luminis (gli orbi)</div>
@@ -130,7 +133,8 @@
   sguardo; il <b>tasto Y</b> (mano sinistra), scelta una stella, apre il suo <b>riquadro</b>: il significato del
   nome, la natura coi suoi testimoni, il significato, l'accidentalità, le qualità, il colore della
   tradizione — tutto quello che Regulus sa di lei. Ripremendo Y sparisce. Il riquadro si sposta
-  prendendolo per la <b>cornice</b> col grilletto: segue la mano e resta dove lo lasci.
+  prendendolo per la <b>barretta</b> che ha sotto — come le finestre di Meta — o per la <b>cornice</b>,
+  tenendo il grilletto: segue la mano e resta dove lo lasci. Il <b>tasto X</b> (mano sinistra) ricentra.
   Per girare il planetario: raggio nel vuoto, stringi il tasto laterale <b>destro</b> e trascina di lato.
   Col tasto laterale <b>sinistro</b> lo fai scorrere in <b>altitudine</b>: si corica nel piano verticale in cui
   punti, fino a novanta gradi, e lo zenit ti scende all'altezza degli occhi. Mentre è coricato il mare
@@ -146,6 +150,10 @@
   meridiano d'origine da astronomy-engine), così Urano sta coricato e l'anello di Saturno si apre e si
   chiude con gli anni. Sulla volta un pianeta è largo due terzi di grado: per vedergli la faccia,
   accendi lo <b>Zoom con la levetta</b> — i dischi si ingrandiscono col campo, le stelle no.
+  Le tre <b>griglie</b> — <b>equatoriale</b>, <b>eclittica</b>, <b>azimutale</b> — sono i tre modi di misurare una
+  posizione in cielo: reticoli da un pixel ogni 15°, ognuno del colore del suo elemento (azzurro come
+  l'equatore, rosso come l'eclittica, verde come l'orizzonte). Messi uno sull'altro si vede come si
+  scavalcano.
   I tasti <b>Azimut</b>, <b>Meridiano</b>, <b>Primo verticale</b>, <b>Zodiaco</b> e <b>Latitudini</b> graduano l'orizzonte,
   mostrano i due grandi cerchi della sfera locale (verde e giallo cupo), dividono l'eclittica nei
   dodici segni e tracciano i diciannove fili delle latitudini eclittiche.
@@ -320,8 +328,10 @@ function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||world)
 // tre si perdevano fra le altre. Il tubo invece ha uno spessore vero.
 // Per lo zoom ogni vertice del tubo porta scritto il punto del cerchio su cui sta, cosi' il tubo
 // resta sottile anche ingrandito (deformandolo tutto diventerebbe una fascia larga).
-function cerchioTubo(colore,rotX,rotY){
-  const m=new THREE.Mesh(new THREE.TorusGeometry(R,0.0175,10,200),new THREE.MeshBasicMaterial({color:colore}));
+const TUBO=0.0175;              // l'orizzonte
+const TUBO_FINE=TUBO/2;         // il meridiano e il primo verticale: la meta'
+function cerchioTubo(colore,rotX,rotY,spessore){
+  const m=new THREE.Mesh(new THREE.TorusGeometry(R,spessore||TUBO,10,200),new THREE.MeshBasicMaterial({color:colore}));
   const p=m.geometry.attributes.position, a=new Float32Array(p.count*3);
   for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), l=Math.hypot(x,y)||1; a[i*3]=x/l*R; a[i*3+1]=y/l*R; }
   m.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3));
@@ -373,8 +383,8 @@ function orientaCielo(){
 //     quando culmina. Stava dentro «Orizzonte»; ora ha un tasto suo, ed e' verde come l'orizzonte.
 //   il PRIMO VERTICALE passa per est, zenit, ovest e nadir: divide il cielo in quello che sale e
 //     quello che scende, e il VERTEX e' proprio dove lo taglia l'eclittica, a occidente.
-{ const g=G('meridiano');    g.add(cerchioTubo(0x57d68f,0,Math.PI/2)); }   // il piano x=0
-{ const g=G('primovert'); g.visible=false; g.add(cerchioTubo(0xd9a400,0,0)); }   // il piano z=0
+{ const g=G('meridiano');    g.add(cerchioTubo(0x57d68f,0,Math.PI/2,TUBO_FINE)); }   // il piano x=0
+{ const g=G('primovert'); g.visible=false; g.add(cerchioTubo(0xd9a400,0,0,TUBO_FINE)); }   // il piano z=0
 
 // ====================== l'azimut: l'orizzonte graduato ======================
 // Il cerchio dell'orizzonte con le sue tacche, come la rosa di una bussola: un grado corte, cinque
@@ -458,6 +468,32 @@ const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
   g.add(line([new THREE.Vector3(0,0,R*1.12),new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-R*1.12)],0x6f8fd0,.6,1));
   const s=label('Polo','#9db4e6',0.5); s.position.set(0,0,R*1.16); g.add(s);
 }
+// ====================== le tre griglie ======================
+// Tre reticoli da un pixel, ognuno del COLORE DEL SUO ELEMENTO: l'equatoriale come l'equatore
+// (azzurro), l'eclittica come l'eclittica (rossa), l'azimutale come l'orizzonte (verde). Sono i tre
+// modi di misurare una posizione in cielo, e messi uno sull'altro si vede come si scavalcano.
+// Meridiani ogni 15° e paralleli ogni 15°: piu' fitto e' una rete, piu' rado non si legge come
+// griglia. Ogni cerchio si spezza in tratti di due gradi — dal centro non si distinguono dagli
+// archi, e con lo zoom si piegano come devono.
+// Sono RIGHE, e in WebGL una riga e' spessa un pixel qualunque numero le si dia: qui e' proprio
+// quello che serve, un reticolo non deve pesare.
+function reticolo(vettore){
+  const seg=[];
+  for(let l=0;l<360;l+=15) for(let b=-90;b<90;b+=2)   // i meridiani, da polo a polo
+    seg.push(vettore(l*DEG,b*DEG).multiplyScalar(R), vettore(l*DEG,(b+2)*DEG).multiplyScalar(R));
+  for(let b=-75;b<=75;b+=15) for(let l=0;l<360;l+=2)  // i paralleli (i poli non ne hanno)
+    seg.push(vettore(l*DEG,b*DEG).multiplyScalar(R), vettore((l+2)*DEG,b*DEG).multiplyScalar(R));
+  return new THREE.BufferGeometry().setFromPoints(seg);
+}
+function griglia(chiave,vettore,colore,dove){
+  const g=G(chiave,dove); g.visible=false;
+  g.add(new THREE.LineSegments(reticolo(vettore),
+    new THREE.LineBasicMaterial({color:colore,transparent:true,opacity:.30,depthWrite:false})));
+}
+griglia('grigliaEq', eqv,    0x4da3ff, sky);     // ascensione retta e declinazione
+griglia('grigliaEcl',eclVb,  0xff5a5a, sky);     // longitudine e latitudine eclittiche
+griglia('grigliaAz', dirAz,  0x57d68f, world);   // azimut e altezza: sta col luogo, non col cielo
+
 // ====================== dal catalogo alla sfera ======================
 // Stelle (J2000) e pianeti si portano all'equatore DI DATA e si mettono alla loro ascensione retta
 // e declinazione: nello stesso sistema dell'equatore e dell'eclittica, quindi tutto combacia per
@@ -687,7 +723,7 @@ const VIS_R=R*0.995, VIS=[];
         side:THREE.DoubleSide,depthWrite:false})));
     // l'orlo: un TUBO sottile, non una riga — in WebGL una riga e' spessa un pixel qualunque numero
     // le si dia, e a un pixel il cerchio si perde fra le stelle
-    const orlo=new THREE.Mesh(new THREE.TorusGeometry(VIS_R*Math.sin(th),0.012,8,160),
+    const orlo=new THREE.Mesh(new THREE.TorusGeometry(VIS_R*Math.sin(th),0.004,8,160),
       new THREE.MeshBasicMaterial({color:colore,transparent:true,opacity:.40,depthWrite:false}));
     orlo.position.y=VIS_R*Math.cos(th); orlo.rotation.x=Math.PI/2; g.add(orlo);
     VIS.push({g, dir, orbe, nome, chiave:nome==='Sole'?'planet':'el-'+nome});
@@ -1222,7 +1258,25 @@ const nuovaScritta=()=>{ const s=new THREE.Sprite(new THREE.SpriteMaterial({tran
 const ET_HOVER=nuovaScritta(), ET_SEL=nuovaScritta();
 // con lo zoom la scritta segue l'astro dove si vede, alla stessa distanza da lui
 for(const s of [ET_HOVER,ET_SEL]) s.userData.zoomRef=function(v){ const b=s.userData.b; return b?sky.localToWorld(v.copy(b.pos)):s.getWorldPosition(v); };
-const ANELLO=new THREE.Mesh(new THREE.RingGeometry(0.17,0.2,48),
+// L'ANELLO della stella scelta: un cerchio TRATTEGGIATO e sottile — un quarto dello spessore di
+// prima — perche' segni l'astro senza coprirlo. Il tratteggio non si puo' fare con una riga (in
+// WebGL e' sempre spessa un pixel): si fa con la geometria, un settore d'anello per ogni trattino.
+function anelloTratteggiato(dentro,fuori,trattini,pieno,archi){
+  const pos=[], passo=TAU/trattini, largo=passo*(pieno===undefined?0.55:pieno), n=archi||4;
+  for(let k=0;k<trattini;k++){
+    const a0=k*passo;
+    for(let j=0;j<n;j++){
+      const t0=a0+largo*j/n, t1=a0+largo*(j+1)/n;
+      const c0=Math.cos(t0), s0=Math.sin(t0), c1=Math.cos(t1), s1=Math.sin(t1);
+      const A=[dentro*c0,dentro*s0,0], B=[fuori*c0,fuori*s0,0], C=[fuori*c1,fuori*s1,0], D=[dentro*c1,dentro*s1,0];
+      pos.push(...A,...B,...C, ...A,...C,...D);
+    }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+  return g;
+}
+const ANELLO=new THREE.Mesh(anelloTratteggiato(0.18125,0.18875,28),
   new THREE.MeshBasicMaterial({color:0xe3c169,transparent:true,opacity:.9,side:THREE.DoubleSide,depthTest:true}));
 ANELLO.renderOrder=12; ANELLO.visible=false; ANELLO.userData.zoomRigido=true; world.add(ANELLO);
 let HOVER=null, SEL=null;
@@ -1274,10 +1328,28 @@ const SC_PX=1100;           // e in pixel: 1833 per metro, cioe' un carattere di
 const SC_ALTO_MAX=1340;     // oltre, il carattere si stringe (come le schede tonde di Regulus)
 const SC_ORLO=60;           // la cornice: quanto si puo' afferrare, in pixel del disegno
 const SC_DIST=1.0;          // dove nasce: un metro davanti agli occhi
+const SC_BAR_W=0.24, SC_BAR_H=0.05, SC_BAR_GAP=0.022;   // la barretta sotto, e quanto sta staccata
 const SCHEDA=new THREE.Group(); SCHEDA.visible=false; scene.add(SCHEDA);
 const SC_FOGLIO=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
   new THREE.MeshBasicMaterial({transparent:true,side:THREE.DoubleSide,depthTest:false}));
-SCHEDA.add(SC_FOGLIO); inPrimoPiano(SCHEDA); SC_FOGLIO.renderOrder=60;
+// LA BARRETTA, come le finestre di Meta: un bersaglio grande e dichiarato invece della sola cornice
+// (3,3 cm a un metro sono meno di due gradi, e trovarli col raggio e' un'impresa). Si prende di li'
+// e il riquadro segue la mano.
+const SC_BARRA=new THREE.Mesh(new THREE.PlaneGeometry(SC_BAR_W,SC_BAR_H),
+  new THREE.MeshBasicMaterial({transparent:true,side:THREE.DoubleSide,depthTest:false}));
+(function(){
+  const c=document.createElement('canvas'); c.width=480; c.height=100; const x=c.getContext('2d');
+  const tondo=(x0,y0,w,h,r)=>{ x.beginPath(); x.moveTo(x0+r,y0);
+    x.arcTo(x0+w,y0,x0+w,y0+h,r); x.arcTo(x0+w,y0+h,x0,y0+h,r);
+    x.arcTo(x0,y0+h,x0,y0,r); x.arcTo(x0,y0,x0+w,y0,r); x.closePath(); };
+  tondo(6,6,468,88,44); x.fillStyle='rgba(16,19,30,.92)'; x.fill();
+  x.strokeStyle='rgba(201,162,39,.75)'; x.lineWidth=4; x.stroke();
+  tondo(168,42,144,16,8); x.fillStyle='rgba(216,222,238,.85)'; x.fill();   // il pomello, in mezzo
+  const t=new THREE.CanvasTexture(c); t.anisotropy=4;
+  SC_BARRA.material.map=t; SC_BARRA.material.needsUpdate=true;
+})();
+SCHEDA.add(SC_FOGLIO,SC_BARRA); inPrimoPiano(SCHEDA);
+SC_FOGLIO.renderOrder=60; SC_BARRA.renderOrder=61;
 
 // spezza un testo in righe che stanno nella larghezza data
 function aCapo(x,testo,larg){
@@ -1369,9 +1441,9 @@ function riempiScheda(){
   while(alto>SC_ALTO_MAX && corpo>20){ corpo-=1; alto=impagina(mis,q,corpo,colore,true); }
   const c=document.createElement('canvas'); c.width=SC_PX; c.height=alto;
   const x=c.getContext('2d');
-  // quasi opaco: a 0,94 le scritte del cielo trapelavano attraverso il foglio — una scritta che si
-  // legge in trasparenza sotto il testo e' rumore, non atmosfera
-  x.fillStyle='rgba(6,8,16,.975)'; x.fillRect(0,0,SC_PX,alto);
+  // quasi opaco: a 0,94 le scritte del cielo trapelavano attraverso il foglio, e a 0,975 «Nord» si
+  // leggeva ancora sotto il testo — una scritta in trasparenza sotto il testo e' rumore, non atmosfera
+  x.fillStyle='rgba(6,8,16,.99)'; x.fillRect(0,0,SC_PX,alto);
   x.strokeStyle='#c9a227'; x.lineWidth=6; x.strokeRect(15,15,SC_PX-30,alto-30);
   x.strokeStyle='rgba(201,162,39,.35)'; x.lineWidth=2; x.strokeRect(30,30,SC_PX-60,alto-60);
   x.textBaseline='top';
@@ -1381,6 +1453,7 @@ function riempiScheda(){
   SC_FOGLIO.material.map=tex; SC_FOGLIO.material.needsUpdate=true;
   const h=SC_W*alto/SC_PX;
   SC_FOGLIO.scale.set(SC_W,h,1);
+  SC_BARRA.position.set(0,-(h/2+SC_BAR_GAP+SC_BAR_H/2),0.001);
   SCHEDA.userData.mezzo=[SC_W/2,h/2,SC_W*SC_ORLO/SC_PX];   // meta' larghezza, meta' altezza, la cornice
   return true;
 }
@@ -1407,11 +1480,13 @@ function prendiScheda(ctl){
   if(!SCHEDA.visible) return false;
   const [o,d]=raggioDi(ctl);
   raycaster.ray.origin.copy(o); raycaster.ray.direction.copy(d);
-  const hit=raycaster.intersectObject(SC_FOGLIO,false);
+  const hit=raycaster.intersectObjects([SC_BARRA,SC_FOGLIO],false);
   if(!hit.length) return false;
-  const [mx,my,orlo]=SCHEDA.userData.mezzo||[0,0,0];
-  SCHEDA.worldToLocal(_pSc.copy(hit[0].point));
-  if(Math.abs(_pSc.x)<mx-orlo && Math.abs(_pSc.y)<my-orlo) return false;   // in mezzo si legge, non si sposta
+  if(hit[0].object!==SC_BARRA){          // la barretta si prende dovunque; il foglio solo per la cornice
+    const [mx,my,orlo]=SCHEDA.userData.mezzo||[0,0,0];
+    SCHEDA.worldToLocal(_pSc.copy(hit[0].point));
+    if(Math.abs(_pSc.x)<mx-orlo && Math.abs(_pSc.y)<my-orlo) return false;   // in mezzo si legge, non si sposta
+  }
   ctl.updateMatrixWorld(true); SCHEDA.updateMatrixWorld(true);
   scPresa={ctl, m:new THREE.Matrix4().copy(ctl.matrixWorld).invert().multiply(SCHEDA.matrixWorld)};
   vibra(ctl,0.5,40); diag('riquadro in mano');
@@ -1452,7 +1527,7 @@ function aggiornaIndicazioni(){
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
   pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,
   mare:true,onda:true,meridiano:true,primovert:false,azimut:false,zodiaco:false,latitudini:false,
-  vis:false};
+  vis:false,grigliaEq:false,grigliaEcl:false,grigliaAz:false};
 // gli elementi celesti, uno per uno: i pianeti accesi (li spegne chi vuole), i punti dello zodiaco
 // spenti — si accendono dal sottomenu del tasto «Pianeti»
 Object.keys(PIANETI_EN).forEach(n=>stato['el-'+n]=true);
@@ -1485,6 +1560,9 @@ const BUTTONS=[
   {k:'meridiano',t:'Meridiano',on:true, c:0x57d68f},
   {k:'primovert',t:'Primo verticale',on:false,c:0xd9a400},
   {k:'azimut',  t:'Azimut',   on:false,c:0x57d68f},
+  {k:'grigliaEq', t:'Griglia equatoriale', on:false,c:0x4da3ff},
+  {k:'grigliaEcl',t:'Griglia eclittica',   on:false,c:0xff5a5a},
+  {k:'grigliaAz', t:'Griglia azimutale',   on:false,c:0x57d68f},
   {k:'zodiaco', t:'Zodiaco',  on:false,c:0xff9a9a},
   {k:'latitudini',t:'Latitudini',on:false,c:0xc9a8e0},
   {k:'vis',     t:'Vis luminis',on:false,c:0xf2d08a},
@@ -1523,15 +1601,18 @@ const INTERATTIVI=[];
 // qui sotto sono quelle del disegno.
 // (Provvisorio nelle misure e nei colori: la pulsantiera definitiva la disegna l'autore.)
 const CRUSCOTTO=[
-  {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','primovert','azimut','zodiaco','latitudini','vis']},
+  {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','primovert','azimut']},
+  {nome:'GRIGLIE',tasti:['grigliaEq','grigliaEcl','grigliaAz','zodiaco','latitudini','vis']},
   {nome:'ASTRI',  tasti:['axis','planet','pianeti','elementi','stelle','costellazioni','linee']},
   {nome:'TERRA',  tasti:['orizReale','mare','onda','quota','altezza']},
   {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo','spin','velocita']},
 ];
-// NOVE colonne (e' entrata la vis luminis, dopo il primo verticale): i tasti si stringono ancora,
-// cosi' il banco resta largo come prima. E' il secondo restringimento di fila: se le scritte non si
-// leggono piu', K_W e' un numero solo — alzandolo, il banco si allarga di quel tanto.
-const K_W=0.0667, K_H=0.048, K_GAP=0.008, SEZ_W=0.062, MARG=0.020, QUADRO_H=0.085;
+// CINQUE FILE DI SETTE, invece di quattro di nove. I cerchi si sono divisi in due: i grandi cerchi
+// della sfera locale in una fila, le GRIGLIE e le graduazioni nell'altra. Il banco resta largo
+// esattamente come prima (66,4 cm) e in cambio i tasti tornano grandi — 8,8 cm, piu' dei 7,6 di due
+// giorni fa e degli 8,6 del principio: il restringimento di ieri si annulla. Costa una fila in
+// profondita', cioe' sei centimetri e mezzo di banco piu' lungo.
+const K_W=0.088, K_H=0.048, K_GAP=0.008, SEZ_W=0.062, MARG=0.020, QUADRO_H=0.085;
 const PPM=1600, PPM_K=3000;   // pixel per metro: il corpo e i tasti
 const CR_COL=Math.max(...CRUSCOTTO.map(r=>r.tasti.length));
 const CR_W=2*MARG+SEZ_W+K_GAP+CR_COL*K_W+(CR_COL-1)*K_GAP;
@@ -1882,6 +1963,11 @@ function tastiControllo(){
       vibra(c,0.4,30);
       if(s.handedness==='left') mostraScheda(!SCHEDA.visible);
       else mostraComandi(!vrPanel.visible);
+    }
+    // e il tasto X, quello basso della mano sinistra, RICENTRA: e' il gesto che serve piu' spesso,
+    // e cercarlo sul banco mentre si ha la vista storta e' la volta che il banco non si trova
+    if(a&&!c.userData.aGiu&&s.handedness==='left'){
+      vibra(c,0.4,30); toggleBtn(BUTTONS.find(x=>x.k==='recenter'));
     }
     c.userData.bGiu=b; c.userData.aGiu=a;
   }
