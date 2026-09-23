@@ -56,24 +56,45 @@
     background:rgba(20,24,40,.8);color:#cfd6ea;font:12px 'Spectral',Georgia,serif;cursor:pointer}
   .vel button.on{background:#c8b06a;color:#10131f;border-color:#c8b06a}
   /* il luogo */
-  #luogo-btn{position:fixed;z-index:5;top:16px;right:16px;padding:9px 14px;border-radius:10px;
+  #barra{position:fixed;z-index:5;top:16px;right:16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  #barra button{padding:9px 14px;border-radius:10px;
     border:1px solid rgba(227,193,105,.45);background:rgba(8,11,22,.85);color:#e9e4d6;cursor:pointer;
     font:16px 'Cormorant Garamond',Georgia,serif;letter-spacing:.03em}
-  #luogo{position:fixed;z-index:7;top:60px;right:16px;width:min(360px,calc(100vw - 32px));padding:14px;
+  #barra button.on{background:rgba(227,193,105,.22)}
+  .box{position:fixed;z-index:7;top:60px;right:16px;width:min(380px,calc(100vw - 32px));padding:14px;
+    max-height:calc(100vh - 80px);overflow:auto;
     background:rgba(8,11,22,.96);border:1px solid rgba(227,193,105,.45);border-radius:12px;backdrop-filter:blur(9px)}
-  #luogo[hidden]{display:none}
-  #luogo h3{margin:0 0 10px;font:600 15px 'Cormorant Garamond',serif;letter-spacing:.14em;text-transform:uppercase;color:#e3c169}
-  #luogo input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(150,166,205,.3);
+  .box[hidden]{display:none}
+  .box h3{margin:0 0 10px;font:600 15px 'Cormorant Garamond',serif;letter-spacing:.14em;text-transform:uppercase;color:#e3c169}
+  .box h4{margin:14px 0 6px;font:600 13px 'Cormorant Garamond',serif;letter-spacing:.12em;text-transform:uppercase;color:#9aa6c6}
+  .box input{width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(150,166,205,.3);
     background:#0d1224;color:#eef2ff;font:14px 'Spectral',Georgia,serif}
-  #luogo .ris{max-height:260px;overflow:auto;margin:8px 0}
-  #luogo .ris div{padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px}
-  #luogo .ris div:hover,#luogo .ris div.sel{background:rgba(227,193,105,.16)}
-  #luogo .ris small{color:#7a86a6;margin-left:6px}
-  #luogo .coord{display:flex;gap:6px;margin-top:6px}
-  #luogo .coord input{flex:1}
-  #luogo button.usa{margin-top:8px;width:100%;padding:8px;border-radius:8px;border:1px solid #c8b06a;
+  .box .ris{max-height:260px;overflow:auto;margin:8px 0}
+  .box .ris div{padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px}
+  .box .ris div:hover,.box .ris div.sel{background:rgba(227,193,105,.16)}
+  .box .ris small{color:#7a86a6;margin-left:6px}
+  .box .coord{display:flex;gap:6px;margin-top:6px}
+  .box .coord input{flex:1}
+  .box button.usa{margin-top:8px;width:100%;padding:8px;border-radius:8px;border:1px solid #c8b06a;
     background:rgba(200,176,106,.18);color:#e9e4d6;cursor:pointer;font:14px 'Spectral',Georgia,serif}
-  #luogo .nota{font-size:11px;color:#7a86a6;margin-top:8px;line-height:1.45}
+  .box .nota{font-size:11px;color:#7a86a6;margin-top:8px;line-height:1.45}
+  /* la finestra del tempo: sei colonne con le frecce, come su Stellarium */
+  #tempo .campi{display:flex;gap:5px;align-items:flex-end}
+  #tempo .campo{flex:1;text-align:center}
+  #tempo .campo.anno{flex:1.6}
+  #tempo .campo label{display:block;font-size:10px;color:#7a86a6;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px}
+  #tempo .campo input{text-align:center;padding:6px 2px;font:15px 'Spectral',Georgia,serif}
+  #tempo .campo button{display:block;width:100%;padding:2px 0;border-radius:6px;border:1px solid rgba(150,166,205,.25);
+    background:rgba(150,166,205,.10);color:#cfd6ea;cursor:pointer;font-size:12px;line-height:1.3}
+  #tempo .campo button:hover{background:rgba(227,193,105,.2)}
+  #tempo .salti{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  #tempo .salti button{flex:1 0 auto;min-width:46px;padding:6px 4px;border-radius:7px;
+    border:1px solid rgba(150,166,205,.25);background:rgba(150,166,205,.08);color:#cfd6ea;cursor:pointer;
+    font:13px 'Spectral',Georgia,serif}
+  #tempo .salti button:hover{background:rgba(227,193,105,.2)}
+  #tempo .dove{margin-top:10px;font-size:13px;color:#cfd6ea;line-height:1.5}
+  #tempo .dove b{color:#e3c169;font-weight:600}
+  #tempo .avviso{margin-top:6px;font-size:12px;color:#e0a840;line-height:1.45}
   /* la citazione che la licenza delle figure chiede */
   #crediti{position:fixed;z-index:3;bottom:2px;left:0;right:0;text-align:center;font-size:10px;
     color:#6f7896;pointer-events:none;letter-spacing:.02em}
@@ -116,8 +137,43 @@
     <button data-v="0" class="on">1</button><button data-v="1">2</button><button data-v="2">3</button><button data-v="3">4</button>
   </div>
 </div>
-<button id="luogo-btn">⌖ Milano</button>
-<div id="luogo" hidden>
+<div id="barra">
+  <button id="luogo-btn">⌖ Milano</button>
+  <button id="tempo-btn">◷ tempo</button>
+</div>
+<div id="tempo" class="box" hidden>
+  <h3>Il tempo</h3>
+  <div class="campi">
+    <div class="campo"><label>giorno</label><button data-su="giorno">▲</button>
+      <input id="t-giorno" inputmode="numeric"><button data-giu="giorno">▼</button></div>
+    <div class="campo"><label>mese</label><button data-su="mese">▲</button>
+      <input id="t-mese" inputmode="numeric"><button data-giu="mese">▼</button></div>
+    <div class="campo anno"><label>anno</label><button data-su="anno">▲</button>
+      <input id="t-anno" inputmode="numeric"><button data-giu="anno">▼</button></div>
+    <div class="campo"><label>ore</label><button data-su="ora">▲</button>
+      <input id="t-ora" inputmode="numeric"><button data-giu="ora">▼</button></div>
+    <div class="campo"><label>min</label><button data-su="minuto">▲</button>
+      <input id="t-minuto" inputmode="numeric"><button data-giu="minuto">▼</button></div>
+    <div class="campo"><label>sec</label><button data-su="secondo">▲</button>
+      <input id="t-secondo" inputmode="numeric"><button data-giu="secondo">▼</button></div>
+  </div>
+  <div class="salti">
+    <button data-salto="anno:-100">−100a</button><button data-salto="anno:-10">−10a</button>
+    <button data-salto="anno:-1">−1a</button><button data-salto="mese:-1">−1m</button>
+    <button data-salto="giorno:-1">−1g</button><button data-salto="ora:-1">−1h</button>
+    <button data-salto="ora:1">+1h</button><button data-salto="giorno:1">+1g</button>
+    <button data-salto="mese:1">+1m</button><button data-salto="anno:1">+1a</button>
+    <button data-salto="anno:10">+10a</button><button data-salto="anno:100">+100a</button>
+  </div>
+  <button class="usa" id="t-adesso">Adesso</button>
+  <div class="dove" id="t-dove"></div>
+  <div class="avviso" id="t-avviso" hidden></div>
+  <div class="nota">L'ora è quella del luogo scelto. La sfera tiene dal 3000 a.C. al 3000 d.C.;
+    astronomy-engine, che calcola i pianeti nel browser, è costruita per il 1700–2200 — fuori,
+    la finestra dice quanto sta sbagliando. Saltando di secoli il cielo viene <b>ri-precessato</b>:
+    le stelle tornano dov'erano (0,014° l'anno, un grado in settant'anni).</div>
+</div>
+<div id="luogo" class="box" hidden>
   <h3>Il luogo</h3>
   <input id="luogo-cerca" placeholder="Cerca una città…" autocomplete="off">
   <div class="ris" id="luogo-ris"></div>
@@ -221,17 +277,27 @@ let LUOGO=(qLat!=null&&qLng!=null)
   : {nome:'Milano', lat:45.4642, lng:9.19, fuso:'Europe/Rome'};
 const ISTANTE=(Q.get('t')&&!isNaN(Date.parse(Q.get('t'))))?new Date(Q.get('t')):new Date();
 const A=window.Astronomy||null;
-const TEMPO=A?A.MakeTime(ISTANTE):null;
+let TEMPO=A?A.MakeTime(ISTANTE):null;
+let ROT=null;                      // la precessione dal J2000 all'epoca: la fissa fissaEpoca()
 let PHI=LUOGO.lat*DEG;
-// il tempo siderale all'apertura: quello di Greenwich non dipende dal luogo, quello locale si'
-let EPS=23.44*DEG, GAST0=(40-LUOGO.lng)*DEG, LST0=40*DEG;
-if(A){
+// L'EPOCA. Obliquita' e tempo siderale dell'istante base. Girare la volta e' una cosa sola — il
+// tempo siderale che cresce — ma SALTARE NEL TEMPO e' un'altra: la precessione muove le stelle
+// (2° in tre secoli) e l'obliquita' muove l'eclittica. Percio' l'epoca si puo' rifare, e chi ne
+// dipende si registra in EPOCA per rifarsi con lei.
+let EPS=23.44*DEG, GAST0=(40-LUOGO.lng)*DEG, LST0=40*DEG, cosE=Math.cos(EPS), sinE=Math.sin(EPS);
+function fissaEpoca(){
+  if(!A){ diag('effemeridi non arrivate (manca la rete?): cielo dimostrativo','warn'); return; }
+  TEMPO=A.MakeTime(ISTANTE);
+  ROT=A.Rotation_EQJ_EQD(TEMPO);
   GAST0=A.SiderealTime(TEMPO)*15*DEG;
   LST0=GAST0+LUOGO.lng*DEG;
   const T=TEMPO.tt/36525;                                         // secoli dal J2000, tempo terrestre
   EPS=(23.439291111-0.013004167*T-1.64e-7*T*T+5.036e-7*T*T*T)*DEG; // obliquita' media di data
-}else diag('effemeridi non arrivate (manca la rete?): cielo dimostrativo','warn');
-const cosE=Math.cos(EPS), sinE=Math.sin(EPS);
+  cosE=Math.cos(EPS); sinE=Math.sin(EPS);
+}
+fissaEpoca();
+const EPOCA=[];                    // chi si rifa' quando si salta nel tempo
+const allEpoca=f=>{ EPOCA.push(f); f(); };
 
 // ====================== renderer / scena / camera ======================
 const scene=new THREE.Scene();
@@ -416,10 +482,12 @@ const sky=new THREE.Group(); world.add(sky);
   for(let i=0;i<=240;i++)p.push(eqv(i/240*TAU,0).multiplyScalar(R));
   g.add(line(p,0x4da3ff,.85,2));
 }
-{ // eclittica
-  const g=G('ecliptic',sky), p=[];
-  for(let i=0;i<=360;i++)p.push(eclV(i/360*TAU).multiplyScalar(R));
-  g.add(line(p,0xe23636,.24,5)); g.add(line(p,0xff5a5a,.95,2));
+{ // eclittica (dipende dall'obliquita': si rifa' saltando nel tempo)
+  const g=G('ecliptic',sky);
+  const sotto=line([],0xe23636,.24,5), sopra=line([],0xff5a5a,.95,2); g.add(sotto,sopra);
+  allEpoca(()=>{ const p=[];
+    for(let i=0;i<=360;i++)p.push(eclV(i/360*TAU).multiplyScalar(R));
+    sotto.geometry.setFromPoints(p); sopra.geometry.setFromPoints(p); });
 }
 // un punto dell'eclittica a longitudine l e latitudine b, in coordinate equatoriali
 const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
@@ -434,13 +502,19 @@ const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
 // sono quelli di Regulus, presi dal generatore insieme ai tracciati.
 {
   const g=G('zodiaco',sky); g.visible=false;
-  const seg=[];
-  for(let i=0;i<360;i++){
-    const l=i*DEG, b=(i%30===0?2.6:i%10===0?1.4:i%5===0?0.8:0.4)*DEG;
-    seg.push(eclVb(l,-b).multiplyScalar(R), eclVb(l,b).multiplyScalar(R));
-  }
-  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg),
-    new THREE.LineBasicMaterial({color:0xff9a9a,transparent:true,opacity:.6})));
+  const tacche=new THREE.LineSegments(new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({color:0xff9a9a,transparent:true,opacity:.6}));
+  g.add(tacche);
+  const glifi=[];
+  allEpoca(()=>{
+    const seg=[];
+    for(let i=0;i<360;i++){
+      const l=i*DEG, b=(i%30===0?2.6:i%10===0?1.4:i%5===0?0.8:0.4)*DEG;
+      seg.push(eclVb(l,-b).multiplyScalar(R), eclVb(l,b).multiplyScalar(R));
+    }
+    tacche.geometry.setFromPoints(seg);
+    glifi.forEach((sp,i)=>sp.position.copy(eclVb((15+30*i)*DEG,4.4*DEG)).multiplyScalar(R*0.985));
+  });
   // NB: qui si legge `window.CIELO` e non `CIELO`, che e' dichiarato piu' sotto (e leggerlo prima
   // fermerebbe tutta la pagina: e' la stessa cosa, ma il nome non e' ancora nato)
   const dati=window.CIELO;
@@ -450,6 +524,7 @@ const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
     const sp=spriteGlifo(gl,EL[i%4],0.55);        // fuoco, terra, aria, acqua, e da capo
     // un passo DENTRO la volta: i fili delle latitudini corrono a R e gli passavano davanti
     sp.position.copy(eclVb((15+30*i)*DEG,4.4*DEG).multiplyScalar(R*0.985)); g.add(sp);
+    glifi[i]=sp;
   }
 }
 // ====================== le latitudini eclittiche: diciannove fili ======================
@@ -457,10 +532,13 @@ const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
 // la piu' larga escursione e' quella di Venere, poco piu' di otto gradi.
 {
   const g=G('latitudini',sky); g.visible=false;
-  for(let b=-9;b<=9;b++){
-    const p=[]; for(let i=0;i<=180;i++) p.push(eclVb(i/180*TAU,b*DEG).multiplyScalar(R));
-    g.add(line(p,b===0?0xffb0b0:0xc9a8e0,b===0?.5:.20,1));
-  }
+  const fili=[];
+  for(let b=-9;b<=9;b++){ const l=line([],b===0?0xffb0b0:0xc9a8e0,b===0?.5:.20,1); fili.push(l); g.add(l); }
+  allEpoca(()=>fili.forEach((l,i)=>{
+    const b=(i-9)*DEG, p=[];
+    for(let j=0;j<=180;j++) p.push(eclVb(j/180*TAU,b).multiplyScalar(R));
+    l.geometry.setFromPoints(p);
+  }));
 }
 { // asse del mondo
   const g=G('axis',sky);
@@ -485,20 +563,23 @@ function reticolo(vettore){
     seg.push(vettore(l*DEG,b*DEG).multiplyScalar(R), vettore((l+2)*DEG,b*DEG).multiplyScalar(R));
   return new THREE.BufferGeometry().setFromPoints(seg);
 }
-function griglia(chiave,vettore,colore,dove){
+function griglia(chiave,vettore,colore,dove,conEpoca){
   const g=G(chiave,dove); g.visible=false;
-  g.add(new THREE.LineSegments(reticolo(vettore),
-    new THREE.LineBasicMaterial({color:colore,transparent:true,opacity:.30,depthWrite:false})));
+  const l=new THREE.LineSegments(reticolo(vettore),
+    new THREE.LineBasicMaterial({color:colore,transparent:true,opacity:.30,depthWrite:false}));
+  g.add(l);
+  // quella eclittica dipende dall'obliquita': saltando nel tempo si rifa'
+  if(conEpoca) EPOCA.push(()=>{ l.geometry.dispose(); l.geometry=reticolo(vettore); });
 }
 griglia('grigliaEq', eqv,    0x4da3ff, sky);     // ascensione retta e declinazione
-griglia('grigliaEcl',eclVb,  0xff5a5a, sky);     // longitudine e latitudine eclittiche
+griglia('grigliaEcl',eclVb,  0xff5a5a, sky, true);   // longitudine e latitudine eclittiche
 griglia('grigliaAz', dirAz,  0x57d68f, world);   // azimut e altezza: sta col luogo, non col cielo
 
 // ====================== dal catalogo alla sfera ======================
 // Stelle (J2000) e pianeti si portano all'equatore DI DATA e si mettono alla loro ascensione retta
 // e declinazione: nello stesso sistema dell'equatore e dell'eclittica, quindi tutto combacia per
 // costruzione, e l'orientamento sul luogo lo da' la rotazione della volta.
-const ROT=A?A.Rotation_EQJ_EQD(TEMPO):null;
+// (ROT sta piu' in alto, accanto all'epoca: saltando nel tempo si rifa' con lei)
 function daJ2000(raDeg,deDeg){
   if(!A) return {ra:raDeg*DEG, de:deDeg*DEG};
   const r=raDeg*DEG, d=deDeg*DEG;
@@ -550,7 +631,12 @@ let quanteStelle=0;
 const BERSAGLI=[];            // stelle e pianeti che il raggio (o il mouse) puo' indicare
 const NELLE_FIGURE=new Set();
 if(CIELO){
-  const P=CIELO.stelle.map(s=>dirEq(daJ2000(s.ra,s.de)).multiplyScalar(RS));
+  // Le posizioni si tengono negli STESSI vettori per sempre: i bersagli del raggio ci puntano
+  // dentro, e saltando nel tempo basta riscriverli perche' tutto segua.
+  const P=CIELO.stelle.map(()=>new THREE.Vector3());
+  const riprecessa=()=>CIELO.stelle.forEach((s,k)=>P[k].copy(dirEq(daJ2000(s.ra,s.de))).multiplyScalar(RS));
+  riprecessa();
+  const CAMPI=[];   // le nuvole di dischetti, da riposare quando le stelle si spostano
   CIELO.figure.forEach(f=>f.l.forEach(k=>NELLE_FIGURE.add(k)));
   CIELO.stelle.forEach((s,k)=>BERSAGLI.push({tipo:'stella', k, pos:P[k], m:s.m, c:s.c,
     nome:s.n||s.d||('HR '+s.hr), sotto:s.n?(s.d||null):null, nostra:!!s.nostra, fig:NELLE_FIGURE.has(k)}));
@@ -568,11 +654,14 @@ if(CIELO){
       new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:opacita,depthWrite:false,
         blending:THREE.AdditiveBlending,side:THREE.DoubleSide}), indici.length);
     const o=new THREE.Object3D();
-    indici.forEach((k,i)=>{ const s=CIELO.stelle[k];
-      o.position.copy(P[k]); o.lookAt(0,0,0);
-      const lato=diam(s.m)*DEG*RS*scala; o.scale.set(lato,lato,1); o.updateMatrix();
-      im.setMatrixAt(i,o.matrix); im.setColorAt(i,colore(s)); });
-    im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true;
+    const posa=()=>{
+      indici.forEach((k,i)=>{ const s=CIELO.stelle[k];
+        o.position.copy(P[k]); o.lookAt(0,0,0);
+        const lato=diam(s.m)*DEG*RS*scala; o.scale.set(lato,lato,1); o.updateMatrix();
+        im.setMatrixAt(i,o.matrix); im.setColorAt(i,colore(s)); });
+      im.instanceMatrix.needsUpdate=true; if(im.instanceColor) im.instanceColor.needsUpdate=true;
+    };
+    posa(); CAMPI.push(posa);
     im.frustumCulled=false;   // le istanze stanno tutt'attorno: il riquadro del singolo dischetto non vale
     return im;
   }
@@ -583,17 +672,24 @@ if(CIELO){
   const gL=G('linee',sky);
   // ogni lato e' un arco di cerchio massimo a tratti di 3° (dal centro si vede identico alla corda):
   // con lo zoom i tratti si deformano uno per uno, e il lato si piega come deve
-  const pts=[];
-  CIELO.figure.forEach(f=>{ for(let i=0;i<f.l.length;i+=2){
-    const a=P[f.l[i]], b=P[f.l[i+1]], n=Math.max(1,Math.ceil(a.angleTo(b)/(3*DEG)));
-    let prec=a;
-    for(let j=1;j<=n;j++){
-      const q=j===n?b:a.clone().normalize().lerp(b.clone().normalize(),j/n).normalize().multiplyScalar(RS);
-      pts.push(prec,q); prec=q;
-    }
-  } });
-  gL.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
-    new THREE.LineBasicMaterial({color:0x8fa3d8,transparent:true,opacity:.34,depthWrite:false})));
+  const lati=new THREE.LineSegments(new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({color:0x8fa3d8,transparent:true,opacity:.34,depthWrite:false}));
+  const tiraLati=()=>{
+    const pts=[];
+    CIELO.figure.forEach(f=>{ for(let i=0;i<f.l.length;i+=2){
+      const a=P[f.l[i]], b=P[f.l[i+1]], n=Math.max(1,Math.ceil(a.angleTo(b)/(3*DEG)));
+      let prec=a;
+      for(let j=1;j<=n;j++){
+        const q=j===n?b:a.clone().normalize().lerp(b.clone().normalize(),j/n).normalize().multiplyScalar(RS);
+        pts.push(prec,q); prec=q;
+      }
+    } });
+    lati.geometry.dispose(); lati.geometry=new THREE.BufferGeometry().setFromPoints(pts);
+  };
+  tiraLati();
+  gL.add(lati);
+  // saltando nel tempo: si ri-precessano le stelle, e nuvole e figure si riposano su di loro
+  EPOCA.push(()=>{ riprecessa(); CAMPI.forEach(f=>f()); tiraLati(); });
   // le stelle di Regulus: la tinta vera (la scala osservativa di Regulus) e un alone intorno
   const gS=G('stelle',sky);
   const nostre=[], ammassi=[];
@@ -1177,6 +1273,61 @@ function avanzaCielo(dt){
 orientaCielo();
 collocaPianeti();
 
+// ====================== saltare nel tempo ======================
+// Far GIRARE la volta e' una cosa — il tempo siderale che cresce, e i pianeti che si ricollocano —
+// ma SALTARE di anni e' un'altra: la precessione muove le stelle (0,014° l'anno: un grado in
+// settant'anni, due fra il 1700 e oggi) e l'obliquita' muove l'eclittica. Percio' si rifa' l'EPOCA:
+// si rifissa l'istante base, si ri-precessano le stelle e si rifa' tutto quello che dipende da lei.
+// Niente pagina da ricaricare: dentro il visore chiuderebbe la VR.
+//
+// FIN DOVE. astronomy-engine risponde a qualunque anno, ma e' costruita per il 1700-2200 (per
+// Plutone integra da una tavola di stati che finisce li'). Misurato contro le Swiss Ephemeris di
+// Regulus, secolo per secolo: dal 1500 al 2300 lo scarto sta sotto il paio di primi su tutto; verso
+// l'anno 1000 la Luna scivola di 4 primi; nell'anno 0 di un quarto di grado; al −1000 di mezzo; al
+// −3000 di un grado e mezzo, cioe' tre dischi lunari (il Sole, li', sbaglia nove primi).
+// Non e' il ΔT: i due motori ne usano uno quasi identico — provato a pareggiarlo, la Luna non
+// migliora. E' la teoria lunare che perde colpi sui millenni. Le stelle, inoltre, non portano il
+// MOTO PROPRIO: su duemila anni Arturo si sposta di un grado per conto suo.
+const ANNO_MIN=-3000, ANNO_MAX=3000;
+function qualitaEpoca(anno){
+  if(anno>=1700&&anno<=2200) return null;                       // la garanzia: niente da dire
+  if(anno>=1500&&anno<=2300) return {t:'fuori dalla garanzia, ma lo scarto resta sotto il primo',k:''};
+  if(anno>=1000&&anno<=2500) return {t:'Luna e Plutone scivolano di qualche primo',k:'warn'};
+  if(anno>=0)                return {t:'la Luna sbaglia fino a un quarto di grado',k:'warn'};
+  if(anno>=-1000)            return {t:'la Luna sbaglia mezzo grado',k:'warn'};
+  return {t:'la Luna sbaglia fino a un grado e mezzo (tre suoi dischi)',k:'warn'};
+}
+const annoDelCielo=()=>istanteCielo().getUTCFullYear();
+// l'indirizzo porta luogo E istante: la pagina resta condivisibile, e riaprendola si torna qui
+function aggiornaIndirizzo(){
+  try{ history.replaceState(null,'','?'+new URLSearchParams({nome:LUOGO.nome, lat:String(LUOGO.lat),
+    lng:String(LUOGO.lng), tz:LUOGO.fuso, t:istanteCielo().toISOString()})); }catch(e){}
+}
+function vaiAlTempo(d,zitto){
+  const lim=new Date(d.getTime());
+  if(lim.getUTCFullYear()<ANNO_MIN||lim.getUTCFullYear()>ANNO_MAX){
+    diag('fuori dagli anni che la sfera tiene ('+ANNO_MIN+' … '+ANNO_MAX+')','warn'); return false;
+  }
+  ISTANTE.setTime(lim.getTime());
+  simMs=0; simPianeti=0;
+  fissaEpoca();
+  for(const f of EPOCA) f();
+  orientaCielo(); collocaPianeti(); aggiornaGlifi();
+  minutoMostrato=null; aggiornaOra(); aggiornaIndirizzo(); aggiornaFinestraTempo();
+  if(!zitto){
+    const q=qualitaEpoca(annoDelCielo());
+    diag('cielo del '+quandoTesto(istanteCielo(),true)+(q?' — '+q.t:''), q?(q.k||'ok'):'ok');
+  }
+  return true;
+}
+// un passo: 'anno' 'mese' 'giorno' 'ora' 'minuto' 'secondo', avanti o indietro
+const PASSI={anno:'FullYear', mese:'Month', giorno:'Date', ora:'Hours', minuto:'Minutes', secondo:'Seconds'};
+function passoTempo(campo,quanti){
+  const d=new Date(istanteCielo().getTime());
+  d['setUTC'+PASSI[campo]](d['getUTC'+PASSI[campo]]()+quanti);
+  return vaiAlTempo(d);
+}
+
 // ====================== l'orizzonte reale ======================
 // Acceso, quello che non e' ancora sorto non si vede: un piano di taglio sull'orizzonte per linee,
 // dischetti e sfere del cielo; le scritte (sprite) non si lasciano tagliare e si spengono a mano.
@@ -1584,6 +1735,7 @@ const BUTTONS=[
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
+  {k:'tempo',   t:'Tempo', on:false, c:0xe3c169, azione:true},
 ];
 // tutto cio' che il raggio puo' premere: i tasti del pannello e quelli della tastiera
 const INTERATTIVI=[];
@@ -1605,7 +1757,7 @@ const CRUSCOTTO=[
   {nome:'GRIGLIE',tasti:['grigliaEq','grigliaEcl','grigliaAz','zodiaco','latitudini','vis']},
   {nome:'ASTRI',  tasti:['axis','planet','pianeti','elementi','stelle','costellazioni','linee']},
   {nome:'TERRA',  tasti:['orizReale','mare','onda','quota','altezza']},
-  {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo','spin','velocita']},
+  {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo','tempo','spin','velocita']},
 ];
 // CINQUE FILE DI SETTE, invece di quattro di nove. I cerchi si sono divisi in due: i grandi cerchi
 // della sfera locale in una fila, le GRIGLIE e le graduazioni nell'altra. Il banco resta largo
@@ -1949,7 +2101,7 @@ function posizionaComandi(){
 }
 function mostraComandi(on){
   if(on){ posizionaComandi(); vrPanel.visible=true; diag('cruscotto davanti allo sguardo (tasto B)'); }
-  else { vrPanel.visible=false; chiudiTastiera(); diag('cruscotto via (tasto B per rivederlo)'); }
+  else { vrPanel.visible=false; chiudiTastiera(); chiudiPanTempo(); diag('cruscotto via (tasto B per rivederlo)'); }
 }
 // I due tasti alti: il B della mano DESTRA fa comparire e sparire il cruscotto, il Y della SINISTRA
 // il riquadro della stella scelta. Nella mappatura del visore sono lo stesso numero (5): a dire quale
@@ -1997,6 +2149,7 @@ function toggleBtn(b){
   if(b.k==='velocita'){ impostaVelocita((livVel+1)%VELOCITA.length); return; }
   if(b.k==='quota'){ impostaQuota(MARE.quota+1); diag('quota: '+testoQuota()); return; }
   if(b.k==='luogo'){ if(TASTIERA.visible) chiudiTastiera(); else apriTastiera(); return; }
+  if(b.k==='tempo'){ if(PAN_TEMPO.visible) chiudiPanTempo(); else apriPanTempo(); return; }
   if(b.k==='altezza'){
     modoAltezza = modoAltezza==='occhi' ? 'piedi' : 'occhi';
     b.t = modoAltezza==='occhi' ? 'Occhi all’orizzonte' : 'Piedi all’orizzonte';
@@ -2523,17 +2676,19 @@ function tavolaTasto(testo,pxW,pxH,opt){
   x.fillText(testo, opt.sinistra?20:pxW/2, pxH/2+2);
   const t=new THREE.CanvasTexture(c); t.anisotropy=4; return t;
 }
-function creaTasto(testo,x,y,w,h,fai,opt){
+function creaTasto(testo,x,y,w,h,fai,opt,dove){
+  const g=dove||TASTIERA;
   const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
     new THREE.MeshBasicMaterial({map:tavolaTasto(testo,Math.round(w*PXM),Math.round(h*PXM),opt),transparent:true}));
   m.position.set(x,y,0); m.userData.fai=fai; m.userData.opt=opt; m.userData.testo=testo;
   const halo=new THREE.Mesh(new THREE.PlaneGeometry(w+0.012,h+0.012),
     new THREE.MeshBasicMaterial({color:0x9fd0ff,transparent:true,opacity:0,depthWrite:false}));
-  halo.position.set(x,y,-0.002); TASTIERA.add(halo); m.userData.halo=halo;
-  TASTIERA.add(m); INTERATTIVI.push(m); return m;
+  halo.position.set(x,y,-0.002); g.add(halo); m.userData.halo=halo;
+  g.add(m); INTERATTIVI.push(m); return m;
 }
 function riscriviTasto(m,testo,opt){
   const g=m.geometry.parameters;
+  m.userData.testo=testo;   // il tasto deve sapere che cosa dice: lo leggono i banchi e chi lo cerca
   if(m.material.map) m.material.map.dispose();
   m.material.map=tavolaTasto(testo,Math.round(g.width*PXM),Math.round(g.height*PXM),opt||m.userData.opt);
   m.material.needsUpdate=true;
@@ -2600,11 +2755,75 @@ function apriTastiera(){
   cam.getWorldPosition(p); cam.getWorldDirection(d); d.y=0; if(d.lengthSq()<1e-6) d.set(0,0,-1); d.normalize();
   TASTIERA.position.copy(p).addScaledVector(d,0.62); TASTIERA.position.y=p.y-0.16;
   TASTIERA.lookAt(p.x,TASTIERA.position.y,p.z);
+  chiudiPanTempo();
   testoLuogo=''; aggiornaCampo(); aggiornaRisultatiVR();
   TASTIERA.visible=true; caricaLuoghi().catch(()=>{});
   diag('scrivi il luogo col raggio; due numeri valgono come coordinate');
 }
 function chiudiTastiera(){ TASTIERA.visible=false; }
+// un pannello davanti a chi guarda, un poco sotto lo sguardo e rivolto verso di lui
+function davanti(g,quanto,giu){
+  const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
+  const p=new THREE.Vector3(), d=new THREE.Vector3();
+  cam.getWorldPosition(p); cam.getWorldDirection(d); d.y=0; if(d.lengthSq()<1e-6) d.set(0,0,-1); d.normalize();
+  g.position.copy(p).addScaledVector(d,quanto); g.position.y=p.y-giu;
+  g.lookAt(p.x,g.position.y,p.z);
+}
+
+// ====================== il tempo, dentro il visore ======================
+// La stessa finestra della pagina, fatta di tasti da premere col raggio: sei colonne (giorno, mese,
+// anno, ore, minuti, secondi) ognuna con la freccia su e la freccia giu', i salti grossi, «adesso».
+// L'ora scritta e' quella DEL LUOGO, come sulla pagina.
+const PAN_TEMPO=new THREE.Group(); PAN_TEMPO.visible=false; scene.add(PAN_TEMPO);
+let panTempoFatto=false; const celleTempo={}; let rigaTempo=null, rigaAvviso=null;
+const T_ETICHETTE={giorno:'giorno',mese:'mese',anno:'anno',ora:'ore',minuto:'min',secondo:'sec'};
+function costruisciPanTempo(){
+  panTempoFatto=true;
+  const CW=0.086, CH=0.052, CG=0.008;
+  const larg=6*CW+5*CG, x0=-larg/2+CW/2;
+  const fondo=new THREE.Mesh(new THREE.PlaneGeometry(larg+0.06,0.46),
+    new THREE.MeshBasicMaterial({color:0x080b16,transparent:true,opacity:.86,depthWrite:false}));
+  fondo.position.set(0,-0.03,-0.006); PAN_TEMPO.add(fondo);
+  const titolo=label('IL TEMPO','#e3c169',0.045); titolo.position.set(-larg/2+0.06,0.185,0); PAN_TEMPO.add(titolo);
+  T_CAMPI.forEach((n,i)=>{
+    const x=x0+i*(CW+CG);
+    const et=label(T_ETICHETTE[n],'#7a86a6',0.026); et.position.set(x,0.128,0); PAN_TEMPO.add(et);
+    creaTasto('▲',x,0.092,CW,0.034,()=>passoLocale(n,1),{fs:26},PAN_TEMPO);
+    celleTempo[n]=creaTasto('',x,0.040,CW,CH,()=>{},{fondo:'rgba(10,14,28,.98)',bordo:'rgba(227,193,105,.7)'},PAN_TEMPO);
+    INTERATTIVI.splice(INTERATTIVI.indexOf(celleTempo[n]),1);   // la cella si legge, non si preme
+    creaTasto('▼',x,-0.012,CW,0.034,()=>passoLocale(n,-1),{fs:26},PAN_TEMPO);
+  });
+  const salti=[['−100a','anno',-100],['−10a','anno',-10],['−1a','anno',-1],['−1m','mese',-1],['−1g','giorno',-1],
+               ['+1g','giorno',1],['+1m','mese',1],['+1a','anno',1],['+10a','anno',10],['+100a','anno',100]];
+  const SW=(larg-9*CG)/10;
+  salti.forEach(([t,campo,q],i)=>creaTasto(t,-larg/2+SW/2+i*(SW+CG),-0.072,SW,0.042,
+    ()=>passoLocale(campo,q),{fs:20},PAN_TEMPO));
+  creaTasto('adesso',-larg/4-CG/2,-0.126,larg/2-CG/2,0.046,()=>vaiAlTempo(new Date()),
+    {bordo:'rgba(150,230,170,.7)'},PAN_TEMPO);
+  creaTasto('chiudi',larg/4+CG/2,-0.126,larg/2-CG/2,0.046,chiudiPanTempo,
+    {bordo:'rgba(255,138,138,.65)'},PAN_TEMPO);
+  rigaTempo=creaTasto('',0,-0.182,larg,0.040,()=>{},{sinistra:true,fondo:'rgba(10,14,28,.0)',bordo:'rgba(0,0,0,0)',fs:24},PAN_TEMPO);
+  INTERATTIVI.splice(INTERATTIVI.indexOf(rigaTempo),1);
+  rigaAvviso=creaTasto('',0,-0.224,larg,0.036,()=>{},{sinistra:true,fondo:'rgba(10,14,28,.0)',bordo:'rgba(0,0,0,0)',fs:21,colore:'#e0a840'},PAN_TEMPO);
+  INTERATTIVI.splice(INTERATTIVI.indexOf(rigaAvviso),1);
+  inPrimoPiano(PAN_TEMPO);
+}
+function scriviPanTempo(){
+  if(!panTempoFatto) return;
+  const c=pezziLocali(istanteCielo(),LUOGO.fuso);
+  for(const n of T_CAMPI) riscriviTasto(celleTempo[n],(n==='anno')?String(c.anno):String(c[n]).padStart(2,'0'));
+  riscriviTasto(rigaTempo,quandoTesto(istanteCielo(),true)+' · ora di '+LUOGO.nome);
+  const q=qualitaEpoca(annoDelCielo());
+  riscriviTasto(rigaAvviso,q?('fuori dal 1700-2200: '+q.t):'');
+}
+function apriPanTempo(){
+  if(!panTempoFatto) costruisciPanTempo();
+  chiudiTastiera();
+  davanti(PAN_TEMPO,0.62,0.16);
+  scriviPanTempo(); PAN_TEMPO.visible=true;
+  diag('il tempo: le frecce muovono giorno, mese, anno, ore, minuti, secondi');
+}
+function chiudiPanTempo(){ PAN_TEMPO.visible=false; }
 
 // ====================== ingresso in VR ======================
 const enter=document.getElementById('enter');
@@ -2731,8 +2950,13 @@ if(document.fonts && document.fonts.load){
 // ====================== ciclo ======================
 // ====================== l'ora del cielo, in testa e nel visore ======================
 let minutoMostrato=null, oraScritta=0;
-const quandoTesto=(t,conAnno)=>t.toLocaleString('it-IT',{timeZone:LUOGO.fuso,day:'2-digit',month:'2-digit',
-  ...(conAnno?{year:'numeric'}:{}),hour:'2-digit',minute:'2-digit'});
+// L'ora del luogo, scritta. Non si usa toLocaleString perche' degli anni prima di Cristo direbbe
+// solo il numero: al −1000 scriveva «1001», che e' il 1001 a.C. senza dirlo.
+function quandoTesto(t,conAnno){
+  const c=pezziLocali(t,LUOGO.fuso), du=n=>String(n).padStart(2,'0');
+  const anno=c.anno<=0?(1-c.anno)+' a.C.':String(c.anno);
+  return du(c.giorno)+'/'+du(c.mese)+(conAnno?'/'+anno:'')+', '+du(c.ora)+':'+du(c.minuto);
+}
 function aggiornaOra(){
   const t=istanteCielo(), chiave=Math.floor(t.getTime()/60000), ora=performance.now();
   if(chiave===minutoMostrato) return;
@@ -2870,8 +3094,8 @@ function applicaLuogo(l){
   minutoMostrato=null; aggiornaOra();
   btnLuogo.textContent='⌖ '+LUOGO.nome;
   const b=BUTTONS.find(x=>x.k==='luogo'); if(b){ b.t='Luogo: '+LUOGO.nome; ridipingi(b); }
-  try{ history.replaceState(null,'','?'+new URLSearchParams({nome:LUOGO.nome, lat:String(LUOGO.lat),
-    lng:String(LUOGO.lng), tz:LUOGO.fuso})); }catch(e){}
+  aggiornaIndirizzo();
+  aggiornaFinestraTempo();   // l'ora mostrata e' quella del luogo: cambiando luogo cambia
   diag('luogo: '+LUOGO.nome+' · '+coordTesto(LUOGO.lat,LUOGO.lng),'ok');
 }
 // il fuso di un punto qualunque: quello della citta' piu' vicina, come fa Regulus per le coordinate a mano
@@ -2898,15 +3122,96 @@ function mostraRisultati(){
     if(!ris.length && inCerca.value.trim().length>=2) divRis.textContent='nessuna città: prova con le coordinate';
   }).catch(e=>{ divRis.textContent='elenco delle città non disponibile ('+e.message+'): usa le coordinate'; });
 }
-btnLuogo.addEventListener('click',()=>{
-  boxLuogo.hidden=!boxLuogo.hidden;
-  if(!boxLuogo.hidden){ inCerca.focus(); caricaLuoghi().catch(()=>{}); }
-});
+// LE FINESTRE DELLA BARRA: una per volta, come i pannelli del cruscotto
+const FINESTRE=[];
+function registraFinestra(tasto,box,aperta){
+  FINESTRE.push({tasto,box});
+  tasto.addEventListener('click',()=>{
+    const apri=box.hidden;
+    for(const f of FINESTRE){ f.box.hidden=true; f.tasto.classList.remove('on'); }
+    box.hidden=!apri; tasto.classList.toggle('on',apri);
+    if(apri&&aperta) aperta();
+  });
+}
+registraFinestra(btnLuogo,boxLuogo,()=>{ inCerca.focus(); caricaLuoghi().catch(()=>{}); });
 inCerca.addEventListener('input',mostraRisultati);
 inCerca.addEventListener('keydown',e=>{
   if(e.key==='Enter'){ const primo=divRis.querySelector('div'); if(primo) primo.click(); }
   if(e.key==='Escape') boxLuogo.hidden=true;
 });
+// ====================== la finestra del tempo ======================
+// L'ora che si scrive e' quella DEL LUOGO, non quella universale: e' l'ora che l'astrologo ha in
+// mano. Andare e venire fra le due si fa con Intl, che conosce la storia dei fusi; il ritorno
+// (dai pezzi locali all'istante) si trova per avvicinamenti — bastano tre giri, perche' l'ora
+// legale sposta al piu' di un'ora.
+function pezziLocali(d,fuso){
+  try{
+    const f=new Intl.DateTimeFormat('en-GB',{timeZone:fuso,year:'numeric',month:'2-digit',day:'2-digit',
+      hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,era:'short'});
+    const p={}; for(const x of f.formatToParts(d)) p[x.type]=x.value;
+    let anno=Number(p.year);
+    if(p.era&&/^B/i.test(p.era)) anno=1-anno;              // 1 a.C. e' l'anno 0, 2 a.C. il −1
+    return {anno, mese:Number(p.month), giorno:Number(p.day),
+            ora:Number(p.hour)%24, minuto:Number(p.minute), secondo:Number(p.second)};
+  }catch(e){
+    return {anno:d.getUTCFullYear(), mese:d.getUTCMonth()+1, giorno:d.getUTCDate(),
+            ora:d.getUTCHours(), minuto:d.getUTCMinutes(), secondo:d.getUTCSeconds()};
+  }
+}
+function dataDaPezzi(c){
+  const d=new Date(Date.UTC(2000,c.mese-1,c.giorno,c.ora,c.minuto,c.secondo||0,0));
+  d.setUTCFullYear(c.anno);   // Date.UTC manda gli anni 0-99 nel Novecento: l'anno si impone dopo
+  return d;
+}
+function scartoFuso(d,fuso){ return dataDaPezzi(pezziLocali(d,fuso)).getTime()-Math.floor(d.getTime()/1000)*1000; }
+function istanteDaLocali(c,fuso){
+  const t0=dataDaPezzi(c).getTime(); let t=t0;
+  for(let i=0;i<3;i++) t=t0-scartoFuso(new Date(t),fuso);
+  return new Date(t);
+}
+const boxTempo=document.getElementById('tempo'), btnTempo=document.getElementById('tempo-btn');
+const T_CAMPI=['giorno','mese','anno','ora','minuto','secondo'];
+const inT=n=>document.getElementById('t-'+n);
+let scrivendoTempo=false;
+function aggiornaFinestraTempo(){
+  if(!boxTempo) return;
+  const c=pezziLocali(istanteCielo(),LUOGO.fuso);
+  if(!scrivendoTempo) for(const n of T_CAMPI) inT(n).value=(n==='anno')?String(c.anno):String(c[n]).padStart(2,'0');
+  btnTempo.textContent='◷ '+quandoTesto(istanteCielo(),true);
+  const q=qualitaEpoca(annoDelCielo()), av=document.getElementById('t-avviso');
+  document.getElementById('t-dove').innerHTML='<b>'+quandoTesto(istanteCielo(),true)+'</b> · ora di '+
+    LUOGO.nome+'<br>'+istanteCielo().toISOString().replace('T',' ').slice(0,19)+' universale';
+  av.hidden=!q; if(q) av.textContent='Fuori dal 1700–2200: '+q.t+'.';
+  scriviPanTempo();
+}
+// scritti i campi a mano, si va li'
+function leggiCampiTempo(){
+  const c={};
+  for(const n of T_CAMPI){ const v=parseInt(String(inT(n).value).replace(/[^\d-]/g,''),10); if(!Number.isFinite(v)) return null; c[n]=v; }
+  return c;
+}
+for(const n of T_CAMPI){
+  inT(n).addEventListener('focus',()=>{ scrivendoTempo=true; });
+  inT(n).addEventListener('blur',()=>{ scrivendoTempo=false; aggiornaFinestraTempo(); });
+  inT(n).addEventListener('change',()=>{ const c=leggiCampiTempo(); if(c) vaiAlTempo(istanteDaLocali(c,LUOGO.fuso)); });
+}
+// LE FRECCE muovono il campo NELL'ORA DEL LUOGO: aggiungere un giorno vuol dire lo stesso orario
+// del giorno dopo, anche se in mezzo e' scattata l'ora legale.
+function passoLocale(campo,quanti){
+  const c=pezziLocali(istanteCielo(),LUOGO.fuso);
+  c[campo]+=quanti;
+  return vaiAlTempo(istanteDaLocali(c,LUOGO.fuso));
+}
+boxTempo.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.su) passoLocale(b.dataset.su,1);
+  else if(b.dataset.giu) passoLocale(b.dataset.giu,-1);
+  else if(b.dataset.salto){ const [campo,n]=b.dataset.salto.split(':'); passoLocale(campo,Number(n)); }
+});
+document.getElementById('t-adesso').addEventListener('click',()=>vaiAlTempo(new Date()));
+registraFinestra(btnTempo,boxTempo,aggiornaFinestraTempo);
+aggiornaFinestraTempo();
+
 document.getElementById('luogo-usa').addEventListener('click',()=>{
   const num=v=>parseFloat(String(v).replace(',','.'));
   const lat=num(document.getElementById('luogo-lat').value), lng=num(document.getElementById('luogo-lng').value);
