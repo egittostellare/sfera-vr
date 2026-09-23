@@ -95,6 +95,20 @@
   #tempo .dove{margin-top:10px;font-size:13px;color:#cfd6ea;line-height:1.5}
   #tempo .dove b{color:#e3c169;font-weight:600}
   #tempo .avviso{margin-top:6px;font-size:12px;color:#e0a840;line-height:1.45}
+  #temi .dove{margin:8px 0;font-size:13px;color:#cfd6ea;line-height:1.5}
+  #temi .dove b{color:#e3c169;font-weight:600}
+  #temi .ris div{display:flex;align-items:baseline;gap:6px}
+  #temi .ris div span.via{margin-left:auto;color:#a06a6a;padding:0 4px}
+  #temi .ris div span.via:hover{color:#ff8a8a}
+  #temi .coord label.file,#temi .coord button{flex:1;text-align:center;padding:7px;border-radius:8px;
+    border:1px solid rgba(150,166,205,.3);background:rgba(150,166,205,.08);color:#cfd6ea;cursor:pointer;
+    font:13px 'Spectral',Georgia,serif}
+  #temi .coord label.file:hover,#temi .coord button:hover{background:rgba(227,193,105,.2)}
+  #tema-attivo{font-size:13px;color:#cfd6ea;line-height:1.6}
+  #tema-attivo .velo{display:flex;gap:5px;margin-top:6px}
+  #tema-attivo .velo button{flex:1;padding:5px;border-radius:7px;border:1px solid rgba(150,166,205,.3);
+    background:rgba(150,166,205,.08);color:#cfd6ea;cursor:pointer;font:12px 'Spectral',Georgia,serif}
+  #tema-attivo .velo button.on{background:rgba(216,180,255,.25);border-color:rgba(216,180,255,.6)}
   /* la citazione che la licenza delle figure chiede */
   #crediti{position:fixed;z-index:3;bottom:2px;left:0;right:0;text-align:center;font-size:10px;
     color:#6f7896;pointer-events:none;letter-spacing:.02em}
@@ -140,6 +154,27 @@
 <div id="barra">
   <button id="luogo-btn">⌖ Milano</button>
   <button id="tempo-btn">◷ tempo</button>
+  <button id="temi-btn">☰ temi</button>
+</div>
+<div id="temi" class="box" hidden>
+  <h3>I temi</h3>
+  <div class="nota" style="margin-top:0">Un tema è <b>il cielo che stai guardando, con un nome</b>:
+    scegli il luogo e l'istante con le altre due finestre, poi salvalo qui. Riaprendolo, il planetario
+    torna lì e i pianeti di nascita restano segnati sulla volta mentre il tempo scorre.</div>
+  <input id="tema-nome" placeholder="Nome del tema…" autocomplete="off">
+  <div class="dove" id="tema-ora"></div>
+  <button class="usa" id="tema-salva">Salva questo cielo</button>
+  <h4>Il tema eretto</h4>
+  <div id="tema-attivo"></div>
+  <h4>Archivio</h4>
+  <div class="ris" id="tema-lista"></div>
+  <div class="coord">
+    <label class="file" id="tema-importa">Importa…<input type="file" id="tema-file" accept=".json,application/json" hidden></label>
+    <button id="tema-esporta">Esporta</button>
+  </div>
+  <div class="nota">L'archivio sta nel browser di questa macchina, e ha <b>la stessa forma di quello di
+    Regulus</b>: l'<code>archivio.json</code> di Regulus si riversa qui tale e quale, e quello di qui
+    può tornare là. Per ora i due restano separati: la porta è il formato.</div>
 </div>
 <div id="tempo" class="box" hidden>
   <h3>Il tempo</h3>
@@ -191,6 +226,17 @@
   tradizione — tutto quello che Regulus sa di lei. Ripremendo Y sparisce. Il riquadro si sposta
   prendendolo per la <b>barretta</b> che ha sotto — come le finestre di Meta — o per la <b>cornice</b>,
   tenendo il grilletto: segue la mano e resta dove lo lasci. Il <b>tasto X</b> (mano sinistra) ricentra.
+  <b>Le tre finestre.</b> In alto a destra (e nel cruscotto, dentro il visore) ci sono <b>Luogo</b>,
+  <b>Tempo</b> e <b>Temi</b>. Il tempo va avanti e indietro dal 3000 a.C. al 3000 d.C. — sei campi con
+  le frecce, i salti di un giorno, un mese, un anno, dieci, cento — e l'ora scritta è quella <b>del
+  luogo</b>, coi fusi storici veri. Saltando di secoli il cielo si <b>ri-precessa</b>: le stelle
+  tornano dov'erano (0,014° l'anno, un grado in settant'anni). Fuori dal 1700–2200 la finestra dice
+  quanto stanno sbagliando le effemeridi.
+  Un <b>tema</b> è il cielo che stai guardando, con un nome: scegli luogo e istante, poi salvalo.
+  Riaprendolo il planetario torna lì, e i <b>pianeti di nascita restano segnati</b> sulla volta
+  mentre il tempo scorre — si velano in tre gradi, si tolgono e si rimettono. L'archivio ha
+  <b>la stessa forma di quello di Regulus</b>: il suo <code>archivio.json</code> si riversa qui tale
+  e quale, e quello di qui può tornare là.
   Per girare il planetario: raggio nel vuoto, stringi il tasto laterale <b>destro</b> e trascina di lato.
   Col tasto laterale <b>sinistro</b> lo fai scorrere in <b>altitudine</b>: si corica nel piano verticale in cui
   punti, fino a novanta gradi, e lo zenit ti scende all'altezza degli occhi. Mentre è coricato il mare
@@ -735,6 +781,11 @@ function aggiornaGlifi(){
   }
   _dG.copy(SOLE.mesh.position).normalize();
   SOLE.et.position.copy(SOLE.mesh.position).addScaledVector(tangenteSu(_dG,_suV),0.72);
+  for(const s of RADIX_SEGNI){          // e i segni del tema, che stanno fermi ma si scostano in alto
+    if(!s.anello.visible) continue;
+    _dG.copy(s.anello.position).normalize();
+    s.sp.position.copy(s.anello.position).addScaledVector(tangenteSu(_dG,_suV),0.26);
+  }
 }
 // ====================== i globi: la faccia vera dei pianeti ======================
 // Ogni pianeta non e' un dischetto colorato ma un GLOBO, con la sua mappa avvolta sopra e
@@ -848,6 +899,49 @@ function aggiornaVis(){
 const testoVis=()=>'vis luminis: l’orbe di ciascuno (al-Bīrūnī) — '+
   Object.keys(VIS_ORBE).map(n=>n+' '+VIS_ORBE[n]+'°').join(' · ')+
   '. Urano, Nettuno e Plutone non ne hanno uno nella tradizione: restano senza.';
+
+// ====================== il TEMA: i pianeti di nascita, segnati ======================
+// Eretto un tema, i suoi pianeti restano SEGNATI sulla volta mentre il tempo scorre: un anello del
+// colore del pianeta, col suo glifo accanto, al grado che aveva quel giorno. Si possono velare
+// (tre gradi di trasparenza) e si possono togliere e rimettere.
+// Le posizioni si tengono in coordinate J2000 — cioe' ferme nello spazio — e si portano alla data
+// come le stelle: cosi', saltando nel tempo, il tema si ri-precessa insieme al cielo invece di
+// scivolare fra le stelle.
+const R_RADIX=R*0.988;   // fuori dall'alone del Sole (0,9825) e dai pianeti, dentro la velatura
+const RADIX={tema:null, eqj:null, velo:1};
+const RADIX_SEGNI=[];
+{
+  const g=G('radix',sky); g.visible=false;
+  const nomi=['Sole'].concat(CIELO?CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).map(p=>p.n):[]);
+  for(const n of nomi){
+    const p=CIELO&&CIELO.pianeti.find(x=>x.n===n);
+    const col=(p&&p.c)||'#ffcf5a';
+    const anello=new THREE.Mesh(new THREE.TorusGeometry(0.072,0.007,8,32),   // mezzo grado: si legge come cerchio
+      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.9,depthWrite:false}));
+    anello.userData.zoomRigido=true; g.add(anello);
+    const sp=p&&p.g?spriteGlifo(p.g,col,0.30):label(n==='Sole'?'☉':n.slice(0,2),col,0.30);
+    sp.material.transparent=true; g.add(sp);
+    sp.userData.zoomRef=v=>anello.getWorldPosition(v);
+    RADIX_SEGNI.push({nome:n, en:n==='Sole'?'Sun':PIANETI_EN[n], anello, sp});
+  }
+}
+const _rD=new THREE.Vector3();
+function collocaRadix(){
+  if(!RADIX.eqj||!A) return;
+  for(const s of RADIX_SEGNI){
+    const v=RADIX.eqj[s.nome]; if(!v){ s.anello.visible=s.sp.visible=false; continue; }
+    s.anello.visible=s.sp.visible=true;
+    aDate(v,ROT,TEMPO,_rD).normalize().multiplyScalar(R_RADIX);
+    s.anello.position.copy(_rD); s.anello.lookAt(0,0,0);
+  }
+  aggiornaGlifi();
+}
+function veloRadix(v){
+  RADIX.velo=v;
+  for(const s of RADIX_SEGNI){ s.anello.material.opacity=0.9*v; s.sp.material.opacity=v; }
+}
+// il tema si ri-precessa col cielo, come le stelle
+EPOCA.push(collocaRadix);
 
 // Ricolloca Sole e pianeti all'istante del cielo: la Luna fa mezzo grado l'ora, e col moto
 // diurno veloce si vedrebbe restare indietro fra le stelle.
@@ -1678,7 +1772,7 @@ function aggiornaIndicazioni(){
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
   pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,
   mare:true,onda:true,meridiano:true,primovert:false,azimut:false,zodiaco:false,latitudini:false,
-  vis:false,grigliaEq:false,grigliaEcl:false,grigliaAz:false};
+  vis:false,grigliaEq:false,grigliaEcl:false,grigliaAz:false,radix:false};
 // gli elementi celesti, uno per uno: i pianeti accesi (li spegne chi vuole), i punti dello zodiaco
 // spenti — si accendono dal sottomenu del tasto «Pianeti»
 Object.keys(PIANETI_EN).forEach(n=>stato['el-'+n]=true);
@@ -1736,6 +1830,7 @@ const BUTTONS=[
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
   {k:'tempo',   t:'Tempo', on:false, c:0xe3c169, azione:true},
+  {k:'temi',    t:'Temi', on:false, c:0xd8b4ff, azione:true},
 ];
 // tutto cio' che il raggio puo' premere: i tasti del pannello e quelli della tastiera
 const INTERATTIVI=[];
@@ -1756,8 +1851,8 @@ const CRUSCOTTO=[
   {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','primovert','azimut']},
   {nome:'GRIGLIE',tasti:['grigliaEq','grigliaEcl','grigliaAz','zodiaco','latitudini','vis']},
   {nome:'ASTRI',  tasti:['axis','planet','pianeti','elementi','stelle','costellazioni','linee']},
-  {nome:'TERRA',  tasti:['orizReale','mare','onda','quota','altezza']},
-  {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo','tempo','spin','velocita']},
+  {nome:'QUANDO', tasti:['luogo','tempo','temi','spin','velocita','recenter']},
+  {nome:'MONDO',  tasti:['orizReale','mare','onda','quota','altezza','zoom','lente']},
 ];
 // CINQUE FILE DI SETTE, invece di quattro di nove. I cerchi si sono divisi in due: i grandi cerchi
 // della sfera locale in una fila, le GRIGLIE e le graduazioni nell'altra. Il banco resta largo
@@ -2101,7 +2196,7 @@ function posizionaComandi(){
 }
 function mostraComandi(on){
   if(on){ posizionaComandi(); vrPanel.visible=true; diag('cruscotto davanti allo sguardo (tasto B)'); }
-  else { vrPanel.visible=false; chiudiTastiera(); chiudiPanTempo(); diag('cruscotto via (tasto B per rivederlo)'); }
+  else { vrPanel.visible=false; chiudiTastiera(); chiudiPanTempo(); chiudiPanTemi(); diag('cruscotto via (tasto B per rivederlo)'); }
 }
 // I due tasti alti: il B della mano DESTRA fa comparire e sparire il cruscotto, il Y della SINISTRA
 // il riquadro della stella scelta. Nella mappatura del visore sono lo stesso numero (5): a dire quale
@@ -2150,6 +2245,7 @@ function toggleBtn(b){
   if(b.k==='quota'){ impostaQuota(MARE.quota+1); diag('quota: '+testoQuota()); return; }
   if(b.k==='luogo'){ if(TASTIERA.visible) chiudiTastiera(); else apriTastiera(); return; }
   if(b.k==='tempo'){ if(PAN_TEMPO.visible) chiudiPanTempo(); else apriPanTempo(); return; }
+  if(b.k==='temi'){ if(PAN_TEMI.visible) chiudiPanTemi(); else apriPanTemi(); return; }
   if(b.k==='altezza'){
     modoAltezza = modoAltezza==='occhi' ? 'piedi' : 'occhi';
     b.t = modoAltezza==='occhi' ? 'Occhi all’orizzonte' : 'Piedi all’orizzonte';
@@ -2660,7 +2756,7 @@ function aggiornaPresa(){
 // (latitudine e longitudine, sud e ovest col meno). Scelto il luogo, il cielo si riorienta subito:
 // niente pagina da ricaricare, niente uscita dalla VR.
 const TASTIERA=new THREE.Group(); TASTIERA.visible=false; scene.add(TASTIERA);
-let tastieraFatta=false, testoLuogo='', risultatiVR=[], campoLuogo=null;
+let tastieraFatta=false, testoLuogo='', risultatiVR=[], campoLuogo=null, modoTastiera='luogo';
 const tastiRis=[];
 const RIGHE_TASTI=['1234567890','QWERTYUIOP',"ASDFGHJKL'",'ZXCVBNM-.,'];
 const TW=0.056, TH=0.056, TG=0.006, PXM=1600;   // tasto, respiro (metri), pixel per metro
@@ -2735,8 +2831,19 @@ function coordDaTesto(s){
   const lat=parseFloat(m[1].replace(',','.')), lng=parseFloat(m[2].replace(',','.'));
   return (lat>=-90&&lat<=90&&lng>=-180&&lng<=180)?{lat,lng}:null;
 }
+let seqRis=0;
 function aggiornaRisultatiVR(){
-  const scrivi=lista=>{ risultatiVR=lista; tastiRis.forEach((m,i)=>{ const r=lista[i]; m.visible=!!r; if(r) riscriviTasto(m,r.testo); }); };
+  // La ricerca delle citta' e' una promessa: una partita PRIMA puo' arrivare DOPO e scrivere sopra
+  // quella giusta — e' cosi' che, passando al modo «nome», i risultati del luogo tornavano a galla.
+  // Ogni giro porta il suo numero: chi arriva vecchio non scrive.
+  const mio=++seqRis;
+  const scrivi=lista=>{ if(mio!==seqRis) return;
+    risultatiVR=lista; tastiRis.forEach((m,i)=>{ const r=lista[i]; m.visible=!!r; if(r) riscriviTasto(m,r.testo); }); };
+  // scrivendo un NOME di tema non si cerca nulla: il primo tasto salva, e basta
+  if(modoTastiera==='nome'){
+    scrivi(testoLuogo.trim()?[{testo:'salva «'+testoLuogo.trim()+'» — questo cielo', salva:true}]:[]);
+    return;
+  }
   const c=coordDaTesto(testoLuogo);
   const voceCoord=f=>({testo:'coordinate   '+coordTesto(c.lat,c.lng), luogo:{nome:coordTesto(c.lat,c.lng), lat:c.lat, lng:c.lng, fuso:f}});
   caricaLuoghi().then(L=>{
@@ -2746,8 +2853,19 @@ function aggiornaRisultatiVR(){
     scrivi(lista);
   }).catch(()=>scrivi(c?[voceCoord('UTC')]:[]));
 }
-function scegliRisultatoVR(i){ const r=risultatiVR[i]; if(!r) return; cambiaLuogo(r.luogo); chiudiTastiera(); }
+function scegliRisultatoVR(i){
+  const r=risultatiVR[i]; if(!r) return;
+  if(r.salva){ salvaTemaDiAdesso(testoLuogo.trim()); chiudiTastiera(); return; }
+  cambiaLuogo(r.luogo); chiudiTastiera();
+}
+// la stessa tastiera, per dare un nome al cielo che si sta guardando
+function apriTastieraNome(){
+  apriTastiera(); modoTastiera='nome'; aggiornaRisultatiVR();
+  riscriviTasto(campoLuogo,'');
+  diag('scrivi il nome del tema, poi premi la riga che compare sotto');
+}
 function apriTastiera(){
+  modoTastiera='luogo';
   if(!tastieraFatta) costruisciTastiera();
   // davanti a chi guarda, un poco sotto lo sguardo, rivolta verso di lui
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
@@ -2755,7 +2873,7 @@ function apriTastiera(){
   cam.getWorldPosition(p); cam.getWorldDirection(d); d.y=0; if(d.lengthSq()<1e-6) d.set(0,0,-1); d.normalize();
   TASTIERA.position.copy(p).addScaledVector(d,0.62); TASTIERA.position.y=p.y-0.16;
   TASTIERA.lookAt(p.x,TASTIERA.position.y,p.z);
-  chiudiPanTempo();
+  chiudiPanTempo(); chiudiPanTemi();
   testoLuogo=''; aggiornaCampo(); aggiornaRisultatiVR();
   TASTIERA.visible=true; caricaLuoghi().catch(()=>{});
   diag('scrivi il luogo col raggio; due numeri valgono come coordinate');
@@ -2818,12 +2936,79 @@ function scriviPanTempo(){
 }
 function apriPanTempo(){
   if(!panTempoFatto) costruisciPanTempo();
-  chiudiTastiera();
+  chiudiTastiera(); chiudiPanTemi();
   davanti(PAN_TEMPO,0.62,0.16);
   scriviPanTempo(); PAN_TEMPO.visible=true;
   diag('il tempo: le frecce muovono giorno, mese, anno, ore, minuti, secondi');
 }
 function chiudiPanTempo(){ PAN_TEMPO.visible=false; }
+
+// ====================== i temi, dentro il visore ======================
+// L'archivio da scorrere col raggio, e «dai un nome» che apre la tastiera: il tema e' il cielo che
+// si sta guardando, e luogo e istante si scelgono con le altre due finestre.
+const PAN_TEMI=new THREE.Group(); PAN_TEMI.visible=false; scene.add(PAN_TEMI);
+let panTemiFatto=false, paginaTemi=0;
+const tastiTemi=[]; let rigaAdesso=null, rigaTemaAtt=null, tastoVelo=null, tastoSegni=null, tastoPagina=null;
+const TEMI_PER_PAGINA=6;
+function salvaTemaDiAdesso(nome){
+  const t=temaDiAdesso(nome);
+  if(!t.nome){ diag('al tema manca il nome','warn'); return; }
+  const l=leggiArchivio(), i=l.findIndex(x=>chiaveTema(x)===chiaveTema(t));
+  if(i>=0) l[i]=t; else l.push(t);
+  if(scriviArchivio(l)) erigiTema(t);
+}
+function costruisciPanTemi(){
+  panTemiFatto=true;
+  const larg=0.62;
+  const fondo=new THREE.Mesh(new THREE.PlaneGeometry(larg+0.06,0.62),
+    new THREE.MeshBasicMaterial({color:0x080b16,transparent:true,opacity:.86,depthWrite:false}));
+  fondo.position.set(0,-0.08,-0.006); PAN_TEMI.add(fondo);
+  const titolo=label('I TEMI','#d8b4ff',0.045); titolo.position.set(-larg/2+0.05,0.19,0); PAN_TEMI.add(titolo);
+  rigaAdesso=creaTasto('',0,0.146,larg,0.040,()=>{},{sinistra:true,fondo:'rgba(10,14,28,0)',bordo:'rgba(0,0,0,0)',fs:23},PAN_TEMI);
+  INTERATTIVI.splice(INTERATTIVI.indexOf(rigaAdesso),1);
+  creaTasto('dai un nome a questo cielo',0,0.098,larg,0.046,apriTastieraNome,
+    {bordo:'rgba(216,180,255,.7)'},PAN_TEMI);
+  for(let i=0;i<TEMI_PER_PAGINA;i++){
+    const m=creaTasto('',0,0.040-i*0.050,larg,0.044,()=>scegliTemaVR(i),{sinistra:true,fs:23},PAN_TEMI);
+    m.visible=false; tastiTemi.push(m);
+  }
+  tastoPagina=creaTasto('altri ›',larg/2-0.09,-0.268,0.18,0.040,()=>{ paginaTemi++; scriviPanTemi(); },{fs:21},PAN_TEMI);
+  rigaTemaAtt=creaTasto('',-0.09,-0.268,larg-0.20,0.040,()=>{},{sinistra:true,fondo:'rgba(10,14,28,0)',bordo:'rgba(0,0,0,0)',fs:22},PAN_TEMI);
+  INTERATTIVI.splice(INTERATTIVI.indexOf(rigaTemaAtt),1);
+  const w=(larg-2*0.008)/3;
+  tastoSegni=creaTasto('segnati',-w-0.008,-0.320,w,0.044,()=>{ imposta('radix',!stato.radix); aggiornaTemi(); },
+    {bordo:'rgba(216,180,255,.7)'},PAN_TEMI);
+  tastoVelo=creaTasto('',0,-0.320,w,0.044,()=>{ iVelo=(iVelo+1)%VELI.length; veloRadix(VELI[iVelo].v); aggiornaTemi(); },{},PAN_TEMI);
+  creaTasto('chiudi',w+0.008,-0.320,w,0.044,chiudiPanTemi,{bordo:'rgba(255,138,138,.65)'},PAN_TEMI);
+  inPrimoPiano(PAN_TEMI);
+}
+let temiMostrati=[];
+function scriviPanTemi(){
+  if(!panTemiFatto) return;
+  riscriviTasto(rigaAdesso,quandoTesto(istanteCielo(),true)+' · '+LUOGO.nome);
+  const lista=leggiArchivio();
+  const pagine=Math.max(1,Math.ceil(lista.length/TEMI_PER_PAGINA));
+  if(paginaTemi>=pagine) paginaTemi=0;
+  temiMostrati=lista.slice(paginaTemi*TEMI_PER_PAGINA,(paginaTemi+1)*TEMI_PER_PAGINA);
+  tastiTemi.forEach((m,i)=>{
+    const t=temiMostrati[i]; m.visible=!!t;
+    if(t) riscriviTasto(m,(t.nome||'senza nome')+'   '+rigaTema(t));
+  });
+  if(!lista.length) riscriviTasto(tastiTemi[0],'nessun tema: dai un nome a questo cielo'), tastiTemi[0].visible=true;
+  tastoPagina.visible=pagine>1;
+  riscriviTasto(rigaTemaAtt,RADIX.tema?('eretto: '+(RADIX.tema.nome||'senza nome')):'nessun tema eretto');
+  riscriviTasto(tastoVelo,'velo: '+VELI[iVelo].t);
+  riscriviTasto(tastoSegni,stato.radix?'segnati ✓':'segnati');
+}
+function scegliTemaVR(i){ const t=temiMostrati[i]; if(t) erigiTema(t); }
+function apriPanTemi(){
+  if(!panTemiFatto) costruisciPanTemi();
+  chiudiTastiera(); chiudiPanTempo();
+  davanti(PAN_TEMI,0.66,0.12);
+  scriviPanTemi(); PAN_TEMI.visible=true;
+  diag('i temi: scegline uno col raggio, o dai un nome al cielo che stai guardando');
+}
+function chiudiPanTemi(){ PAN_TEMI.visible=false; }
 
 // ====================== ingresso in VR ======================
 const enter=document.getElementById('enter');
@@ -3139,6 +3324,83 @@ inCerca.addEventListener('keydown',e=>{
   if(e.key==='Enter'){ const primo=divRis.querySelector('div'); if(primo) primo.click(); }
   if(e.key==='Escape') boxLuogo.hidden=true;
 });
+// ====================== l'archivio dei temi ======================
+// LA PORTA APERTA VERSO REGULUS. Un tema si scrive qui con gli STESSI CAMPI con cui lo scrive
+// Regulus — nome, giorno, mese, anno, ora, minuto, lat, lng, cittaNome, stato, zonaIana, gmt, dst,
+// sistemaCase, note — e l'archivio e' un ARRAY nella stessa forma del suo `archivio.json`. Percio'
+// il file di Regulus si riversa qui tale e quale, e quello di qui puo' tornare la'.
+// Anche il riconoscimento e' il suo: due temi sono lo stesso se combaciano nome, istante e luogo
+// (lat/lng a quattro decimali) — la regola di `storico.js` e di `fondi-archivio.mjs`.
+// Oggi i due archivi restano SEPARATI: Regulus tiene il suo in userData, Sfera nel localStorage del
+// browser (che e' l'unico posto che una pagina ha). La porta e' il formato.
+const CHIAVE_ARCHIVIO='sfera-vr-archivio';
+function leggiArchivio(){
+  try{ const t=localStorage.getItem(CHIAVE_ARCHIVIO); const l=t?JSON.parse(t):[];
+    return Array.isArray(l)?l:[]; }catch(e){ diag('archivio illeggibile: '+e.message,'warn'); return []; }
+}
+function scriviArchivio(l){
+  try{ localStorage.setItem(CHIAVE_ARCHIVIO,JSON.stringify(l)); return true; }
+  catch(e){ diag('archivio non salvato: '+e.message,'warn'); return false; }
+}
+const g4=v=>Number.isFinite(Number(v))?Number(Number(v).toFixed(4)):null;
+const nz=v=>{ const n=Number(v); return Number.isFinite(n)?n:null; };
+function chiaveTema(t){
+  if(!t) return '';
+  return [String(t.nome||'').trim().toLowerCase(), nz(t.anno), nz(t.mese), nz(t.giorno),
+    nz(t.ora), nz(t.minuto), g4(t.lat), g4(t.lng)].join('|');
+}
+// unisce senza doppioni: quelli che ci sono gia' non si toccano (come fa fondi-archivio di Regulus)
+function unisciTemi(nostri,altri){
+  const indice=new Map(nostri.map(t=>[chiaveTema(t),t]));
+  let nuovi=0;
+  for(const t of altri){ const k=chiaveTema(t); if(indice.has(k)) continue; indice.set(k,t); nostri.push(t); nuovi++; }
+  return nuovi;
+}
+// L'ISTANTE di un tema. Regulus salva l'ora DEL LUOGO piu' i due scarti GMT e DST: l'ora universale
+// e' quella meno la loro somma. Dove gli scarti non ci sono ma c'e' un fuso vero, si passa da li'.
+function istanteDelTema(t){
+  const c={anno:nz(t.anno), mese:nz(t.mese), giorno:nz(t.giorno),
+           ora:nz(t.ora)||0, minuto:nz(t.minuto)||0, secondo:nz(t.secondo)||0};
+  if(c.anno==null||c.mese==null||c.giorno==null) return null;
+  const gmt=nz(t.gmt), dst=nz(t.dst);
+  if(gmt!=null) return new Date(dataDaPezzi(c).getTime()-(gmt+(dst||0))*3600000);
+  const fuso=(t.zonaIana&&!/^UTC/i.test(String(t.zonaIana)))?t.zonaIana:null;
+  return fuso?istanteDaLocali(c,fuso):dataDaPezzi(c);
+}
+const luogoDelTema=t=>({nome:String(t.cittaNome||t.luogoNome||'').trim()||coordTesto(Number(t.lat),Number(t.lng)),
+  lat:Number(t.lat), lng:Number(t.lng),
+  fuso:(t.zonaIana&&fusoValido(t.zonaIana))?t.zonaIana:(fusoValido(t.zona)?t.zona:'UTC')});
+function temaValido(t){
+  return !!(String(t&&t.nome||'').trim() && istanteDelTema(t) &&
+    Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lng)) &&
+    Math.abs(Number(t.lat))<=90 && Math.abs(Number(t.lng))<=180);
+}
+// ERIGERE un tema: il planetario si mette nel suo luogo e nel suo istante, e i suoi pianeti restano
+// segnati sulla volta mentre il tempo scorre.
+function erigiTema(t){
+  if(!temaValido(t)){ diag('tema incompleto: servono nome, data, ora e luogo','warn'); return false; }
+  const d=istanteDelTema(t);
+  if(d.getUTCFullYear()<ANNO_MIN||d.getUTCFullYear()>ANNO_MAX){
+    diag('«'+t.nome+'» sta fuori dagli anni che la sfera tiene','warn'); return false; }
+  conDissolvenza(()=>{
+    applicaLuogo(luogoDelTema(t));
+    vaiAlTempo(d,true);
+    RADIX.tema=t;
+    RADIX.eqj=null;
+    if(A){
+      const tt=A.MakeTime(d), e={};
+      for(const s of RADIX_SEGNI){ try{ e[s.nome]=A.GeoVector(A.Body[s.en],tt,true); }catch(err){} }
+      RADIX.eqj=e;
+    }
+    collocaRadix(); veloRadix(RADIX.velo);
+    imposta('radix',true);
+    aggiornaTemi();
+    diag('«'+t.nome+'» · '+quandoTesto(d,true)+' · '+luogoDelTema(t).nome,'ok');
+  });
+  return true;
+}
+function chiudiTema(){ RADIX.tema=null; RADIX.eqj=null; imposta('radix',false); aggiornaTemi(); }
+
 // ====================== la finestra del tempo ======================
 // L'ora che si scrive e' quella DEL LUOGO, non quella universale: e' l'ora che l'astrologo ha in
 // mano. Andare e venire fra le due si fa con Intl, che conosce la storia dei fusi; il ritorno
@@ -3211,6 +3473,95 @@ boxTempo.addEventListener('click',e=>{
 document.getElementById('t-adesso').addEventListener('click',()=>vaiAlTempo(new Date()));
 registraFinestra(btnTempo,boxTempo,aggiornaFinestraTempo);
 aggiornaFinestraTempo();
+
+// ====================== la finestra dei temi ======================
+const boxTemi=document.getElementById('temi'), btnTemi=document.getElementById('temi-btn');
+const inNome=document.getElementById('tema-nome');
+const VELI=[{t:'pieno',v:1},{t:'velato',v:.55},{t:'appena',v:.25}];
+let iVelo=0;
+// il tema che si sta guardando, com'e' adesso: il cielo a schermo con un nome
+function temaDiAdesso(nome){
+  const d=istanteCielo(), c=pezziLocali(d,LUOGO.fuso);
+  const gmt=Math.round(scartoFuso(d,LUOGO.fuso)/3600000*100)/100;
+  return {nome:String(nome||'').trim(), anno:c.anno, mese:c.mese, giorno:c.giorno,
+    ora:c.ora, minuto:c.minuto, secondo:c.secondo,
+    lat:LUOGO.lat, lng:LUOGO.lng, cittaNome:LUOGO.nome, zonaIana:LUOGO.fuso, zona:LUOGO.fuso,
+    gmt, dst:0, sistemaCase:'placido', note:'', gruppo:''};
+}
+function rigaTema(t){
+  const d=istanteDelTema(t);
+  return String(t.cittaNome||t.luogoNome||'')+(d?' · '+String(t.giorno).padStart(2,'0')+'/'+
+    String(t.mese).padStart(2,'0')+'/'+(t.anno<=0?(1-t.anno)+' a.C.':t.anno)+
+    ' '+String(t.ora).padStart(2,'0')+':'+String(t.minuto).padStart(2,'0'):' · data mancante');
+}
+function aggiornaTemi(){
+  if(!boxTemi) return;
+  document.getElementById('tema-ora').innerHTML='<b>'+quandoTesto(istanteCielo(),true)+'</b> · '+LUOGO.nome+
+    ' · '+coordTesto(LUOGO.lat,LUOGO.lng);
+  const lista=leggiArchivio(), div=document.getElementById('tema-lista');
+  div.textContent='';
+  if(!lista.length) div.textContent='nessun tema ancora: dai un nome a questo cielo e salvalo.';
+  lista.forEach((t,i)=>{
+    const d=document.createElement('div');
+    d.appendChild(document.createTextNode(t.nome||'senza nome'));
+    const s=document.createElement('small'); s.textContent=rigaTema(t); d.appendChild(s);
+    const x=document.createElement('span'); x.className='via'; x.textContent='✕'; x.title='togli dall’archivio';
+    x.addEventListener('click',e=>{ e.stopPropagation();
+      const l=leggiArchivio(); l.splice(i,1); scriviArchivio(l); aggiornaTemi(); });
+    d.appendChild(x);
+    d.addEventListener('click',()=>erigiTema(t));
+    div.appendChild(d);
+  });
+  const att=document.getElementById('tema-attivo');
+  att.textContent='';
+  if(!RADIX.tema){ att.textContent='nessuno: scegline uno dall’archivio, o salva questo cielo.'; }
+  else{
+    att.innerHTML='<b>'+(RADIX.tema.nome||'senza nome')+'</b><br>'+rigaTema(RADIX.tema)+
+      '<br><label><input type="checkbox" id="rx-on"'+(stato.radix?' checked':'')+'> pianeti di nascita segnati</label>'+
+      '<div class="velo"></div>';
+    att.querySelector('#rx-on').addEventListener('change',e=>imposta('radix',e.target.checked));
+    const v=att.querySelector('.velo');
+    VELI.forEach((x,i)=>{ const b=document.createElement('button'); b.textContent=x.t;
+      if(i===iVelo) b.className='on';
+      b.addEventListener('click',()=>{ iVelo=i; veloRadix(x.v); aggiornaTemi(); scriviPanTemi(); });
+      v.appendChild(b); });
+    const c=document.createElement('button'); c.textContent='chiudi il tema';
+    c.addEventListener('click',chiudiTema); v.appendChild(c);
+  }
+  btnTemi.textContent='☰ '+(RADIX.tema?RADIX.tema.nome:'temi');
+  scriviPanTemi();
+}
+document.getElementById('tema-salva').addEventListener('click',()=>{
+  const t=temaDiAdesso(inNome.value);
+  if(!t.nome){ inNome.focus(); inNome.style.outline='2px solid #e0a840';
+    setTimeout(()=>{ inNome.style.outline=''; },1600); diag('al tema manca il nome','warn'); return; }
+  const l=leggiArchivio();
+  const i=l.findIndex(x=>chiaveTema(x)===chiaveTema(t));
+  if(i>=0) l[i]=t; else l.push(t);
+  if(scriviArchivio(l)){ inNome.value=''; erigiTema(t); }
+});
+document.getElementById('tema-file').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  f.text().then(txt=>{
+    let altri=JSON.parse(txt);
+    if(!Array.isArray(altri)) altri=altri.temi||altri.lista||[];
+    const buoni=altri.filter(temaValido);
+    const l=leggiArchivio(); const n=unisciTemi(l,buoni);
+    scriviArchivio(l); aggiornaTemi();
+    diag('dall’archivio letto: '+buoni.length+' temi, '+n+' nuovi'+
+      (buoni.length<altri.length?' ('+(altri.length-buoni.length)+' incompleti, lasciati fuori)':''),'ok');
+  }).catch(err=>diag('archivio non letto: '+err.message,'warn'));
+  e.target.value='';
+});
+document.getElementById('tema-importa').addEventListener('click',()=>document.getElementById('tema-file').click());
+document.getElementById('tema-esporta').addEventListener('click',()=>{
+  const b=new Blob([JSON.stringify(leggiArchivio(),null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='archivio.json';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  diag('archivio esportato: si apre in Regulus com’è','ok');
+});
+registraFinestra(btnTemi,boxTemi,aggiornaTemi);
+aggiornaTemi();
 
 document.getElementById('luogo-usa').addEventListener('click',()=>{
   const num=v=>parseFloat(String(v).replace(',','.'));

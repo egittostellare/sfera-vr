@@ -38,6 +38,25 @@ In tutto 720 stelle e 657 lati di figura.
   equatoriali, e il luogo e l'ora sono una sola rotazione della volta.
   Il luogo viaggia nell'indirizzo: `?nome=Sydney&lat=-33.8688&lng=151.2093&tz=Australia/Sydney`
   (e con `&t=2026-09-21T20:48:00Z` anche l'istante).
+- **Il tempo**: la finestra *Tempo* (in alto a destra, e nel cruscotto dentro il visore) porta il cielo
+  avanti e indietro **dal 3000 a.C. al 3000 d.C.**: sei campi — giorno, mese, anno, ore, minuti,
+  secondi — ognuno con le frecce, i salti di un giorno, un mese, un anno, dieci, cento, e *adesso*.
+  L'ora scritta è quella **del luogo**, coi fusi storici veri. Saltare nel tempo non è far girare la
+  volta: la precessione muove le stelle (0,014° l'anno) e l'obliquità muove l'eclittica, perciò il
+  cielo si **ri-precessa** — stelle, figure, eclittica, zodiaco, latitudini e griglia eclittica si
+  rifanno sull'epoca nuova, senza ricaricare la pagina. Fuori dal **1700–2200**, la finestra per cui
+  astronomy-engine è costruita, la finestra scrive quanto sta sbagliando (misurato contro le Swiss
+  Ephemeris di Regulus: dal 1500 al 2300 lo scarto sta sotto il paio di primi; al −1000 la Luna
+  sbaglia mezzo grado; al −3000 un grado e mezzo, tre suoi dischi).
+- **I temi**: un tema è **il cielo che stai guardando, con un nome**. Si sceglie il luogo e l'istante
+  con le altre due finestre e lo si salva; riaprendolo il planetario torna lì, e i **pianeti di
+  nascita restano segnati** sulla volta — un anello del colore del pianeta col suo glifo — mentre il
+  tempo scorre. Si velano in tre gradi, si tolgono e si rimettono. I segni si **ri-precessano col
+  cielo**: il tema è fermo nello spazio, non scivola fra le stelle.
+  L'archivio sta nel browser di questa macchina e ha **la stessa forma di quello di Regulus** — gli
+  stessi campi, la stessa regola di riconoscimento (nome, istante, luogo a quattro decimali) — così
+  l'`archivio.json` di Regulus si riversa qui tale e quale e quello di qui può tornare là. Per ora i
+  due restano separati: **la porta è il formato**.
 - **Girare il planetario**: entrando si guarda a nord. Per scegliere l'orientamento si punta il raggio
   nel vuoto, si stringe il **tasto laterale** del controller e si trascina a destra o a sinistra: il
   planetario intero (orizzonte, cardinali, cielo) segue il raggio, e rilasciato il tasto resta lì.
@@ -173,6 +192,7 @@ In tutto 720 stelle e 657 lati di figura.
 | facce dei pianeti | [Solar System Scope](https://www.solarsystemscope.com/textures/) | CC BY 4.0 |
 | faccia di Plutone | NASA / Johns Hopkins University APL / Southwest Research Institute (New Horizons) | pubblico dominio |
 | testi delle stelle | Regulus (`stelle-dati.js`) | dell'autore |
+| formato dell'archivio dei temi | Regulus (`storico.js`, `archivio.json`) | dell'autore |
 
 Il file dei dati `cielo-dati.js`, derivato dalle figure, è distribuito con la stessa licenza
 **CC BY-SA 4.0**. (L'intestazione del file delle figure dice CC BY-SA, il README di quel progetto
