@@ -99,6 +99,7 @@
   <div class="row"    data-k="azimut"   style="--a:#57d68f"><span class="sw"></span>Azimut (orizzonte graduato)</div>
   <div class="row"    data-k="zodiaco"  style="--a:#ff9a9a"><span class="sw"></span>Zodiaco (dodici segni)</div>
   <div class="row"    data-k="latitudini" style="--a:#c9a8e0"><span class="sw"></span>Latitudini eclittiche</div>
+  <div class="row"    data-k="vis"      style="--a:#f2d08a"><span class="sw"></span>Vis luminis (gli orbi)</div>
   <div class="row on" data-k="axis"     style="--a:#6f8fd0"><span class="sw"></span>Asse celeste</div>
   <div class="row on" data-k="planet"   style="--a:#ffcf5a"><span class="sw"></span>Sole + cerchio diurno</div>
   <div class="row on" data-k="pianeti"  style="--a:#e8c46a"><span class="sw"></span>Pianeti</div>
@@ -138,6 +139,11 @@
   I tasti <b>Azimut</b>, <b>Meridiano</b>, <b>Primo verticale</b>, <b>Zodiaco</b> e <b>Latitudini</b> graduano l'orizzonte,
   mostrano i due grandi cerchi della sfera locale (verde e giallo cupo), dividono l'eclittica nei
   dodici segni e tracciano i diciannove fili delle latitudini eclittiche.
+  Il tasto <b>Vis luminis</b>, accanto a «Latitudini», stende attorno a ogni pianeta il suo
+  <b>orbe</b> — il corpo di luce entro cui la sua virtù opera — come una velatura del suo colore, col
+  bordo segnato: due pianeti si incontrano quando i loro orbi si toccano. Gli orbi sono quelli di
+  al&#8209;Bīrūnī e di Bonatti: ☉ 15° · ☽ 12° · ☿ 7° · ♀ 7° · ♂ 8° · ♃ 9° · ♄ 9°. I tre transaturnini
+  non ne hanno uno nella tradizione, e restano senza.
   La <b>levetta</b> di traverso sposta il bordo del mare; col tasto «Zoom con la levetta» acceso fa lo
   zoom come Stellarium. Il tasto <b>Lente</b> sceglie fra <b>normale</b> (com'è ora: la levetta in avanti non
   fa nulla) e <b>solo periferia</b> — il centro della vista resta esatto e si stringe solo l'anello
@@ -594,12 +600,61 @@ if(A && CIELO){
     punto.userData.zoomRigido=true; gp.add(punto);
     const sp=spriteGlifo(p.g,p.c,0.42); gp.add(sp);
     sp.userData.zoomRef=v=>punto.getWorldPosition(v);   // con lo zoom il glifo resta sopra il suo punto
-    PIANETI.push({en:PIANETI_EN[p.n], punto, sp});
+    PIANETI.push({en:PIANETI_EN[p.n], nome:p.n, c:p.c, punto, sp});
     BERSAGLI.push({tipo:'pianeta', gruppo:'pianeti', sotto:'el-'+p.n, nome:p.n, pos:punto.position, m:-3, c:p.c});
     quantiPianeti++;
   });
   BERSAGLI.push({tipo:'pianeta', gruppo:'planet', nome:'Sole', pos:SOLE.mesh.position, m:-5, c:'#ffcf5a'});
 }
+// ====================== la vis luminis: i cerchi di luce ======================
+// Nella dottrina antica un pianeta non e' un punto ma un CORPO DI LUCE: attorno al suo grado si
+// stende un orbe — la sua «vis luminis» — entro il quale la sua virtu' opera, e due pianeti si
+// incontrano quando i loro orbi si toccano, non quando i loro gradi coincidono. Qui quell'orbe si
+// vede: una velatura del colore del pianeta, posata sulla volta attorno a lui, di RAGGIO quanto il
+// suo orbe.
+// La tavola e' quella di AL-BIRUNI e di BONATTI, la piu' diffusa nel medioevo. (Lilly da' il Sole a
+// 17°, Venere a 8° e la Luna a 12°30′: se la si vuole, sono tre numeri.)
+const VIS_ORBE={Sole:15, Luna:12, Mercurio:7, Venere:7, Marte:8, Giove:9, Saturno:9};
+// I tre transaturnini non hanno un orbe nella tradizione — nessuno li conosceva — e non se ne
+// inventa uno: restano senza velatura, e il tasto lo dice invece di tacere.
+// La velatura sta a 0,995 del raggio: FUORI dall'alone del Sole (che arriva a 0,9825), fuori dalla
+// velatura del cielo (0,99) e dentro le righe della volta (1,0). Due superfici che si compenetrano
+// litigano sulla profondita' a ogni fotogramma: e' la lezione del Sole che sfarfallava.
+const VIS_R=R*0.995, VIS=[];
+{
+  const gV=G('vis',sky); gV.visible=false;
+  const fai=(nome,colore,dir)=>{
+    const orbe=VIS_ORBE[nome]; if(!orbe) return;
+    const th=orbe*DEG, g=new THREE.Group(); gV.add(g);
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(VIS_R,64,28,0,TAU,0,th),
+      new THREE.MeshBasicMaterial({color:colore,transparent:true,opacity:.11,
+        side:THREE.DoubleSide,depthWrite:false})));
+    // l'orlo: un TUBO sottile, non una riga — in WebGL una riga e' spessa un pixel qualunque numero
+    // le si dia, e a un pixel il cerchio si perde fra le stelle
+    const orlo=new THREE.Mesh(new THREE.TorusGeometry(VIS_R*Math.sin(th),0.012,8,160),
+      new THREE.MeshBasicMaterial({color:colore,transparent:true,opacity:.40,depthWrite:false}));
+    orlo.position.y=VIS_R*Math.cos(th); orlo.rotation.x=Math.PI/2; g.add(orlo);
+    VIS.push({g, dir, orbe, nome, chiave:nome==='Sole'?'planet':'el-'+nome});
+  };
+  fai('Sole',0xffcf5a,()=>SOLE.mesh.position);
+  for(const p of PIANETI) fai(p.nome,p.c,()=>p.punto.position);
+}
+// il cerchio guarda il suo pianeta, e si spegne col pianeta: chi toglie Marte dal cielo non deve
+// ritrovarsi il suo orbe appeso al nulla
+const _vY=new THREE.Vector3(0,1,0), _vD=new THREE.Vector3();
+function aggiornaVis(){
+  if(!groups.vis||!groups.vis.visible) return;
+  for(const v of VIS){
+    v.g.visible=stato[v.chiave]!==false;
+    if(!v.g.visible) continue;
+    _vD.copy(v.dir()).normalize();
+    v.g.quaternion.setFromUnitVectors(_vY,_vD);
+  }
+}
+const testoVis=()=>'vis luminis: l’orbe di ciascuno (al-Bīrūnī) — '+
+  Object.keys(VIS_ORBE).map(n=>n+' '+VIS_ORBE[n]+'°').join(' · ')+
+  '. Urano, Nettuno e Plutone non ne hanno uno nella tradizione: restano senza.';
+
 // Ricolloca Sole e pianeti all'istante del cielo: la Luna fa mezzo grado l'ora, e col moto
 // diurno veloce si vedrebbe restare indietro fra le stelle.
 function collocaPianeti(){
@@ -1124,7 +1179,8 @@ function aggiornaIndicazioni(){
 // si toglievano e non tornavano piu'.
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
   pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,
-  mare:true,onda:true,meridiano:true,primovert:false,azimut:false,zodiaco:false,latitudini:false};
+  mare:true,onda:true,meridiano:true,primovert:false,azimut:false,zodiaco:false,latitudini:false,
+  vis:false};
 // gli elementi celesti, uno per uno: i pianeti accesi (li spegne chi vuole), i punti dello zodiaco
 // spenti — si accendono dal sottomenu del tasto «Pianeti»
 Object.keys(PIANETI_EN).forEach(n=>stato['el-'+n]=true);
@@ -1135,6 +1191,7 @@ function imposta(k,on){
   if(k==='spin'){ spin=on; tPrec=null; }
   if(k==='orizReale') applicaOrizzonte(on);
   if(k==='mare'){ applicaMare(); if(MARE.acceso) diag('mare calmo, orizzonte a '+testoMare()); }
+  if(k==='vis'&&on) diag(testoVis());
   if(k==='onda'){ MARE_MESH.material.uniforms.uOndaLunga.value=on?1:0;
     diag(on?'onda lunga del mare aperto (28, 60 e 110 metri)':'solo le increspature: il mare di uno stagno'); }
   if(k==='zoom'){ if(!on) azzeraZoom(); MARE.att=false; GRAND.att=false;
@@ -1158,6 +1215,7 @@ const BUTTONS=[
   {k:'azimut',  t:'Azimut',   on:false,c:0x57d68f},
   {k:'zodiaco', t:'Zodiaco',  on:false,c:0xff9a9a},
   {k:'latitudini',t:'Latitudini',on:false,c:0xc9a8e0},
+  {k:'vis',     t:'Vis luminis',on:false,c:0xf2d08a},
   {k:'axis',    t:'Asse',     on:true, c:0x6f8fd0},
   {k:'planet',  t:'Sole',     on:true, c:0xffcf5a},
   {k:'pianeti', t:'Pianeti',  on:true, c:0xe8c46a},
@@ -1193,14 +1251,15 @@ const INTERATTIVI=[];
 // qui sotto sono quelle del disegno.
 // (Provvisorio nelle misure e nei colori: la pulsantiera definitiva la disegna l'autore.)
 const CRUSCOTTO=[
-  {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','primovert','azimut','zodiaco','latitudini']},
+  {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','primovert','azimut','zodiaco','latitudini','vis']},
   {nome:'ASTRI',  tasti:['axis','planet','pianeti','elementi','stelle','costellazioni','linee']},
   {nome:'TERRA',  tasti:['orizReale','mare','onda','quota','altezza']},
   {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo','spin','velocita']},
 ];
-// otto colonne invece di sette (e' entrato il primo verticale): i tasti si stringono di un
-// centimetro, cosi' il banco resta largo come prima
-const K_W=0.076, K_H=0.048, K_GAP=0.008, SEZ_W=0.062, MARG=0.020, QUADRO_H=0.085;
+// NOVE colonne (e' entrata la vis luminis, dopo il primo verticale): i tasti si stringono ancora,
+// cosi' il banco resta largo come prima. E' il secondo restringimento di fila: se le scritte non si
+// leggono piu', K_W e' un numero solo — alzandolo, il banco si allarga di quel tanto.
+const K_W=0.0667, K_H=0.048, K_GAP=0.008, SEZ_W=0.062, MARG=0.020, QUADRO_H=0.085;
 const PPM=1600, PPM_K=3000;   // pixel per metro: il corpo e i tasti
 const CR_COL=Math.max(...CRUSCOTTO.map(r=>r.tasti.length));
 const CR_W=2*MARG+SEZ_W+K_GAP+CR_COL*K_W+(CR_COL-1)*K_GAP;
@@ -2352,6 +2411,7 @@ renderer.setAnimationLoop((time,frame)=>{
     aggiornaPresa();
     if(renderer.xr.isPresenting) levetta(dt);
     aggiornaGlifi();
+    aggiornaVis();
     aggiornaPunti();
     aggiornaVelo(ora);
     aggiornaOra();
