@@ -46,13 +46,21 @@ In tutto 720 stelle e 657 lati di figura.
   si corica nel piano verticale in cui si punta, fino a novanta gradi — che bastano, perché con
   novanta gradi ogni punto della volta, zenit e nadir compresi, si porta all'altezza degli occhi.
   Mentre è coricata il mare si toglie (non gira col cielo, e mostrerebbe sopra l'acqua stelle non
-  sorte); raddrizzando torna, e *Ricentra* raddrizza.
+  sorte); raddrizzando torna. **Ricentra** raddrizza, ed è anche il **tasto X** della mano sinistra:
+  è il gesto che serve più spesso, e cercarlo sul banco mentre si ha la vista storta è la volta che
+  il banco non si trova.
 - **Il riquadro di una stella**, col **tasto Y** (mano sinistra): scelta una stella col grilletto, si
   apre un riquadro con tutto quello che Regulus sa di lei — il significato del nome, la natura coi
   suoi testimoni, il significato, l'accidentalità, le qualità (regale, beheniana, nebulare), il
   colore della tradizione con la sua fonte, la longitudine. Ripremendo Y sparisce; scegliendo
-  un'altra stella si rifà da sé. Si sposta prendendolo per la **cornice** col grilletto: segue la
-  mano e resta dove lo si lascia. I testi si scaricano la prima volta che si apre.
+  un'altra stella si rifà da sé. Si sposta prendendolo per la **barretta** che ha sotto — come le
+  finestre di Meta — o per la cornice, tenendo il grilletto: segue la mano e resta dove lo si
+  lascia. I testi si scaricano la prima volta che si apre.
+- **Le tre griglie**: *equatoriale*, *eclittica*, *azimutale*, un tasto per ciascuna. Sono i tre modi
+  di misurare una posizione in cielo, e messi uno sull'altro si vede come si scavalcano. Reticoli da
+  un pixel, meridiani e paralleli ogni 15°, ognuno del **colore del suo elemento**: azzurro come
+  l'equatore, rosso come l'eclittica, verde come l'orizzonte. Le prime due girano col cielo, la terza
+  sta col luogo.
 - **La vis luminis**, col tasto omonimo accanto a *Latitudini*: attorno a ogni pianeta si stende il
   suo **orbe** — il corpo di luce entro cui la sua virtù opera — come una velatura del suo colore,
   con l'orlo segnato. Due pianeti si incontrano quando i loro orbi si toccano, e qui lo si vede.
