@@ -32,6 +32,14 @@
   .sw{width:26px;height:15px;border-radius:9px;background:rgba(150,166,205,.22);position:relative;flex:none;transition:.2s}
   .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#cfd6ea;transition:.2s}
   .row.on .sw{background:var(--a,#4da3ff)} .row.on .sw::after{transform:translateX(11px);background:#fff}
+  /* il cassetto degli elementi celesti: trentatre voci, chiuse finche' non servono */
+  .cassetto{margin-top:8px;border-top:1px solid rgba(150,166,205,.16);padding-top:6px;
+    max-height:min(46vh,420px);overflow:auto}
+  .cassetto>summary{font-family:'Cormorant Garamond',serif;font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:#9aa2bd;cursor:pointer;padding:2px 0;list-style:none}
+  .cassetto>summary::before{content:"▸ ";color:#e3c169}
+  .cassetto[open]>summary::before{content:"▾ "}
+  .cassetto .row{font-size:13px;padding:3px 0}
   #hint{position:fixed;z-index:3;bottom:16px;right:16px;font-size:12px;color:#9aa2bd;max-width:230px;text-align:right}
   /* diario di bordo: nel visore la console non si vede, quindi i passi si scrivono qui */
   #diag{position:fixed;z-index:5;top:68px;left:16px;width:min(420px,calc(100vw - 32px));padding:11px 13px;
@@ -85,7 +93,11 @@
   <p class="grp">Elementi</p>
   <div class="row on" data-k="equator"  style="--a:#4da3ff"><span class="sw"></span>Equatore (blu)</div>
   <div class="row on" data-k="ecliptic" style="--a:#ff5a5a"><span class="sw"></span>Eclittica (rossa)</div>
-  <div class="row on" data-k="frame"    style="--a:#57d68f"><span class="sw"></span>Orizzonte · meridiano</div>
+  <div class="row on" data-k="frame"    style="--a:#57d68f"><span class="sw"></span>Orizzonte</div>
+  <div class="row on" data-k="meridiano" style="--a:#8493bd"><span class="sw"></span>Meridiano</div>
+  <div class="row"    data-k="azimut"   style="--a:#57d68f"><span class="sw"></span>Azimut (orizzonte graduato)</div>
+  <div class="row"    data-k="zodiaco"  style="--a:#ff9a9a"><span class="sw"></span>Zodiaco (dodici segni)</div>
+  <div class="row"    data-k="latitudini" style="--a:#c9a8e0"><span class="sw"></span>Latitudini eclittiche</div>
   <div class="row on" data-k="axis"     style="--a:#6f8fd0"><span class="sw"></span>Asse celeste</div>
   <div class="row on" data-k="planet"   style="--a:#ffcf5a"><span class="sw"></span>Sole + cerchio diurno</div>
   <div class="row on" data-k="pianeti"  style="--a:#e8c46a"><span class="sw"></span>Pianeti</div>
@@ -114,11 +126,16 @@
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller si premono i tasti del cruscotto, nel cielo si leggono i nomi,
   e il grilletto seleziona. Il <b>tasto B</b> manda via il cruscotto e lo richiama davanti allo sguardo.
   Per girare il planetario: raggio nel vuoto, stringi il tasto laterale e trascina.
-  La <b>levetta</b> in avanti allarga il <b>grandangolo</b> (entra più cielo e tutto sembra più lontano);
-  di traverso sposta il bordo del mare; col tasto «Zoom con la levetta» acceso fa invece lo zoom come
-  Stellarium. Il tasto <b>Lente</b> sceglie fra cinque modi: <b>cede girando</b> (vale da fermi e si ritira
-  appena giri la testa), <b>solo periferia</b> (il centro resta esatto, si stringe l'anello esterno),
-  <b>segue lo sguardo</b>, <b>ancorata</b> e <b>ancorata · tasto A</b>. I tasti <b>Onda lunga</b> e <b>Quota</b> cambiano la
+  Il tasto <b>Elementi ›</b> (accanto a «Pianeti») apre a destra l'ala col sottomenu: ci stanno tutti gli
+  <b>elementi celesti</b> di Regulus — i dieci pianeti uno per uno, i nodi e le absidi (veri e medi), i
+  quattro angoli col Vertex, le quattro Sorti e le cinque parti planetarie. Sono gradi dello zodiaco, e
+  compaiono sull'eclittica: l'<b>Ascendente</b> resta appeso all'orizzonte a oriente mentre il cielo gira.
+  I tasti <b>Azimut</b>, <b>Meridiano</b>, <b>Zodiaco</b> e <b>Latitudini</b> graduano l'orizzonte, mostrano il meridiano,
+  dividono l'eclittica nei dodici segni e tracciano i diciannove fili delle latitudini eclittiche.
+  La <b>levetta</b> di traverso sposta il bordo del mare; col tasto «Zoom con la levetta» acceso fa lo
+  zoom come Stellarium. Il tasto <b>Lente</b> sceglie fra <b>normale</b> (com'è ora: la levetta in avanti non
+  fa nulla) e <b>solo periferia</b> — il centro della vista resta esatto e si stringe solo l'anello
+  esterno, così ai bordi entra più cielo. I tasti <b>Onda lunga</b> e <b>Quota</b> cambiano la
   scala del mare: l'onda del mare aperto, e l'altezza dell'occhio (battigia, terrazza, ponte di nave),
   che porta l'orizzonte da 4,5 a 19,6 km.</div>
 <div id="crediti">Figure delle costellazioni: Marc van der Sluys, <i>ConstellationLines</i> (CC BY-SA 4.0) ·
@@ -303,7 +320,7 @@ function orientaCielo(){
   const hp=new THREE.Mesh(new THREE.CircleGeometry(R,96),
     new THREE.MeshBasicMaterial({color:0x57d68f,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
   hp.rotation.x=-Math.PI/2; g.add(hp); DISCO=hp;
-  const rim=new THREE.Mesh(new THREE.TorusGeometry(R,0.035,10,200),new THREE.MeshBasicMaterial({color:0x57d68f}));
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(R,0.0175,10,200),new THREE.MeshBasicMaterial({color:0x57d68f}));
   rim.rotation.x=Math.PI/2; g.add(rim);
   // per lo zoom: ogni vertice del tubo segue il punto del cerchio su cui sta, cosi' il tubo resta
   // sottile anche ingrandito (deformandolo tutto diventerebbe una fascia larga)
@@ -311,13 +328,43 @@ function orientaCielo(){
     for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), l=Math.hypot(x,y)||1; a[i*3]=x/l*R; a[i*3+1]=y/l*R; }
     rim.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3));
     rim.userData.zoomAncora=true; }
-  const mer=[];for(let i=0;i<=180;i++){const t=i/180*TAU;mer.push(new THREE.Vector3(0,Math.cos(t)*R,Math.sin(t)*R));}
-  g.add(line(mer,0x8493bd,.30,1));
   [[new THREE.Vector3(1,0,0),'Est'],[new THREE.Vector3(-1,0,0),'Ovest'],
    [new THREE.Vector3(0,0,1),'Sud'],[new THREE.Vector3(0,0,-1),'Nord'],
    [new THREE.Vector3(0,1,0),'Zenit'],[new THREE.Vector3(0,-1,0),'Nadir']]
    .forEach(([v,t])=>{const s=label(t,'#c7d2ee',0.55);s.position.copy(v.multiplyScalar(R*1.05));g.add(s);
      if(!v.y) CARDINALI.push(s);});
+}
+
+// ====================== il meridiano ======================
+// Il cerchio che passa per nord, zenit, sud e nadir: e' il taglio del cielo che ogni astro
+// attraversa quando culmina. Stava dentro «Orizzonte»; ora ha un tasto suo.
+{
+  const g=G('meridiano');
+  const mer=[];for(let i=0;i<=180;i++){const t=i/180*TAU;mer.push(new THREE.Vector3(0,Math.cos(t)*R,Math.sin(t)*R));}
+  g.add(line(mer,0x8493bd,.45,1));
+}
+
+// ====================== l'azimut: l'orizzonte graduato ======================
+// Il cerchio dell'orizzonte con le sue tacche, come la rosa di una bussola: un grado corte, cinque
+// piu' lunghe, dieci ancora, e trenta lunghe col numero (ai quattro cardinali il numero non serve:
+// c'e' gia' il nome). L'azimut si conta da NORD verso EST, come sulla bussola e nelle Effemeridi di
+// Regulus. Le tacche salgono in ALTEZZA e non lungo il cerchio: sdraiate sull'orizzonte si
+// vedrebbero di taglio, cioe' non si vedrebbero.
+const dirAz=(az,h)=>new THREE.Vector3(Math.sin(az)*Math.cos(h),Math.sin(h),-Math.cos(az)*Math.cos(h));
+{
+  const g=G('azimut'); g.visible=false;
+  const seg=[];
+  for(let i=0;i<360;i++){
+    const az=i*DEG, h=(i%30===0?3.0:i%10===0?1.6:i%5===0?0.9:0.45)*DEG;
+    seg.push(dirAz(az,0).multiplyScalar(R), dirAz(az,h).multiplyScalar(R));
+  }
+  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg),
+    new THREE.LineBasicMaterial({color:0x57d68f,transparent:true,opacity:.55})));
+  for(let i=0;i<360;i+=30){
+    if(i%90===0) continue;                       // li' c'e' gia' Nord, Est, Sud, Ovest
+    const s=label(i+'°','#8fd8b0',0.38);
+    s.position.copy(dirAz(i*DEG,4.6*DEG).multiplyScalar(R)); g.add(s);
+  }
 }
 
 // ====================== il cielo (in equatoriali; lo orienta orientaCielo) ======================
@@ -331,6 +378,46 @@ const sky=new THREE.Group(); world.add(sky);
   const g=G('ecliptic',sky), p=[];
   for(let i=0;i<=360;i++)p.push(eclV(i/360*TAU).multiplyScalar(R));
   g.add(line(p,0xe23636,.24,5)); g.add(line(p,0xff5a5a,.95,2));
+}
+// un punto dell'eclittica a longitudine l e latitudine b, in coordinate equatoriali
+const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
+  return new THREE.Vector3(cb*Math.cos(l), cb*Math.sin(l)*cosE-sb*sinE, cb*Math.sin(l)*sinE+sb*cosE); };
+// Il glifo di un segno disegnato su una tavoletta: sono i TRACCIATI di Regulus (`CIELO.glifi`), non
+// un carattere — il Path2D della tela li legge tali e quali. Il riquadro d'inchiostro si inscrive in
+// un quadrato di un quarto piu' largo, come fa Regulus, e la Y si ribalta (nei font cresce in su).
+
+// ====================== lo zodiaco: l'eclittica divisa nei dodici segni ======================
+// I confini dei dodici, la graduazione (uno, cinque, dieci, trenta gradi) a cavallo dell'eclittica,
+// e il glifo di ciascun segno al suo grado di mezzo, nel colore del suo elemento — i quattro colori
+// sono quelli di Regulus, presi dal generatore insieme ai tracciati.
+{
+  const g=G('zodiaco',sky); g.visible=false;
+  const seg=[];
+  for(let i=0;i<360;i++){
+    const l=i*DEG, b=(i%30===0?2.6:i%10===0?1.4:i%5===0?0.8:0.4)*DEG;
+    seg.push(eclVb(l,-b).multiplyScalar(R), eclVb(l,b).multiplyScalar(R));
+  }
+  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg),
+    new THREE.LineBasicMaterial({color:0xff9a9a,transparent:true,opacity:.6})));
+  // NB: qui si legge `window.CIELO` e non `CIELO`, che e' dichiarato piu' sotto (e leggerlo prima
+  // fermerebbe tutta la pagina: e' la stessa cosa, ma il nome non e' ancora nato)
+  const dati=window.CIELO;
+  const EL=(dati&&dati.elementi)||['#FF2930','#1ED135','#FCC10B','#6699FF'];
+  for(let i=0;i<12;i++){
+    const gl=dati&&dati.glifi&&dati.glifi['seg'+i]; if(!gl) continue;
+    const sp=spriteGlifo(gl,EL[i%4],0.55);        // fuoco, terra, aria, acqua, e da capo
+    sp.position.copy(eclVb((15+30*i)*DEG,4.4*DEG).multiplyScalar(R)); g.add(sp);
+  }
+}
+// ====================== le latitudini eclittiche: diciannove fili ======================
+// Da −9° a +9°, un filo per grado, e in mezzo lo zero — la strada del Sole. Nove bastano e avanzano:
+// la piu' larga escursione e' quella di Venere, poco piu' di otto gradi.
+{
+  const g=G('latitudini',sky); g.visible=false;
+  for(let b=-9;b<=9;b++){
+    const p=[]; for(let i=0;i<=180;i++) p.push(eclVb(i/180*TAU,b*DEG).multiplyScalar(R));
+    g.add(line(p,b===0?0xffb0b0:0xc9a8e0,b===0?.5:.20,1));
+  }
 }
 { // asse del mondo
   const g=G('axis',sky);
@@ -477,12 +564,13 @@ function aggiornaGlifi(){
 if(A && CIELO){
   const gP=G('pianeti',sky);
   CIELO.pianeti.filter(p=>PIANETI_EN[p.n]).forEach(p=>{
+    const gp=G('el-'+p.n,gP);   // un gruppo per pianeta: dal sottomenu si accendono uno per uno
     const punto=new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),new THREE.MeshBasicMaterial({color:p.c}));
-    punto.userData.zoomRigido=true; gP.add(punto);
-    const sp=spriteGlifo(p.g,p.c,0.42); gP.add(sp);
+    punto.userData.zoomRigido=true; gp.add(punto);
+    const sp=spriteGlifo(p.g,p.c,0.42); gp.add(sp);
     sp.userData.zoomRef=v=>punto.getWorldPosition(v);   // con lo zoom il glifo resta sopra il suo punto
     PIANETI.push({en:PIANETI_EN[p.n], punto, sp});
-    BERSAGLI.push({tipo:'pianeta', gruppo:'pianeti', nome:p.n, pos:punto.position, m:-3, c:p.c});
+    BERSAGLI.push({tipo:'pianeta', gruppo:'pianeti', sotto:'el-'+p.n, nome:p.n, pos:punto.position, m:-3, c:p.c});
     quantiPianeti++;
   });
   BERSAGLI.push({tipo:'pianeta', gruppo:'planet', nome:'Sole', pos:SOLE.mesh.position, m:-5, c:'#ffcf5a'});
@@ -496,7 +584,172 @@ function collocaPianeti(){
   posSole=diCorpo('Sun',t,rot);
   SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R));
   SOLE.cerchio.geometry.setFromPoints(cerchioDiurno(posSole.de));
+  calcolaLenti(t,rot);
   aggiornaGlifi();
+}
+
+// ====================== gli elementi celesti: i punti dello zodiaco ======================
+// Oltre ai pianeti l'astrologia guarda dei PUNTI, e un punto dello zodiaco e' un posto del cielo
+// come un altro: sta sull'eclittica, al suo grado. Qui ci sono tutti quelli che Regulus mette in
+// «Settaggi › Elementi Celesti» — i nodi e le absidi della Luna (veri e medi), i quattro angoli, il
+// Vertex, le quattro Sorti e le cinque parti planetarie — e si accendono uno per uno dal sottomenu
+// del tasto «Pianeti».
+// L'ASCENDENTE e' quello che si capisce meglio vedendolo: sta appeso all'orizzonte a oriente e li'
+// resta mentre tutto il cielo gira sopra di lui.
+// I conti sono quelli di Regulus rifatti con astronomy-engine, e sono stati RISCONTRATI con Swiss
+// Ephemeris. Le FORMULE sono esatte: provate con gli stessi numeri di Swiss, angoli e Vertex
+// combaciano al millesimo di primo su 390 casi (dall'equatore agli ottanta gradi, a sei istanti) e
+// il nodo vero pure. Quel che resta e' la precisione della LUNA di astronomy-engine — 0,06′ sulla
+// sua longitudine — e la geometria la amplifica: il nodo dipende dall'inclinazione (5°) e l'apogeo
+// dall'eccentricita' (0,055), percio' escono 0,7′ e 4,5′. L'apogeo MEDIO si discosta fino a 7′
+// perche' Swiss usa una sua serie al posto di quella di Meeus. Sulla volta sono millimetri: un
+// primo d'arco, qui, sono due millimetri e mezzo.
+// Due cose imparate provandole (e valgono per chiunque le rifaccia):
+//   — la Luna va presa GEOMETRICA: col tempo-luce l'apogeo sbaglia di un quarto di grado;
+//   — dei due punti in cui l'eclittica taglia l'orizzonte, e dei due in cui taglia il primo
+//     verticale, quello giusto non lo dice la formula (le due soluzioni stanno a 180°): lo dice da
+//     che parte guardano. L'Ascendente sorge a oriente, il Vertex tramonta a occidente.
+const PUNTI_DEF=[
+  {k:'p-nodoV', n:'Nodo Nord (vero)',  c:'#e3c169', g:'nodo'},
+  {k:'p-nodoVS',n:'Nodo Sud (vero)',   c:'#b2b3b3', g:'nodo', giu:1},
+  {k:'p-nodoM', n:'Nodo Nord (medio)', c:'#e3c169', g:'nodo', medio:1},
+  {k:'p-nodoMS',n:'Nodo Sud (medio)',  c:'#b2b3b3', g:'nodo', giu:1, medio:1},
+  {k:'p-apogV', n:'Apogeo (vero)',     c:'#b3a9dc', g:'apogeo'},
+  {k:'p-perigV',n:'Perigeo (vero)',    c:'#93a8c4', g:'apogeo', giu:1},
+  {k:'p-apogM', n:'Apogeo (medio)',    c:'#b3a9dc', g:'apogeo', medio:1},
+  {k:'p-perigM',n:'Perigeo (medio)',   c:'#93a8c4', g:'apogeo', giu:1, medio:1},
+  {k:'p-asc',   n:'Ascendente',        c:'#ed6e00', t:'AS'},
+  {k:'p-mc',    n:'Medio Cielo',       c:'#a07ad8', t:'MC'},
+  {k:'p-ds',    n:'Discendente',       c:'#02a958', t:'DS'},
+  {k:'p-ic',    n:'Fondo Cielo',       c:'#a99cd7', t:'IC'},
+  {k:'p-vertex',n:'Vertex',            c:'#fefefe', t:'Vx'},
+  {k:'p-tyche', n:'Tyche · Fortuna',   c:'#b05cf0', t:'Ty'},
+  {k:'p-daimon',n:'Daimon · Spirito',  c:'#f9b62b', t:'Dm'},
+  {k:'p-basis', n:'Basis',             c:'#3cc45c', t:'Bs'},
+  {k:'p-ananke',n:'Ananke',            c:'#d08340', t:'An'},
+  {k:'p-eros',  n:'Eros · di Venere',     c:'#2fbf62', t:'Er'},
+  {k:'p-hermes',n:'Hermes · di Mercurio', c:'#ffed00', t:'He'},
+  {k:'p-tolma', n:'Tolma · di Marte',     c:'#ff6600', t:'To'},
+  {k:'p-nike',  n:'Nike · di Giove',      c:'#3a8fd0', t:'Ni'},
+  {k:'p-nemesi',n:'Nemesi · di Saturno',  c:'#b455ff', t:'Ne'},
+];
+const LON={};              // il grado di ciascun punto, rifatto a ogni fotogramma
+const LENTI={};            // Sole, Luna, nodi e absidi: si muovono piano, si rifanno ogni quarto d'ora
+const PUNTI=[];            // {def, punto, sp}: il pallino e la sua sigla
+const n360=x=>((x%360)+360)%360;
+const RP=R*0.97;           // a ridosso dell'eclittica
+// la sigla o il glifo di un punto, su una tavoletta: i glifi sono quelli di Regulus (nodo e apogeo;
+// il Sud e il perigeo sono lo stesso segno capovolto, e i «medi» portano la M all'esponente)
+function spritePunto(def,alto){
+  const c=document.createElement('canvas'); c.width=c.height=128; const x=c.getContext('2d');
+  const gl=def.g&&CIELO&&CIELO.glifi?CIELO.glifi[def.g]:null;
+  x.lineJoin='round'; x.strokeStyle='rgba(255,255,255,.55)';
+  if(gl){
+    const b=gl.b, s=96/(Math.max(b[2]-b[0],b[3]-b[1])*1.25);
+    x.save(); x.translate(60,68); if(def.giu) x.rotate(Math.PI);
+    x.scale(s,-s); x.translate(-(b[0]+b[2])/2,-(b[1]+b[3])/2);
+    const p=new Path2D(gl.d);
+    x.lineWidth=5/s; x.stroke(p); x.fillStyle=def.c; x.fill(p); x.restore();
+    if(def.medio){ x.font='700 34px system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+      x.lineWidth=6; x.strokeText('M',108,24); x.fillStyle=def.c; x.fillText('M',108,24); }
+  }else{
+    x.font="700 56px 'Cormorant Garamond', Georgia, serif"; x.textAlign='center'; x.textBaseline='middle';
+    x.lineWidth=8; x.strokeText(def.t,64,64); x.fillStyle=def.c; x.fillText(def.t,64,64);
+  }
+  const t=new THREE.CanvasTexture(c); t.anisotropy=4;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:true}));
+  sp.scale.set(alto,alto,1); sp.renderOrder=11; return sp;
+}
+if(A) PUNTI_DEF.forEach(def=>{
+  const g=G(def.k,sky); g.visible=false;
+  const punto=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,10),new THREE.MeshBasicMaterial({color:def.c}));
+  punto.userData.zoomRigido=true; g.add(punto);
+  const sp=spritePunto(def,0.40); g.add(sp);
+  sp.userData.zoomRef=v=>punto.getWorldPosition(v);
+  PUNTI.push({def,punto,sp});
+  BERSAGLI.push({tipo:'punto', gruppo:def.k, nome:def.n, pos:punto.position, m:2, c:def.c});
+});
+// ——— i conti lenti: Sole, Luna, nodi e absidi (un quarto d'ora di cielo alla volta)
+const MU_TL=8.997011390199872e-10;   // GM di Terra+Luna, in unita' astronomiche al cubo su giorni al quadrato
+const _cross=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+// da J2000 equatoriale all'ECLITTICA DI DATA, che e' dove si contano i gradi dello zodiaco
+function eclDiData(v,rot){ const w=A.RotateVector(rot,v);
+  return [w.x, w.y*cosE+w.z*sinE, -w.y*sinE+w.z*cosE]; }
+const lonEcl=e=>n360(Math.atan2(e[1],e[0])/DEG);
+function calcolaLenti(t,rot){
+  if(!A) return;
+  t=t||A.MakeTime(istanteCielo()); rot=rot||ROT;
+  LENTI.sole=lonEcl(eclDiData(A.GeoVector(A.Body.Sun,t,false),rot));
+  for(const n of ['Venere','Mercurio','Marte','Giove','Saturno'])
+    LENTI[n]=lonEcl(eclDiData(A.GeoVector(A.Body[PIANETI_EN[n]],t,false),rot));
+  // la Luna GEOMETRICA (senza tempo-luce: con quello l'apogeo sbaglia di un quarto di grado) e la
+  // sua velocita' per differenza, a mezz'ora di distanza: basta e avanza, la Luna e' liscia
+  const d=t.date.getTime(), dt=0.02, ms=dt*86400000;
+  const r=eclDiData(A.GeoMoon(t),rot);
+  const a=eclDiData(A.GeoMoon(A.MakeTime(new Date(d-ms))),rot);
+  const b=eclDiData(A.GeoMoon(A.MakeTime(new Date(d+ms))),rot);
+  const v=[(b[0]-a[0])/(2*dt),(b[1]-a[1])/(2*dt),(b[2]-a[2])/(2*dt)];
+  LENTI.luna=lonEcl(r);
+  // il nodo: dove il piano dell'orbita taglia l'eclittica, cioe' la perpendicolare al momento angolare
+  const h=_cross(r,v);
+  LENTI.nodoV=n360(Math.atan2(h[0],-h[1])/DEG);
+  // l'apogeo: il vettore eccentricita' punta al perigeo, l'apogeo sta dall'altra parte
+  const vh=_cross(v,h), rn=Math.hypot(r[0],r[1],r[2]);
+  LENTI.apogV=n360(lonEcl([vh[0]/MU_TL-r[0]/rn, vh[1]/MU_TL-r[1]/rn])+180);
+  // i MEDI: le formule di Meeus (nodo medio, e il perigeo medio che e' longitudine media meno anomalia)
+  const T=t.tt/36525;
+  const Lp=218.3164477+481267.88123421*T-0.0015786*T*T+T*T*T/538841-T*T*T*T/65194000;
+  const Mp=134.9633964+477198.8675055*T+0.0087414*T*T+T*T*T/69699-T*T*T*T/14712000;
+  LENTI.nodoM=n360(125.0445479-1934.1362891*T+0.0020754*T*T+T*T*T/467441-T*T*T*T/60616000);
+  LENTI.apogM=n360(Lp-Mp+180);
+}
+// ——— i conti veloci: gli angoli si muovono col tempo siderale, e con loro le Sorti
+const _pv=new THREE.Vector3(), _pn=new THREE.Vector3();
+function aggiornaPunti(){
+  if(!A||!PUNTI.length) return;
+  const th=LST0+W_SID*simMs, sT=Math.sin(th), cT=Math.cos(th);
+  // quanto un grado dello zodiaco sta verso EST, visto da qui: serve a scegliere, fra i due punti
+  // in cui l'eclittica taglia un cerchio, quello giusto (l'Ascendente sorge, il Vertex tramonta)
+  const est=l=>-sT*Math.cos(l*DEG)+cT*Math.sin(l*DEG)*cosE;
+  const orizzonte=(t,p)=>n360(Math.atan2(Math.cos(t),-(Math.sin(t)*cosE+Math.tan(p)*sinE))/DEG);
+  let asc=orizzonte(th,PHI); if(est(asc)<=0) asc=n360(asc+180);        // l'Ascendente e' a oriente
+  let vx=orizzonte(th+Math.PI,Math.PI/2-PHI); if(est(vx)>=0) vx=n360(vx+180);   // il Vertex a occidente
+  const mc=n360(Math.atan2(sT,cT*cosE)/DEG);
+  LON['p-asc']=asc; LON['p-ds']=n360(asc+180); LON['p-mc']=mc; LON['p-ic']=n360(mc+180);
+  LON['p-vertex']=vx;
+  LON['p-nodoV']=LENTI.nodoV; LON['p-nodoVS']=n360(LENTI.nodoV+180);
+  LON['p-nodoM']=LENTI.nodoM; LON['p-nodoMS']=n360(LENTI.nodoM+180);
+  LON['p-apogV']=LENTI.apogV; LON['p-perigV']=n360(LENTI.apogV+180);
+  LON['p-apogM']=LENTI.apogM; LON['p-perigM']=n360(LENTI.apogM+180);
+  // Le SORTI, col metodo dell'autore (le stesse formule del motore di Regulus): notturno se il Sole
+  // sta sotto l'orizzonte, e allora Tyche e Daimon si scambiano.
+  const sun=LENTI.sole, moon=LENTI.luna;
+  if(sun!=null&&moon!=null){
+    const notte=n360(sun-asc)<180;
+    const daimon=notte?n360(asc+moon-sun):n360(asc+sun-moon);
+    const tyche =notte?n360(asc+sun-moon):n360(asc+moon-sun);
+    LON['p-daimon']=daimon; LON['p-tyche']=tyche;
+    LON['p-ananke']=notte?n360(asc+daimon-tyche):n360(asc+tyche-daimon);
+    LON['p-basis'] =notte?n360(asc+tyche-daimon):n360(asc+daimon-tyche);
+    const parte=(pia,lot)=>pia==null?null:n360(asc+pia-lot);
+    LON['p-eros']  =parte(LENTI.Venere,   notte?tyche:daimon);
+    LON['p-hermes']=parte(LENTI.Mercurio, notte?daimon:tyche);
+    LON['p-tolma'] =parte(LENTI.Marte,    notte?daimon:tyche);
+    LON['p-nike']  =parte(LENTI.Giove,    notte?tyche:daimon);
+    LON['p-nemesi']=parte(LENTI.Saturno,  notte?daimon:tyche);
+  }
+  _qInv.copy(sky.quaternion).invert(); _suV.set(0,1,0).applyQuaternion(_qInv);
+  for(const p of PUNTI){
+    const l=LON[p.def.k];
+    groups[p.def.k].visible=!!stato[p.def.k]&&l!=null;
+    // il posto si sa sempre, anche col tasto spento: se no il suo pallino resterebbe nell'origine,
+    // e chi guarda i bersagli (il raggio, i banchi di prova) troverebbe un punto che non c'e'
+    if(l==null) continue;
+    _pv.copy(eclVb(l*DEG,0)).multiplyScalar(RP);
+    p.punto.position.copy(_pv);
+    _pn.copy(_pv).normalize();
+    p.sp.position.copy(_pv).addScaledVector(tangenteSu(_pn,_suV),0.30);
+  }
 }
 // la velatura della volta non scrive la profondita': e' solo un tono, e le scritte che le stanno
 // dietro (i cardinali, a 8,4 m) devono restare visibili ora che si lasciano coprire dal pannello
@@ -733,7 +986,8 @@ const SPRITE_CIELO=[]; sky.traverse(o=>{ if(o.isSprite) SPRITE_CIELO.push(o); })
 // coordinate. La ricerca e' per ANGOLO dal raggio, non per urto: le stelle sono dischetti di pochi
 // centimetri a otto metri, e a colpirle esatte non ci si riuscirebbe mai.
 function visibile(b){
-  if(b.tipo==='pianeta') return stato[b.gruppo];
+  if(b.tipo==='punto') return stato[b.gruppo]!==false;
+  if(b.tipo==='pianeta') return stato[b.gruppo] && (!b.sotto||stato[b.sotto]!==false);
   return (b.nostra&&stato.stelle)||(b.fig&&stato.costellazioni);
 }
 const _o=new THREE.Vector3(), _d=new THREE.Vector3(), _v=new THREE.Vector3(), _inv=new THREE.Matrix4();
@@ -837,7 +1091,11 @@ function aggiornaIndicazioni(){
 // si toglievano e non tornavano piu'.
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
   pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,
-  mare:true,onda:true};
+  mare:true,onda:true,meridiano:true,azimut:false,zodiaco:false,latitudini:false};
+// gli elementi celesti, uno per uno: i pianeti accesi (li spegne chi vuole), i punti dello zodiaco
+// spenti — si accendono dal sottomenu del tasto «Pianeti»
+Object.keys(PIANETI_EN).forEach(n=>stato['el-'+n]=true);
+PUNTI_DEF.forEach(d=>stato[d.k]=false);
 function imposta(k,on){
   stato[k]=on;
   if(groups[k]) groups[k].visible=on;
@@ -862,9 +1120,14 @@ const BUTTONS=[
   {k:'equator', t:'Equatore', on:true, c:0x4da3ff},
   {k:'ecliptic',t:'Eclittica',on:true, c:0xff5a5a},
   {k:'frame',   t:'Orizzonte',on:true, c:0x57d68f},
+  {k:'meridiano',t:'Meridiano',on:true, c:0x8493bd},
+  {k:'azimut',  t:'Azimut',   on:false,c:0x57d68f},
+  {k:'zodiaco', t:'Zodiaco',  on:false,c:0xff9a9a},
+  {k:'latitudini',t:'Latitudini',on:false,c:0xc9a8e0},
   {k:'axis',    t:'Asse',     on:true, c:0x6f8fd0},
   {k:'planet',  t:'Sole',     on:true, c:0xffcf5a},
   {k:'pianeti', t:'Pianeti',  on:true, c:0xe8c46a},
+  {k:'elementi',t:'Elementi ›', on:false, c:0xe8c46a, azione:true},
   {k:'stelle',  t:'Stelle di Regulus', on:true, c:0xa3c0ff},
   {k:'costellazioni', t:'Costellazioni', on:true, c:0x8fa3d8},
   {k:'linee',   t:'Linee',    on:true, c:0x8fa3d8},
@@ -875,7 +1138,7 @@ const BUTTONS=[
   {k:'spin',    t:'Moto diurno',on:false,c:0xc8b06a},
   {k:'velocita',t:'Velocità 1 · lenta', on:false, c:0xc8b06a, azione:true},
   {k:'zoom',    t:'Zoom con la levetta', on:false, c:0x9fd0ff},   // spento: la levetta muove l'orizzonte del mare
-  {k:'lente',   t:'Lente: cede girando', on:false, c:0x9fd0ff, azione:true},
+  {k:'lente',   t:'Lente: normale', on:false, c:0x9fd0ff, azione:true},
   {k:'recenter',t:'Ricentra', on:false, c:0xcfd6ea, azione:true},
   {k:'altezza', t:'Occhi all’orizzonte', on:false, c:0xcfd6ea, azione:true},
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
@@ -883,28 +1146,65 @@ const BUTTONS=[
 // tutto cio' che il raggio puo' premere: i tasti del pannello e quelli della tastiera
 const INTERATTIVI=[];
 
-// ====================== VR: il cruscotto dei comandi ======================
-// I tasti stanno tutti in una tastiera rettangolare divisa per sezioni, come il cruscotto di una
-// nave: in alto il quadro con l'ora e il diario di bordo, sotto le file dei tasti, e a sinistra di
-// ogni fila il nome della sezione. Col **tasto B** del controller destro il cruscotto compare e
-// sparisce, e ricompare sempre davanti a dove si sta guardando.
+// ====================== VR: la CONSOLLE dei comandi ======================
+// Non e' piu' un pannello appeso davanti alla faccia ma un BANCO: basso, largo e curvo, a portata
+// di mani come una tastiera sul tavolo, inclinato verso chi guarda come un tavolo da disegno. La
+// superficie e' un pezzo di cono attorno all'osservatore, percio' ogni tasto sta alla stessa
+// distanza e guarda dritto verso di lui, e il banco non finisce mai davanti al cielo che si guarda.
+// In fondo (la parte lontana, piu' alta) c'e' il quadro con l'ora e il diario di bordo; davanti le
+// file dei tasti, col nome della sezione a sinistra. Col **tasto B** compare e sparisce, e si mette
+// sempre nella direzione in cui si guarda — solo di traverso, pero': un tavolo resta un tavolo, e
+// non si corica quando si alza la testa.
+// Tutto si DISEGNA IN PIANO (x di traverso, y in profondita') e poi si posa sul banco: le misure
+// qui sotto sono quelle del disegno.
 // (Provvisorio nelle misure e nei colori: la pulsantiera definitiva la disegna l'autore.)
 const CRUSCOTTO=[
-  {nome:'CERCHI', tasti:['equator','ecliptic','frame','axis']},
-  {nome:'ASTRI',  tasti:['planet','pianeti','stelle','costellazioni','linee']},
+  {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','azimut','zodiaco','latitudini']},
+  {nome:'ASTRI',  tasti:['axis','planet','pianeti','elementi','stelle','costellazioni','linee']},
   {nome:'TERRA',  tasti:['orizReale','mare','onda','quota','altezza']},
-  {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo']},
-  {nome:'TEMPO',  tasti:['spin','velocita']},
+  {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo','spin','velocita']},
 ];
-const K_W=0.128, K_H=0.060, K_GAP=0.010, SEZ_W=0.085, MARG=0.028, QUADRO_H=0.12;
+const K_W=0.086, K_H=0.048, K_GAP=0.008, SEZ_W=0.062, MARG=0.020, QUADRO_H=0.085;
 const PPM=1600, PPM_K=3000;   // pixel per metro: il corpo e i tasti
 const CR_COL=Math.max(...CRUSCOTTO.map(r=>r.tasti.length));
 const CR_W=2*MARG+SEZ_W+K_GAP+CR_COL*K_W+(CR_COL-1)*K_GAP;
-const CR_H=2*MARG+QUADRO_H+0.018+CRUSCOTTO.length*K_H+(CRUSCOTTO.length-1)*K_GAP;
-const K_X=j=>-CR_W/2+MARG+SEZ_W+K_GAP+K_W/2+j*(K_W+K_GAP);
-const K_Y=i=>CR_H/2-MARG-QUADRO_H-0.018-K_H/2-i*(K_H+K_GAP);
-const vrPanel=new THREE.Group();
-vrPanel.position.set(0,1.5,-0.8); scene.add(vrPanel);
+const CR_H=2*MARG+QUADRO_H+0.014+CRUSCOTTO.length*K_H+(CRUSCOTTO.length-1)*K_GAP;
+const LARG_T=CR_COL*K_W+(CR_COL-1)*K_GAP;
+// a essere centrati sullo sguardo sono i TASTI, non il fondo: la colonna coi nomi delle sezioni sta
+// a sinistra, e se si centrava il fondo la tastiera restava spostata di sette gradi a destra
+const CX_CORPO=-(SEZ_W+K_GAP)/2;   // il fondo sborda a SINISTRA, dove stanno i nomi delle sezioni
+const K_X=j=>-LARG_T/2+K_W/2+j*(K_W+K_GAP);
+const K_Y=i=>CR_H/2-MARG-QUADRO_H-0.014-K_H/2-i*(K_H+K_GAP);
+const vrPanel=new THREE.Group(); scene.add(vrPanel);
+const banco=new THREE.Group(); vrPanel.add(banco);   // dentro: tutto il disegno, posato sul cono
+// il bordo vicino del banco: quaranta centimetri sotto gli occhi, a mezzo metro e mezzo, inclinato
+// di 58° — cosi' lo si guarda quasi in faccia (tre gradi di scarto) senza chinare il collo
+const CONS_R0=0.55, CONS_Y0=-0.44, CONS_TAU=55*DEG;
+const _bX=new THREE.Vector3(), _bY=new THREE.Vector3(), _bZ=new THREE.Vector3(), _bM=new THREE.Matrix4();
+function puntoBanco(x,y,fuori,out){
+  const d=y+CR_H/2, th=x/CONS_R0, st=Math.sin(CONS_TAU), ct=Math.cos(CONS_TAU);
+  const rag=CONS_R0+d*ct, alt=CONS_Y0+d*st, sth=Math.sin(th), cth=Math.cos(th);
+  out=out||new THREE.Vector3(); out.set(rag*sth,alt,-rag*cth);
+  if(fuori) out.set(out.x-sth*st*fuori, out.y+ct*fuori, out.z+cth*st*fuori);
+  return out;
+}
+// posa un pezzo piatto (un tasto) sul banco: dove va, e rivolto come la superficie in quel punto
+function posaBanco(o,x,y,fuori){
+  puntoBanco(x,y,fuori,o.position);
+  const th=x/CONS_R0, st=Math.sin(CONS_TAU), ct=Math.cos(CONS_TAU);
+  _bX.set(Math.cos(th),0,Math.sin(th));
+  _bZ.set(-Math.sin(th)*st,ct,Math.cos(th)*st);
+  _bY.crossVectors(_bZ,_bX);
+  o.quaternion.setFromRotationMatrix(_bM.makeBasis(_bX,_bY,_bZ));
+}
+// i pezzi LARGHI (il fondo, il quadro) vanno piegati: piatti bucherebbero il banco da parte a parte
+function pianoPiegato(w,h,cx,cy,fuori,mat){
+  const g=new THREE.PlaneGeometry(w,h,Math.max(8,Math.round(w*60)),4);
+  const p=g.attributes.position, v=new THREE.Vector3();
+  for(let i=0;i<p.count;i++){ puntoBanco(cx+p.getX(i),cy+p.getY(i),fuori,v); p.setXYZ(i,v.x,v.y,v.z); }
+  p.needsUpdate=true; g.computeVertexNormals(); g.computeBoundingSphere();
+  return new THREE.Mesh(g,mat);
+}
 function roundRect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
   x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 function rgbHex(c,al){const r=(c>>16)&255,g=(c>>8)&255,b=c&255;return 'rgba('+r+','+g+','+b+','+al+')';}
@@ -945,9 +1245,8 @@ function disegnaCorpo(){
   corpoTex.needsUpdate=true;
 }
 disegnaCorpo();
-const corpo=new THREE.Mesh(new THREE.PlaneGeometry(CR_W,CR_H),
-  new THREE.MeshBasicMaterial({map:corpoTex,transparent:true}));
-corpo.position.z=-0.004; vrPanel.add(corpo);
+const corpo=pianoPiegato(CR_W,CR_H,CX_CORPO,0,0,new THREE.MeshBasicMaterial({map:corpoTex,transparent:true}));
+banco.add(corpo);
 
 // i tasti: due righe di scritta al massimo, il corpo del carattere scende finche' ci stanno
 function spezzaTesto(x,testo,spazio){
@@ -987,23 +1286,177 @@ CRUSCOTTO.forEach((riga,i)=>riga.tasti.forEach((k,j)=>{
   if(!b){ diag('cruscotto: manca il tasto «'+k+'»','warn'); return; }
   const m=new THREE.Mesh(new THREE.PlaneGeometry(K_W,K_H),
     new THREE.MeshBasicMaterial({map:btnTexture(b),transparent:true}));
-  m.position.set(K_X(j),K_Y(i),0); m.userData.b=b; vrPanel.add(m); btnMeshes.push(m);
+  posaBanco(m,K_X(j),K_Y(i),0.004); m.userData.b=b; banco.add(m); btnMeshes.push(m);
   m.userData.fai=()=>toggleBtn(b); INTERATTIVI.push(m);
   // l'alone che si accende quando il raggio ci sta sopra: tingere il tasto non bastava,
   // il colore si moltiplica sul fondo scuro della scritta e il cambio non si vedeva
   const halo=new THREE.Mesh(new THREE.PlaneGeometry(K_W+0.012,K_H+0.012),
     new THREE.MeshBasicMaterial({color:0x9fd0ff,transparent:true,opacity:0,depthWrite:false}));
-  halo.position.set(K_X(j),K_Y(i),-0.002); vrPanel.add(halo); m.userData.halo=halo;
+  posaBanco(halo,K_X(j),K_Y(i),0.002); banco.add(halo); m.userData.halo=halo;
 }));
+// ====================== l'aletta: il sottomenu degli elementi celesti ======================
+// Sta a destra del banco, sulla stessa superficie: e' la sua ala. Ci stanno TUTTI gli elementi
+// celesti che si possono settare in Regulus, un tasto per ciascuno e col suo glifo — i dieci
+// pianeti (e Chirone, che pero' astronomy-engine non sa dove sia), i nodi e le absidi veri e medi,
+// i quattro angoli col Vertex, le quattro Sorti e le cinque parti planetarie. Ogni fila e' una
+// famiglia. Si apre col tasto «Elementi ›», che sta accanto a «Pianeti».
+// Aprendola il banco si sposta a sinistra, cosi' banco e ala restano insieme davanti allo sguardo.
+// (Se a schermo l'insieme risultasse troppo largo, la stessa ala si monta SOPRA il quadro, dietro
+// il banco, senza allargare nulla: cambia solo dove comincia, qui sotto.)
+const AL_KW=0.044, AL_KH=0.042, AL_KG=0.006, AL_MARG=0.012, AL_TIT=0.026, AL_GAP=0.012;
+const ALETTA=[
+  {f:'pianeti', t:['planet','el-Luna','el-Mercurio','el-Venere','el-Marte']},
+  {f:'pianeti', t:['el-Giove','el-Saturno','el-Urano','el-Nettuno','el-Plutone']},
+  {f:'fuori',   t:['el-Chirone']},
+  {f:'nodi',    t:['p-nodoV','p-nodoVS','p-nodoM','p-nodoMS']},
+  {f:'absidi',  t:['p-apogV','p-perigV','p-apogM','p-perigM']},
+  {f:'angoli',  t:['p-asc','p-mc','p-ds','p-ic','p-vertex']},
+  {f:'sorti',   t:['p-tyche','p-daimon','p-basis','p-ananke']},
+  {f:'parti',   t:['p-eros','p-hermes','p-tolma','p-nike','p-nemesi']},
+];
+const AL_COL=Math.max(...ALETTA.map(r=>r.t.length));
+const AL_W=2*AL_MARG+AL_COL*AL_KW+(AL_COL-1)*AL_KG;
+const AL_H=2*AL_MARG+AL_TIT+ALETTA.length*AL_KH+(ALETTA.length-1)*AL_KG;
+const AL_X0=CX_CORPO+CR_W/2+AL_GAP;          // il bordo sinistro dell'ala
+const AL_Y1=-CR_H/2+AL_H;                    // il bordo lontano (il banco e l'ala partono insieme)
+const AL_KX=j=>AL_X0+AL_MARG+AL_KW/2+j*(AL_KW+AL_KG);
+const AL_KY=i=>AL_Y1-AL_MARG-AL_TIT-AL_KH/2-i*(AL_KH+AL_KG);
+// i tasti dell'ala: uno per elemento celeste, col glifo di Regulus o con la sua sigla
+const AL_BTN=[];
+{
+  const dati=window.CIELO;
+  const pia=(dati&&dati.pianeti)||[];
+  pia.forEach(p=>{
+    const k=p.n==='Sole'?'planet':'el-'+p.n;
+    if(k!=='planet' && !groups[k]) return;
+    const b=BUTTONS.find(x=>x.k===k)||{k,t:p.n,on:true,c:parseInt(p.c.slice(1),16)};
+    b.glifo=p.g; b.tinta=p.c; b.breve=p.n;
+    if(!BUTTONS.includes(b)) BUTTONS.push(b);
+    AL_BTN.push(b);
+  });
+  // Chirone: in Regulus c'e', qui no — astronomy-engine non porta la sua effemeride. Il tasto c'e'
+  // lo stesso, spento e con la ragione scritta: un elemento che manca in silenzio e' peggio.
+  AL_BTN.push({k:'el-Chirone', t:'Chirone', breve:'Chir', on:false, c:0x8a6a4a, tinta:'#8a6a4a',
+               manca:'Chirone non c’è: astronomy-engine non ha la sua effemeride'});
+  PUNTI_DEF.forEach(d=>{
+    const b={k:d.k, t:d.n, breve:d.t||'', on:false, c:parseInt(d.c.slice(1),16), tinta:d.c, punto:d};
+    AL_BTN.push(b);
+  });
+  AL_BTN.forEach(b=>{ if(!BUTTONS.includes(b)) BUTTONS.push(b); });
+}
+function alettaTexture(b){
+  const w=Math.round(AL_KW*PPM_K), h=Math.round(AL_KH*PPM_K);
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,h);
+  if(b.on){ g.addColorStop(0,'rgba(34,50,80,.98)'); g.addColorStop(1,'rgba(19,28,50,.98)'); }
+  else    { g.addColorStop(0,'rgba(16,21,36,.94)'); g.addColorStop(1,'rgba(10,14,25,.94)'); }
+  x.fillStyle=g; roundRect(x,4,4,w-8,h-8,12); x.fill();
+  x.strokeStyle=b.manca?'rgba(120,110,100,.35)':b.on?rgbHex(b.c,.95):'rgba(150,166,205,.28)';
+  x.lineWidth=b.on?6:3; x.stroke();
+  const tinta=b.manca?'rgba(150,140,130,.5)':b.on?b.tinta:'rgba(200,210,235,.75)';
+  x.lineJoin='round'; x.textAlign='center'; x.textBaseline='middle';
+  if(b.glifo){                                   // i pianeti: il loro glifo, come sulla volta
+    const bb=b.glifo.b, s=(h*0.52)/(Math.max(bb[2]-bb[0],bb[3]-bb[1])*1.25);
+    x.save(); x.translate(w/2,h*0.42); x.scale(s,-s); x.translate(-(bb[0]+bb[2])/2,-(bb[1]+bb[3])/2);
+    const p=new Path2D(b.glifo.d);
+    x.lineWidth=4/s; x.strokeStyle='rgba(255,255,255,.45)'; x.stroke(p);
+    x.fillStyle=tinta; x.fill(p); x.restore();
+  }else if(b.punto&&b.punto.g){                  // nodi e absidi: glifo capovolto, e la M dei medi
+    const gl=(window.CIELO&&window.CIELO.glifi)?window.CIELO.glifi[b.punto.g]:null;
+    if(gl){ const bb=gl.b, s=(h*0.46)/(Math.max(bb[2]-bb[0],bb[3]-bb[1])*1.25);
+      x.save(); x.translate(w*0.44,h*0.42); if(b.punto.giu) x.rotate(Math.PI);
+      x.scale(s,-s); x.translate(-(bb[0]+bb[2])/2,-(bb[1]+bb[3])/2);
+      const p=new Path2D(gl.d);
+      x.lineWidth=4/s; x.strokeStyle='rgba(255,255,255,.45)'; x.stroke(p);
+      x.fillStyle=tinta; x.fill(p); x.restore();
+      if(b.punto.medio){ x.font='700 '+Math.round(h*0.22)+'px system-ui,sans-serif';
+        x.fillStyle=tinta; x.fillText('M',w*0.74,h*0.26); }
+    }
+  }else{                                         // angoli, Sorti, parti: la sigla di Regulus
+    x.font='700 '+Math.round(h*0.42)+"px 'Cormorant Garamond', Georgia, serif";
+    x.fillStyle=tinta; x.fillText(b.breve||b.t,w/2,h*0.42);
+  }
+  x.font='600 '+Math.round(h*0.20)+"px 'Cormorant Garamond', Georgia, serif";
+  x.fillStyle=b.manca?'rgba(150,140,130,.55)':'rgba(190,202,230,.85)';
+  let nome=b.t.split(' (')[0].split(' · ')[0];
+  while(x.measureText(nome).width>w-14 && nome.length>3) nome=nome.slice(0,-1);
+  x.fillText(nome,w/2,h-Math.round(h*0.16));
+  const t=new THREE.CanvasTexture(c); t.anisotropy=4; return t;
+}
+const aletta=new THREE.Group(); aletta.visible=false; banco.add(aletta);
+{
+  const cv=document.createElement('canvas');
+  cv.width=Math.round(AL_W*PPM); cv.height=Math.round(AL_H*PPM);
+  const x=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const g=x.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'rgba(15,20,36,.96)'); g.addColorStop(1,'rgba(7,10,20,.96)');
+  x.fillStyle=g; roundRect(x,4,4,W-8,H-8,Math.round(0.018*PPM)); x.fill();
+  x.strokeStyle='rgba(150,166,205,.40)'; x.lineWidth=5; x.stroke();
+  x.strokeStyle='rgba(227,193,105,.28)'; x.lineWidth=2;
+  roundRect(x,Math.round(0.008*PPM),Math.round(0.008*PPM),W-2*Math.round(0.008*PPM),H-2*Math.round(0.008*PPM),
+    Math.round(0.013*PPM)); x.stroke();
+  x.textAlign='center'; x.textBaseline='middle'; x.fillStyle='rgba(227,193,105,.9)';
+  x.font='600 '+Math.round(0.016*PPM)+"px 'Cormorant Garamond', Georgia, serif";
+  x.fillText('ELEMENTI CELESTI',W/2,Math.round((AL_MARG+AL_TIT/2)*PPM));
+  // un filo fra una famiglia e l'altra
+  ALETTA.forEach((r,i)=>{ if(i===0||ALETTA[i-1].f===r.f) return;
+    const y=(AL_Y1-AL_KY(i)-AL_KH/2-AL_KG/2)*PPM;
+    x.strokeStyle='rgba(150,166,205,.14)'; x.lineWidth=2;
+    x.beginPath(); x.moveTo(Math.round(0.014*PPM),y); x.lineTo(W-Math.round(0.014*PPM),y); x.stroke();
+  });
+  const tex=new THREE.CanvasTexture(cv); tex.anisotropy=4;
+  aletta.add(pianoPiegato(AL_W,AL_H,AL_X0+AL_W/2,-CR_H/2+AL_H/2,0,
+    new THREE.MeshBasicMaterial({map:tex,transparent:true})));
+}
+ALETTA.forEach((riga,i)=>riga.t.forEach((k,j)=>{
+  const b=AL_BTN.find(t=>t.k===k);
+  if(!b){ diag('aletta: manca l’elemento «'+k+'»','warn'); return; }
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(AL_KW,AL_KH),
+    new THREE.MeshBasicMaterial({map:alettaTexture(b),transparent:true}));
+  posaBanco(m,AL_KX(j),AL_KY(i),0.004); m.userData.b=b; aletta.add(m); btnMeshes.push(m);
+  m.userData.aletta=true;
+  m.userData.fai=()=>{ if(b.manca){ diag(b.manca,'warn'); return; } imposta(b.k,!stato[b.k]); };
+  INTERATTIVI.push(m);
+  const halo=new THREE.Mesh(new THREE.PlaneGeometry(AL_KW+0.008,AL_KH+0.008),
+    new THREE.MeshBasicMaterial({color:0x9fd0ff,transparent:true,opacity:0,depthWrite:false}));
+  posaBanco(halo,AL_KX(j),AL_KY(i),0.002); aletta.add(halo); m.userData.halo=halo;
+}));
+// aprendo l'ala tutto l'assieme si sposta, per restare centrato su chi guarda
+let alettaAperta=false;
+const AL_SPOSTA=((-LARG_T/2)+(AL_X0+AL_W))/2/CONS_R0;
+function apriAletta(on){
+  alettaAperta=!!on; aletta.visible=alettaAperta;
+  banco.rotation.y=alettaAperta?AL_SPOSTA:0;
+  const b=BUTTONS.find(x=>x.k==='elementi'); if(b){ b.on=alettaAperta; ridipingi(b); }
+  diag(alettaAperta?'elementi celesti: i pianeti, i nodi, le absidi, gli angoli, le Sorti e le parti'
+                   :'sottomenu chiuso');
+}
+// gli stessi elementi anche nel pannello della PAGINA, raccolti in un cassetto: sul desktop non
+// c'e' l'ala, e senza questo i trentatre punti si potrebbero accendere solo dentro al visore
+(function(){
+  const p=document.getElementById('panel'); if(!p) return;
+  const cas=document.createElement('details'); cas.className='cassetto';
+  cas.innerHTML='<summary>Elementi celesti (33)</summary>';
+  AL_BTN.forEach(b=>{
+    if(b.k==='planet') return;                  // il Sole ha gia' la sua riga
+    const r=document.createElement('div');
+    r.className='row'+(b.on?' on':''); r.dataset.k=b.k; r.style.setProperty('--a',b.tinta||'#9fd0ff');
+    r.innerHTML='<span class="sw"></span>'+b.t;
+    if(b.manca){ r.style.opacity=.45; r.title=b.manca; r.addEventListener('click',()=>diag(b.manca,'warn')); }
+    else r.addEventListener('click',()=>imposta(b.k,!stato[b.k]));
+    cas.appendChild(r);
+  });
+  p.appendChild(cas);
+})();
 (function(){   // un tasto dimenticato dal cruscotto non deve sparire in silenzio
-  const messi=new Set([].concat(...CRUSCOTTO.map(r=>r.tasti)));
+  const messi=new Set([].concat(...CRUSCOTTO.map(r=>r.tasti),...ALETTA.map(r=>r.t)));
   const fuori=BUTTONS.filter(b=>!messi.has(b.k)).map(b=>b.k);
   if(fuori.length) diag('tasti fuori dal cruscotto: '+fuori.join(', '),'warn');
 })();
 function ridipingi(b){
   const m=btnMeshes.find(x=>x.userData.b===b); if(!m) return;
   if(m.material.map) m.material.map.dispose();
-  m.material.map=btnTexture(b); m.material.needsUpdate=true;
+  m.material.map=m.userData.aletta?alettaTexture(b):btnTexture(b); m.material.needsUpdate=true;
 }
 
 // il quadro: l'ora del cielo e il diario di bordo (nel visore la pagina non si vede)
@@ -1011,9 +1464,9 @@ const QU_W=CR_W-2*MARG;
 const logCv=document.createElement('canvas');
 logCv.width=Math.round(QU_W*2000); logCv.height=Math.round(QUADRO_H*2000);
 const logTex=new THREE.CanvasTexture(logCv); logTex.anisotropy=4;
-const logMesh=new THREE.Mesh(new THREE.PlaneGeometry(QU_W,QUADRO_H),
+const logMesh=pianoPiegato(QU_W,QUADRO_H,CX_CORPO,CR_H/2-MARG-QUADRO_H/2,0.003,
   new THREE.MeshBasicMaterial({map:logTex,transparent:true}));
-logMesh.position.set(0,CR_H/2-MARG-QUADRO_H/2,0.001); vrPanel.add(logMesh);
+banco.add(logMesh);
 let fps=0, oraVR='';
 function scriviOrologioVR(testo){ oraVR=testo; logSporco=true; }
 function disegnaLog(){
@@ -1037,43 +1490,31 @@ function disegnaLog(){
 disegnaLog();
 inPrimoPiano(vrPanel);   // tutto il cruscotto si disegna dopo il mare, che se no lo cancellerebbe
 
-// il cruscotto compare davanti allo sguardo: nella direzione in cui si guarda (con l'inclinazione
-// limitata, per non trovarselo ai piedi o allo zenit), a 80 cm, rivolto verso chi guarda
+// il banco si mette ATTORNO a chi guarda — l'origine e' l'occhio — e si gira solo di traverso,
+// quanto ti sei girato tu: alzando o abbassando la testa resta dov'e', come un tavolo vero
 const _cp=new THREE.Vector3(), _cd=new THREE.Vector3();
 function posizionaComandi(){
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
   cam.getWorldPosition(_cp); cam.getWorldDirection(_cd);
-  const oriz=Math.hypot(_cd.x,_cd.z)||1e-6;
-  const pend=Math.max(-0.8,Math.min(0.8,Math.atan2(_cd.y,oriz))), cs=Math.cos(pend);
-  _cd.set(_cd.x/oriz*cs,Math.sin(pend),_cd.z/oriz*cs);
-  vrPanel.position.copy(_cp).addScaledVector(_cd,0.8);
-  vrPanel.lookAt(_cp);
+  vrPanel.position.copy(_cp);
+  vrPanel.rotation.set(0,Math.atan2(-_cd.x,-_cd.z),0);
 }
 function mostraComandi(on){
   if(on){ posizionaComandi(); vrPanel.visible=true; diag('cruscotto davanti allo sguardo (tasto B)'); }
   else { vrPanel.visible=false; chiudiTastiera(); diag('cruscotto via (tasto B per rivederlo)'); }
 }
-// i tasti del controller destro: B fa comparire e sparire il cruscotto, A ri-ancora la lente
+// il tasto B del controller destro fa comparire e sparire il cruscotto
 function tastiControllo(){
   for(const c of [c0,c1]){
     const s=c&&c.userData.src, g=s&&s.gamepad;
     if(!g||!g.buttons||s.handedness!=='right') continue;
     const b=!!(g.buttons[5]&&g.buttons[5].pressed), a=!!(g.buttons[4]&&g.buttons[4].pressed);
     if(b&&!c.userData.bGiu){ vibra(c,0.4,30); mostraComandi(!vrPanel.visible); }
-    if(a&&!c.userData.aGiu&&GRAND.modo!=='sguardo'){
-      vibra(c,0.3,25);
-      if(GRAND.s===1) diag('la lente e’ a vista naturale: la levetta la allarga');
-      else { ricentraLente(); diag('lente ri-ancorata dove guardi'); }
-    }
     c.userData.bGiu=b; c.userData.aGiu=a;
   }
 }
 
-function ridipingi(b){
-  const m=btnMeshes.find(x=>x.userData.b===b); if(!m) return;
-  if(m.material.map) m.material.map.dispose();
-  m.material.map=btnTexture(b); m.material.needsUpdate=true;
-}
+// (qui c'era una seconda copia di `ridipingi`, identica a quella che sta piu' sopra: tolta)
 // la velocita': un grado solo per volta, dal tasto del visore o dai quattro della pagina
 function impostaVelocita(i){
   livVel=i;
@@ -1084,14 +1525,14 @@ function impostaVelocita(i){
 }
 function toggleBtn(b){
   if(b.k==='recenter'){ calibrato=false; azzeraZoom('ricentro'); diag('ricentro…'); return; }
-  if(b.k==='lente'){   // i tre modi, in giro: segue lo sguardo · ancorata · ancorata col solo tasto A
+  if(b.k==='elementi'){ apriAletta(!alettaAperta); return; }
+  if(b.k==='lente'){   // due soli modi: vista normale · lente solo in periferia
     const i=MODI_LENTE.findIndex(m=>m.k===GRAND.modo);
     const m=MODI_LENTE[(i+1)%MODI_LENTE.length];
     GRAND.modo=m.k; b.t=m.t; ridipingi(b);
-    if(m.k!=='sguardo') ricentraLente(true);
-    diag(m.k==='sguardo'?'la lente segue lo sguardo: sempre estesa, ma girandosi il cielo si storce'
-        :m.k==='ancorata'?'lente ancorata: il cielo non si muove piu’; si ri-ancora quando ti fermi'
-        :'lente ancorata: si ri-ancora solo col tasto A');
+    GRAND.asse.copy(sguardoOra(_sguardo));
+    diag(m.k==='normale'?'vista normale: la levetta in avanti non fa nulla'
+        :'lente solo in periferia: il centro resta esatto, ai bordi entra più cielo (levetta)');
     return;
   }
   if(b.k==='velocita'){ impostaVelocita((livVel+1)%VELOCITA.length); return; }
@@ -1255,49 +1696,30 @@ const ZU=Object.assign({uZoomOn:{value:0}, uZoomO:{value:new THREE.Vector3()},
 // Vive nello shader: ogni cosa del planetario, nelle coordinate della vista di quell'occhio, si
 // stringe di uGrand attorno all'asse dello sguardo (e' una moltiplicazione, quindi le rette
 // restano rette e i piani restano piani: il mare non si incurva).
-// Due modi, da confrontare nel visore (tasto «Lente» del cruscotto):
-//   «segue lo sguardo» — la lente sta sempre davanti a dove si guarda: la vista e' sempre estesa, ma
-//      girando la testa la compressione si sposta con lei, e il cielo sembra storcersi.
-//   «ancorata»         — la lente si pianta in una direzione del CIELO e li' resta: girando la testa
-//      non si muove piu' niente (il cielo e' un'immagine ferma), ma la compressione sta in un punto
-//      fisso, e voltandosi si guarda la parte non compressa. Percio' si RI-ANCORA dove si guarda:
-//      da se' quando la testa si ferma fuori dall'ancora, o subito col tasto A; e il salto si
-//      nasconde dietro un battito di ciglia.
-// Le tre cose — cielo immobile girandosi, cielo compresso dove si guarda, ogni stella al suo posto —
-// non stanno insieme: se ne possono avere due. Qui si sceglie quali.
 const GRAND_MIN=0.40, GRAND_VEL=0.85;
-const GRAND_SOGLIA=22*DEG, GRAND_FERMA=10*DEG, GRAND_ATTESA=350;   // fuori di 22°, testa ferma per 350 ms
-// I cinque modi, da confrontare nel visore (tasto «Lente» del cruscotto):
-//   «cede girando»    — la lente vale solo da FERMI: appena la testa gira si ritira alla vista
-//      naturale in un paio di decimi, e quando ci si ferma torna. Girando non c'e' piu' niente da
-//      storcere. (Il mestiere contrario — restringere il campo MENTRE ci si muove — e' quello che in
-//      letteratura toglie la nausea, e si e' visto che i cambi fatti durante il movimento non si
-//      notano: e' il momento in cui l'occhio e' meno sensibile.)
-//   «solo periferia»  — il centro della vista (26°) resta ESATTO e immobile, e si stringe solo
+// Due modi soli, col tasto «Lente» del cruscotto:
+//   «normale»        — nessuna lente: il cielo e' quello vero, e la levetta in avanti non fa nulla.
+//      E' come si parte.
+//   «solo periferia» — il centro della vista (26°) resta ESATTO e immobile, e si stringe solo
 //      l'anello esterno: cosi' quello che si fissa non si deforma mai, e ai bordi entra piu' cielo.
 //      E' la stessa idea degli occhiali per la vista a cannocchiale, che mettono l'espansione in
 //      periferia per non confondere la visione centrale. Fuori dal cono le rette si incurvano un po':
 //      e' il prezzo, e non si puo' evitare (una lente che non tocca il centro non puo' essere lineare).
-//   «segue lo sguardo» — sempre estesa, ma la compressione si sposta con la testa: e' lo storcersi.
-//   «ancorata» / «ancorata · tasto A» — piantata nel cielo: girandosi non si muove nulla, ma la
-//      compressione resta dov'e'; si ri-ancora da se' quando la testa si ferma, o col tasto A.
+// Le tre cose — cielo immobile girandosi, cielo compresso dove si guarda, ogni stella al suo posto —
+// non stanno insieme: se ne possono avere due. Gli altri tre modi provati (che cede girando, che
+// segue lo sguardo, ancorata nel cielo) l'autore li ha guardati nel visore e scartati.
 const MODI_LENTE=[
-  {k:'cedevole', t:'Lente: cede girando'},
+  {k:'normale',  t:'Lente: normale'},
   {k:'periferia',t:'Lente: solo periferia'},
-  {k:'sguardo',  t:'Lente: segue lo sguardo'},
-  {k:'ancorata', t:'Lente: ancorata'},
-  {k:'manuale',  t:'Lente: ancorata · tasto A'},
 ];
-const GRAND={s:1, eff:1, att:false, modo:'cedevole', asse:new THREE.Vector3(0,0,-1),
-             prec:new THREE.Vector3(0,0,-1), fermoDa:0};
-const GRAND_CEDE=[6*DEG,25*DEG];   // fra questi due gradi al secondo la lente si ritira
+const GRAND={s:1, eff:1, att:false, modo:'normale', asse:new THREE.Vector3(0,0,-1)};
 function applicaGrand(){
   UG.uGrand.value=GRAND.eff;                          // cielo e mare hanno gli stessi uniform
   UG.uGrandModo.value=GRAND.modo==='periferia'?1:0;
 }
 function impostaGrand(s){
   GRAND.s=Math.max(GRAND_MIN,Math.min(1,s));
-  GRAND.eff=GRAND.s;   // la levetta comanda subito; poi, nel modo cedevole, e' il movimento a ritirarla
+  GRAND.eff=GRAND.s;   // la levetta comanda subito
   applicaGrand();
 }
 const testoGrand=()=>GRAND.s.toFixed(2).replace('.',',')+'×';
@@ -1308,31 +1730,11 @@ function sguardoOra(out){
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
   return cam.getWorldDirection(out);
 }
-// ri-ancorare la lente dove si guarda: il salto sta dentro un battito di ciglia
-function ricentraLente(subito){
-  GRAND.fermoDa=0;
-  if(GRAND.s===1 || subito){ GRAND.asse.copy(sguardoOra(_sguardo)); return; }
-  battitoDiCiglia(()=>{ GRAND.asse.copy(sguardoOra(_sguardo)); });
-}
 // ogni fotogramma: dove sta l'asse della lente, e quanta lente si applica davvero
 function aggiornaLente(dt){
   sguardoOra(_sguardo);   // fuori dal visore e' la camera del desktop: con la lente a 1× non fa nulla
-  const velocita=dt>0?_sguardo.angleTo(GRAND.prec)/(dt/1000):0;
-  GRAND.prec.copy(_sguardo);
-  let mira=GRAND.s;
-  if(GRAND.modo==='cedevole'){
-    // quanto la testa gira, tanto la lente si ritira: a 6°/s ancora tutta, a 25°/s vista naturale
-    const f=Math.min(1,Math.max(0,(velocita-GRAND_CEDE[0])/(GRAND_CEDE[1]-GRAND_CEDE[0])));
-    mira=1+(GRAND.s-1)*(1-f);
-    GRAND.asse.copy(_sguardo);
-  } else if(GRAND.modo==='sguardo' || GRAND.modo==='periferia' || GRAND.s===1){
-    GRAND.asse.copy(_sguardo);
-  } else if(GRAND.modo==='ancorata'){
-    if(_sguardo.angleTo(GRAND.asse)>GRAND_SOGLIA && velocita<GRAND_FERMA){
-      GRAND.fermoDa+=dt;
-      if(GRAND.fermoDa>=GRAND_ATTESA) ricentraLente();   // la testa si e' fermata altrove: la lente lo segue
-    } else GRAND.fermoDa=0;
-  }
+  GRAND.asse.copy(_sguardo);              // il cono sta sempre davanti a dove si guarda
+  const mira=GRAND.modo==='normale'?1:GRAND.s;
   // il grandangolo che si applica insegue quello voluto: si RITIRA in fretta (la testa ha gia'
   // cominciato a girare, e li' non deve esserci piu' niente da storcere) e TORNA piano, che non si noti
   const k=dt>0?Math.min(1,dt/(mira>GRAND.eff?70:420)):1;
@@ -1439,6 +1841,11 @@ function levetta(dt){
       if(GRAND.att){ GRAND.att=false; minutoMostrato=null;
         try{ localStorage.setItem('sfera-vr-grandangolo',String(GRAND.s)); }catch(e){}
         diag(GRAND.s===1?'vista naturale (nessun grandangolo)':'grandangolo '+testoGrand(),'ok'); }
+      return;
+    }
+    // in vista normale la levetta in avanti non ha niente da fare: la lente e' spenta
+    if(GRAND.modo==='normale'){
+      if(!GRAND.att){ GRAND.att=true; diag('la lente e’ su «normale»: accendi «solo periferia» per allargare'); }
       return;
     }
     GRAND.att=true;
@@ -1721,8 +2128,8 @@ async function entraVR(){
     impostaMare(MARE.max); applicaMare();   // il mare fino all'orizzonte vero della quota
     impostaGrand(grandRicordato());          // il grandangolo scelto l'ultima volta su questo visore
     if(MARE.acceso) diag('mare calmo, orizzonte a '+testoMare());
-    diag(GRAND.s===1?'levetta: avanti il grandangolo, di traverso il bordo del mare'
-                    :'grandangolo '+testoGrand()+' (la levetta lo cambia)');
+    diag(GRAND.modo==='normale'?'levetta: di traverso il bordo del mare'
+                               :'grandangolo '+testoGrand()+' (la levetta lo cambia)');
 
     if(!c0){ c0=makeController(0); c1=makeController(1); }
     enter.classList.add('small'); enter.textContent='◉ Esci';
@@ -1858,6 +2265,7 @@ renderer.setAnimationLoop((time,frame)=>{
     aggiornaPresa();
     if(renderer.xr.isPresenting) levetta(dt);
     aggiornaGlifi();
+    aggiornaPunti();
     aggiornaVelo(ora);
     aggiornaOra();
     if(renderer.xr.isPresenting){

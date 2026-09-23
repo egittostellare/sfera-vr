@@ -58,30 +58,14 @@ In tutto 720 stelle e 657 lati di figura.
   sopra la testa). La lente invece **segue lo sguardo**: le proporzioni restano, l'orizzonte resta
   dritto, e la Polare resta dietro — per vederla ci si gira, e quando la si guarda è al suo posto.
   Il prezzo: girando la testa il cielo scorre un po' più piano di lei. Da 1× a 0,40×.
-- **I due modi della lente**, col tasto **«Lente»** del cruscotto. Tre cose non stanno insieme — cielo
-  immobile girandosi, cielo compresso dove si guarda, ogni stella al suo posto — e se ne possono avere
-  **due**:
-  - *segue lo sguardo*: la lente sta sempre davanti a chi guarda. La vista è sempre estesa, ma girando
-    la testa la compressione si sposta con lei, e il cielo sembra storcersi.
-  - *ancorata*: la lente si pianta in una direzione del cielo e lì resta. Girando la testa **non si
-    muove più niente** — il cielo è un'immagine ferma, e l'orizzonte del mare resta dritto e a livello
-    anche guardando di lato. La compressione però sta in un punto fisso, e voltandosi si guarda la
-    parte non compressa: perciò la lente **si ri-ancora dove si guarda** quando la testa si ferma
-    (fuori di 22°, dopo un terzo di secondo), e il salto si nasconde dietro un **battito di ciglia**.
-    Col **tasto A** del controller destro si ri-ancora subito.
-  - *ancorata · tasto A*: come sopra, ma non si ri-ancora mai da sé: comanda solo il tasto A.
-  - *cede girando*: la lente vale **da fermi**. Appena la testa gira si ritira alla vista naturale in
-    sette centesimi di secondo, e quando ci si ferma torna piano (mezzo secondo buono, che non si
-    noti). Girando non c'è più niente da storcere. È il mestiere contrario di quello che in
-    letteratura toglie la nausea — restringere il campo *mentre* ci si muove — e si fonda sullo stesso
-    fatto: i cambi fatti durante il movimento non si notano.
-  - *solo periferia*: il centro della vista (26°) resta **esatto e immobile**, e si stringe solo
-    l'anello esterno: quello che si fissa non si deforma mai, e ai bordi entra più cielo. È l'idea
-    degli occhiali per la vista a cannocchiale, che mettono l'espansione in periferia per non
-    confondere la visione centrale. Fuori dal cono le rette si incurvano un poco: è il prezzo, e non
-    si può evitare (una lente che non tocca il centro non può essere lineare).
-  NB: ancorando la lente in alto, l'orizzonte del mare si alza (a 20° di ancora e 0,5× si alza di
-  9,7°); ancorata all'altezza degli occhi resta esattamente dov'è.
+- **I due modi della lente**, col tasto **«Lente»** del cruscotto — *normale* (come si parte: nessuna
+  lente, e la levetta in avanti non fa nulla) e *solo periferia*, dove il centro della vista (26°)
+  resta **esatto e immobile** e si stringe solo l'anello esterno: quello che si fissa non si deforma
+  mai, e ai bordi entra più cielo. È l'idea degli occhiali per la vista a cannocchiale, che mettono
+  l'espansione in periferia per non confondere la visione centrale. Fuori dal cono le rette si
+  incurvano un poco: è il prezzo, e non si può evitare (una lente che non tocca il centro non può
+  essere lineare). Gli altri tre modi provati — *cede girando*, *segue lo sguardo*, *ancorata nel
+  cielo* — l'autore li ha guardati nel visore e scartati.
 - **Il bordo del mare** con la levetta **di traverso**: a destra si allontana, a sinistra si
   avvicina, da 30 metri all'orizzonte vero della quota. Il cielo non si muove. Le due misure
   compaiono accanto all'ora.
@@ -113,9 +97,32 @@ In tutto 720 stelle e 657 lati di figura.
   col grilletto (o col clic) lo si seleziona, con un anello e la sua scheda. Nel visore il raggio
   arriva **fino alla volta** e ci posa un **mirino**, un cerchietto vuoto sempre largo un grado: col
   grandangolo si posa dove la stella **si vede**, non dove sta.
-- **Il cruscotto**: i tasti stanno tutti in una tastiera rettangolare divisa per sezioni (cerchi,
-  astri, terra, vista, tempo), col quadro dell'ora e il diario di bordo in alto. Il **tasto B** del
-  controller destro lo manda via e lo richiama, sempre davanti a dove si sta guardando.
+- **Le ghiere del cielo**, quattro tasti nuovi: **Azimut** gradua l'orizzonte come la rosa di una
+  bussola (un grado, cinque, dieci, e il numero ogni trenta, contato da nord verso est); **Meridiano**
+  mostra il cerchio che passa per nord, zenit, sud e nadir, dove ogni astro culmina; **Zodiaco**
+  divide l'eclittica nei dodici segni, la gradua e mette il glifo di ciascuno al suo grado di mezzo,
+  nel colore del suo elemento; **Latitudini** traccia i diciannove fili delle latitudini eclittiche,
+  da −9° a +9° (nove bastano: la più larga escursione è quella di Venere, poco più di otto gradi).
+- **Gli elementi celesti**, col tasto **«Elementi ›»** accanto a *Pianeti*: si apre a destra l'ala del
+  banco, con **tutti** quelli che Regulus mette in *Settaggi › Elementi Celesti* — i dieci pianeti uno
+  per uno, i **nodi** e le **absidi** della Luna (veri e medi), i quattro **angoli** col **Vertex**, le
+  quattro **Sorti** e le cinque **parti planetarie**. Sono gradi dello zodiaco, e un grado dello
+  zodiaco è un posto del cielo come un altro: compaiono sull'eclittica, ciascuno col suo glifo o la
+  sua sigla. L'**Ascendente** è quello che si capisce meglio vedendolo: sta appeso all'orizzonte a
+  oriente e lì resta mentre tutto il cielo gira sopra di lui.
+  I conti sono quelli di Regulus rifatti con astronomy-engine e **riscontrati con Swiss Ephemeris**:
+  le formule degli angoli e del Vertex combaciano al millesimo di primo su 390 casi (dall'equatore
+  agli ottanta gradi, a sei istanti), e il nodo vero pure. Quel che resta è la precisione della Luna
+  di astronomy-engine — 0,06′ — che la geometria amplifica: 0,7′ sul nodo (l'inclinazione è 5°) e
+  4,5′ sull'apogeo (l'eccentricità è 0,055). Sulla volta sono millimetri. *Chirone* c'è nell'elenco
+  ma è spento, e il tasto dice perché: astronomy-engine non ha la sua effemeride.
+- **La consolle**: non è più un pannello appeso davanti alla faccia ma un **banco** — basso, largo e
+  curvo, a portata di mani come una tastiera sul tavolo, inclinato verso chi guarda come un tavolo da
+  disegno. La superficie è un pezzo di cono attorno all'osservatore, perciò ogni tasto sta alla stessa
+  distanza (70 cm) e guarda dritto verso di lui. In fondo il quadro con l'ora e il diario di bordo,
+  davanti le file dei tasti col nome della sezione a sinistra. Si gira **solo di traverso**, quanto ti
+  sei girato tu: un tavolo resta un tavolo, e non si corica quando alzi la testa. Il **tasto B** del
+  controller destro lo manda via e lo richiama.
   (Misure e colori sono provvisori: la pulsantiera definitiva la disegna l'autore.)
 - Interruttori per equatore, eclittica, orizzonte, asse, Sole, pianeti, stelle di Regulus,
   stelle delle costellazioni e **linee delle costellazioni**, ognuno per conto suo.
@@ -127,6 +134,7 @@ In tutto 720 stelle e 657 lati di figura.
 | figure delle costellazioni | Marc van der Sluys, [ConstellationLines](https://github.com/MarcvdSluys/ConstellationLines) | CC BY-SA 4.0 |
 | posizioni, magnitudini e colori delle stelle delle figure | Yale Bright Star Catalogue, 5ª ed. (Hoffleit & Warren 1991), CDS V/50 | pubblico dominio |
 | le 121 stelle di Regulus | Swiss Ephemeris (`sefstars.txt`), posizione media J2000 | — |
+| glifi dei pianeti e dei dodici segni, colori dei quattro elementi | Regulus (`glifi-path.js`, `ruota.js`) | dell'autore |
 | pianeti e tempo siderale, nel browser | [astronomy-engine](https://github.com/cosinekitty/astronomy) di Don Cross | MIT |
 | grafica 3D | [three.js](https://threejs.org) r128 | MIT |
 

@@ -58,6 +58,11 @@ const blocco = ruota.match(/COLORI_PIANETI\s*=\s*\{([\s\S]*?)\};/);
 if (!blocco) { console.error('COLORI_PIANETI non trovata in ruota.js'); process.exit(1); }
 const COLORI = Object.fromEntries([...blocco[1].matchAll(/'([^']+)'\s*:\s*'(#[0-9A-Fa-f]{6})'/g)].map((m) => [m[1], m[2]]));
 const PIANETI = ['Sole', 'Luna', 'Mercurio', 'Venere', 'Marte', 'Giove', 'Saturno', 'Urano', 'Nettuno', 'Plutone'];
+const GLIFI_EXTRA = [...Array(12).keys()].map((i) => 'seg' + i).concat(['nodo', 'apogeo']);
+for (const k of GLIFI_EXTRA) if (!window.GLIFI_PATH[k]) guai.push('manca il glifo ' + k + ' in glifi-path.js');
+const bloccoEl = ruota.match(/COLORI_ELEMENTO\s*=\s*\[([\s\S]*?)\]/);
+if (!bloccoEl) guai.push('COLORI_ELEMENTO non trovata in ruota.js');
+const COLORI_ELEMENTO = bloccoEl ? [...bloccoEl[1].matchAll(/'(#[0-9A-Fa-f]{6})'/g)].map((m) => m[1]) : [];
 for (const p of PIANETI) {
   if (!COLORI[p]) guai.push('manca il colore di ' + p + ' in ruota.js');
   if (!window.GLIFI_PATH[p]) guai.push('manca il glifo di ' + p + ' in glifi-path.js');
@@ -179,6 +184,10 @@ const uscita = {
   })),
   figure,
   pianeti: PIANETI.map((p) => ({ n: p, c: COLORI[p], g: window.GLIFI_PATH[p] })),
+  // i glifi dei dodici segni (per la graduazione dell'eclittica), del nodo e dell'apogeo, e i
+  // quattro colori degli elementi: sono asset dell'autore, da Regulus
+  glifi: Object.fromEntries(GLIFI_EXTRA.map((k) => [k, window.GLIFI_PATH[k]])),
+  elementi: COLORI_ELEMENTO,
 };
 const testa = '// GENERATO da scripts/genera-cielo.mjs il ' + uscita.generato + ' — non modificare a mano: si rigenera.\n' +
   '// Figure: Marc van der Sluys, ConstellationLines, CC BY-SA 4.0. Stelle: Yale Bright Star Catalogue\n' +
