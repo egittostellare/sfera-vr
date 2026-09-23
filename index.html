@@ -126,7 +126,11 @@
 </div>
 <div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller si premono i tasti del cruscotto, nel cielo si leggono i nomi,
-  e il grilletto seleziona. Il <b>tasto B</b> manda via il cruscotto e lo richiama davanti allo sguardo.
+  e il grilletto seleziona. Il <b>tasto B</b> (mano destra) manda via il cruscotto e lo richiama davanti allo
+  sguardo; il <b>tasto Y</b> (mano sinistra), scelta una stella, apre il suo <b>riquadro</b>: il significato del
+  nome, la natura coi suoi testimoni, il significato, l'accidentalità, le qualità, il colore della
+  tradizione — tutto quello che Regulus sa di lei. Ripremendo Y sparisce. Il riquadro si sposta
+  prendendolo per la <b>cornice</b> col grilletto: segue la mano e resta dove lo lasci.
   Per girare il planetario: raggio nel vuoto, stringi il tasto laterale <b>destro</b> e trascina di lato.
   Col tasto laterale <b>sinistro</b> lo fai scorrere in <b>altitudine</b>: si corica nel piano verticale in cui
   punti, fino a novanta gradi, e lo zenit ti scende all'altezza degli occhi. Mentre è coricato il mare
@@ -1150,6 +1154,181 @@ function seleziona(b){
   SEL=b;
   if(b){ scriviSu(ET_SEL,b,true); diag('selezionata: '+b.nome+(b.sotto?' ('+b.sotto+')':''),'ok'); }
   else diag('selezione tolta');
+  if(SCHEDA.visible) riempiScheda();   // il riquadro aperto segue la stella che si sceglie
+}
+
+// ====================== il riquadro della stella (tasto Y) ======================
+// Scelta una stella, il tasto Y — quello della mano SINISTRA, come il B lo e' della destra — apre un
+// riquadro con tutto quello che Regulus sa di lei: il significato del nome, la natura coi suoi
+// testimoni, il significato, l'accidentalita', le qualita', il colore della tradizione. Ripremendo Y
+// sparisce.
+// Si SPOSTA prendendolo per la CORNICE: si punta il bordo, si tiene il grilletto e lo si porta dove
+// serve — segue la mano, anche in rotazione, e resta dove lo si lascia.
+// I testi stanno in un file a parte (stelle-testi.js) che si scarica la PRIMA volta che si apre il
+// riquadro: chi non lo apre non lo paga. Sono materia dell'autore, riportati tali e quali.
+let testiPronti=null;
+function caricaTesti(){
+  if(!testiPronti) testiPronti=new Promise((ok,ko)=>{
+    const s=document.createElement('script'); s.src='stelle-testi.js';
+    s.onload=()=>window.STELLE_TESTI?ok(window.STELLE_TESTI):ko(new Error('testi vuoti'));
+    s.onerror=()=>{ testiPronti=null; ko(new Error('stelle-testi.js non arrivato')); };
+    document.head.appendChild(s);
+  });
+  return testiPronti;
+}
+const SC_W=0.60;            // quanto e' largo il riquadro, in metri
+const SC_PX=1100;           // e in pixel: 1833 per metro, cioe' un carattere di 30px fa un grado a un metro
+const SC_ALTO_MAX=1340;     // oltre, il carattere si stringe (come le schede tonde di Regulus)
+const SC_ORLO=60;           // la cornice: quanto si puo' afferrare, in pixel del disegno
+const SC_DIST=1.0;          // dove nasce: un metro davanti agli occhi
+const SCHEDA=new THREE.Group(); SCHEDA.visible=false; scene.add(SCHEDA);
+const SC_FOGLIO=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({transparent:true,side:THREE.DoubleSide,depthTest:false}));
+SCHEDA.add(SC_FOGLIO); inPrimoPiano(SCHEDA); SC_FOGLIO.renderOrder=60;
+
+// spezza un testo in righe che stanno nella larghezza data
+function aCapo(x,testo,larg){
+  const righe=[];
+  for(const par of String(testo).split('\n')){
+    let riga='';
+    for(const p of par.split(/\s+/)){
+      const prova=riga?riga+' '+p:p;
+      if(riga && x.measureText(prova).width>larg){ righe.push(riga); riga=p; } else riga=prova;
+    }
+    righe.push(riga);
+  }
+  return righe;
+}
+// i blocchi del riquadro: titolo, sottotitolo, righe etichetta+valore, paragrafi, nota in fondo
+function blocchiScheda(b,t){
+  const q=[];
+  q.push({t:'titolo', v:b.nome});
+  const sotto=[b.sotto||(t&&t.designazione), t&&t.costellazione].filter(Boolean).join(' · ');
+  if(sotto) q.push({t:'sotto', v:sotto});
+  q.push({t:'filo'});
+  if(!t){
+    q.push({t:'para', e:'', v:'Di questa stella Regulus non porta un testo: e’ una delle stelle '+
+      'che reggono le figure delle costellazioni. Magnitudine '+String(b.m).replace('.',',')+'.'});
+    return q;
+  }
+  const mag=t.magnitudine||String(b.m).replace('.',',');
+  q.push({t:'riga', e:'Magnitudine', v:mag});
+  if(t.natura) q.push({t:'riga', e:'Natura', v:t.natura});
+  if(t.significato_nome) q.push({t:'riga', e:'Il nome', v:t.significato_nome});
+  if(t.coloreTradizionale) q.push({t:'riga', e:'Colore', v:t.coloreTradizionale.colore+
+    (t.coloreTradizionale.fonte?' ('+t.coloreTradizionale.fonte+')':'')});
+  if(t.figura) q.push({t:'riga', e:'Nella figura', v:t.figura});
+  const qual=[t.regale&&'regale', t.beheniana&&'beheniana', t.nebulare&&'nebulare'].filter(Boolean);
+  if(qual.length) q.push({t:'riga', e:'Qualità', v:qual.join(' · ')});
+  if(t.lon_2026) q.push({t:'riga', e:'Longitudine', v:t.lon_2026+' (2026)'+
+    (t.lat_eclittica_2026!=null?' · latitudine '+String(t.lat_eclittica_2026).replace('.',',')+'°':'')});
+  if(t.significato) q.push({t:'para', e:'Significato', v:t.significato});
+  if(t.accidentalita) q.push({t:'para', e:'Accidentalità', v:t.accidentalita});
+  if(t.fonte) q.push({t:'nota', v:t.fonte});
+  return q;
+}
+// disegna (o soltanto misura, con prova=true) e torna l'altezza
+function impagina(x,q,corpo,colore,prova){
+  const P=SC_ORLO+18, L=SC_PX-2*P, EL=Math.round(L*0.26), VX=P+EL+14, LV=L-EL-14;
+  const fT="600 "+Math.round(corpo*1.85)+"px 'Cormorant Garamond', Georgia, serif";
+  const fS=Math.round(corpo*0.92)+"px 'Spectral', Georgia, serif";
+  const fE=Math.round(corpo*0.82)+"px 'Spectral', Georgia, serif";
+  const fV=corpo+"px 'Spectral', Georgia, serif";
+  const fN=Math.round(corpo*0.78)+"px 'Spectral', Georgia, serif";
+  const ih=Math.round(corpo*1.36);
+  let y=P;
+  for(const b of q){
+    if(b.t==='titolo'){ x.font=fT; if(!prova){ x.fillStyle=colore; x.fillText(b.v,P,y); } y+=Math.round(corpo*2.0); }
+    else if(b.t==='sotto'){ x.font=fS; if(!prova){ x.fillStyle='#9fabc6'; x.fillText(b.v,P,y); } y+=Math.round(corpo*1.5); }
+    else if(b.t==='filo'){ if(!prova){ x.strokeStyle='rgba(201,162,39,.5)'; x.lineWidth=2;
+        x.beginPath(); x.moveTo(P,y+6); x.lineTo(SC_PX-P,y+6); x.stroke(); } y+=Math.round(corpo*1.0); }
+    else if(b.t==='riga'){
+      x.font=fV; const rr=aCapo(x,b.v,LV);
+      if(!prova){ x.font=fE; x.fillStyle='#c9a227'; x.fillText(b.e,P,y);
+        x.font=fV; x.fillStyle='#e7ecf7'; rr.forEach((r,i)=>x.fillText(r,VX,y+i*ih)); }
+      y+=rr.length*ih+Math.round(corpo*0.30);
+    }
+    else if(b.t==='para'){
+      if(b.e){ if(!prova){ x.font=fE; x.fillStyle='#c9a227'; x.fillText(b.e,P,y); } y+=Math.round(corpo*1.15); }
+      x.font=fV; const rr=aCapo(x,b.v,L);
+      if(!prova){ x.fillStyle='#e7ecf7'; rr.forEach((r,i)=>x.fillText(r,P,y+i*ih)); }
+      y+=rr.length*ih+Math.round(corpo*0.55);
+    }
+    else if(b.t==='nota'){
+      x.font=fN; const rr=aCapo(x,b.v,L);
+      if(!prova){ x.fillStyle='#78839c'; rr.forEach((r,i)=>x.fillText(r,P,y+i*Math.round(corpo*1.1))); }
+      y+=rr.length*Math.round(corpo*1.1);
+    }
+  }
+  return Math.round(y+P);
+}
+function riempiScheda(){
+  const b=SEL; if(!b) return false;
+  const T=window.STELLE_TESTI||null;
+  const t=T?(T[b.nome]||null):null;
+  const q=blocchiScheda(b,t);
+  const colore=b.nostra?'#f3e6c4':'#dfe6f5';
+  // il carattere si stringe finche' il riquadro non e' troppo alto: una scheda che non ci sta si
+  // legge male, una scritta un po' piu' piccola no
+  const mis=document.createElement('canvas').getContext('2d');
+  mis.canvas.width=SC_PX; mis.canvas.height=10;
+  let corpo=32, alto=impagina(mis,q,corpo,colore,true);
+  while(alto>SC_ALTO_MAX && corpo>20){ corpo-=1; alto=impagina(mis,q,corpo,colore,true); }
+  const c=document.createElement('canvas'); c.width=SC_PX; c.height=alto;
+  const x=c.getContext('2d');
+  // quasi opaco: a 0,94 le scritte del cielo trapelavano attraverso il foglio — una scritta che si
+  // legge in trasparenza sotto il testo e' rumore, non atmosfera
+  x.fillStyle='rgba(6,8,16,.975)'; x.fillRect(0,0,SC_PX,alto);
+  x.strokeStyle='#c9a227'; x.lineWidth=6; x.strokeRect(15,15,SC_PX-30,alto-30);
+  x.strokeStyle='rgba(201,162,39,.35)'; x.lineWidth=2; x.strokeRect(30,30,SC_PX-60,alto-60);
+  x.textBaseline='top';
+  impagina(x,q,corpo,colore,false);
+  const tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
+  if(SC_FOGLIO.material.map) SC_FOGLIO.material.map.dispose();
+  SC_FOGLIO.material.map=tex; SC_FOGLIO.material.needsUpdate=true;
+  const h=SC_W*alto/SC_PX;
+  SC_FOGLIO.scale.set(SC_W,h,1);
+  SCHEDA.userData.mezzo=[SC_W/2,h/2,SC_W*SC_ORLO/SC_PX];   // meta' larghezza, meta' altezza, la cornice
+  return true;
+}
+function davantiAgliOcchi(){
+  const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
+  cam.getWorldPosition(_cp); cam.getWorldDirection(_cd);
+  SCHEDA.position.copy(_cp).addScaledVector(_cd,SC_DIST);
+  SCHEDA.quaternion.copy(cam.getWorldQuaternion(new THREE.Quaternion()));
+}
+function mostraScheda(on){
+  if(!on){ if(SCHEDA.visible) diag('riquadro via (tasto Y per rivederlo)'); SCHEDA.visible=false; scPresa=null; return; }
+  if(!SEL){ diag('prima scegli una stella col grilletto, poi il tasto Y','warn'); return; }
+  if(SEL.tipo!=='stella'){ diag('il riquadro è delle stelle: '+SEL.nome+' è un pianeta','warn'); return; }
+  caricaTesti().catch(e=>diag('i testi non sono arrivati: '+e.message,'warn')).then(()=>{
+    if(!SEL) return;
+    riempiScheda(); davantiAgliOcchi(); SCHEDA.visible=true;
+    diag('riquadro di '+SEL.nome+': prendilo per la cornice per spostarlo');
+  });
+}
+// prendere il riquadro per la cornice
+let scPresa=null;
+const _mSc=new THREE.Matrix4(), _pSc=new THREE.Vector3();
+function prendiScheda(ctl){
+  if(!SCHEDA.visible) return false;
+  const [o,d]=raggioDi(ctl);
+  raycaster.ray.origin.copy(o); raycaster.ray.direction.copy(d);
+  const hit=raycaster.intersectObject(SC_FOGLIO,false);
+  if(!hit.length) return false;
+  const [mx,my,orlo]=SCHEDA.userData.mezzo||[0,0,0];
+  SCHEDA.worldToLocal(_pSc.copy(hit[0].point));
+  if(Math.abs(_pSc.x)<mx-orlo && Math.abs(_pSc.y)<my-orlo) return false;   // in mezzo si legge, non si sposta
+  ctl.updateMatrixWorld(true); SCHEDA.updateMatrixWorld(true);
+  scPresa={ctl, m:new THREE.Matrix4().copy(ctl.matrixWorld).invert().multiply(SCHEDA.matrixWorld)};
+  vibra(ctl,0.5,40); diag('riquadro in mano');
+  return true;
+}
+function aggiornaSchedaPresa(){
+  if(!scPresa) return;
+  scPresa.ctl.updateMatrixWorld(true);
+  _mSc.multiplyMatrices(scPresa.ctl.matrixWorld,scPresa.m);
+  _mSc.decompose(SCHEDA.position,SCHEDA.quaternion,SCHEDA.scale);
 }
 // dove sta un bersaglio nel sistema di «world» (la volta ruota col moto diurno)
 function doveOra(b,out){ return out.copy(b.pos).applyQuaternion(sky.quaternion); }
@@ -1598,13 +1777,19 @@ function mostraComandi(on){
   if(on){ posizionaComandi(); vrPanel.visible=true; diag('cruscotto davanti allo sguardo (tasto B)'); }
   else { vrPanel.visible=false; chiudiTastiera(); diag('cruscotto via (tasto B per rivederlo)'); }
 }
-// il tasto B del controller destro fa comparire e sparire il cruscotto
+// I due tasti alti: il B della mano DESTRA fa comparire e sparire il cruscotto, il Y della SINISTRA
+// il riquadro della stella scelta. Nella mappatura del visore sono lo stesso numero (5): a dire quale
+// sia e' la mano.
 function tastiControllo(){
   for(const c of [c0,c1]){
     const s=c&&c.userData.src, g=s&&s.gamepad;
-    if(!g||!g.buttons||s.handedness!=='right') continue;
+    if(!g||!g.buttons) continue;
     const b=!!(g.buttons[5]&&g.buttons[5].pressed), a=!!(g.buttons[4]&&g.buttons[4].pressed);
-    if(b&&!c.userData.bGiu){ vibra(c,0.4,30); mostraComandi(!vrPanel.visible); }
+    if(b&&!c.userData.bGiu){
+      vibra(c,0.4,30);
+      if(s.handedness==='left') mostraScheda(!SCHEDA.visible);
+      else mostraComandi(!vrPanel.visible);
+    }
     c.userData.bGiu=b; c.userData.aGiu=a;
   }
 }
@@ -1664,7 +1849,11 @@ function makeController(i){
   ctl.addEventListener('disconnected',()=>{ ctl.userData.src=null; lascia(ctl); });
   ctl.addEventListener('squeezestart',()=>prendi(ctl));   // il tasto laterale: afferra il planetario
   ctl.addEventListener('squeezeend',()=>lascia(ctl));
+  ctl.addEventListener('selectend',()=>{
+    if(scPresa&&scPresa.ctl===ctl){ scPresa=null; vibra(ctl,0.3,25); diag('riquadro posato'); }
+  });
   ctl.addEventListener('selectstart',()=>{
+    if(prendiScheda(ctl)) return;          // la cornice del riquadro, se il raggio la tocca
     const hit=hitTest(ctl);
     if(hit){ vibra(ctl,0.6,45); hit.object.userData.fai(); return; }
     // fuori dal pannello: si seleziona quello che il raggio indica, o si toglie la selezione
@@ -2409,6 +2598,7 @@ renderer.setAnimationLoop((time,frame)=>{
     const ora=performance.now(), dt=tPrec==null?0:Math.min(ora-tPrec,100); tPrec=ora;
     if(spin) avanzaCielo(dt);
     aggiornaPresa();
+    aggiornaSchedaPresa();
     if(renderer.xr.isPresenting) levetta(dt);
     aggiornaGlifi();
     aggiornaVis();

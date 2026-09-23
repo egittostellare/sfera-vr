@@ -194,6 +194,33 @@ const testa = '// GENERATO da scripts/genera-cielo.mjs il ' + uscita.generato + 
   '// (pubblico dominio). Le nostre 121: Regulus / Swiss Ephemeris. Questo file e\' CC BY-SA 4.0.\n';
 fs.writeFileSync(FUORI, testa + 'window.CIELO = ' + JSON.stringify(uscita) + ';\n');
 
+// ---------- i TESTI delle nostre 121 (stelle-testi.js, si carica solo col tasto Y) ----------
+// I significati sono materia dell'autore: vengono da Regulus tali e quali — nome, natura con la
+// fonte, significato, accidentalita', qualita', colore della tradizione — e qui non si riscrive
+// nulla. Stanno in un file A PARTE perche' si leggono solo aprendo il riquadro di una stella: la
+// pagina non deve pagarli a ogni apertura.
+const TESTI = path.join(RADICE, 'stelle-testi.js');
+const CAMPI_TESTO = ['designazione', 'costellazione', 'magnitudine', 'significato_nome', 'natura',
+  'significato', 'accidentalita', 'regale', 'beheniana', 'nebulare', 'coloreTradizionale',
+  'sintesi', 'figura', 'fonte', 'lon_2026', 'lat_eclittica_2026'];
+const testi = {};
+for (const s of NOSTRE) {
+  const v = {};
+  for (const k of CAMPI_TESTO) {
+    const x = s[k];
+    if (x !== undefined && x !== null && x !== '' && x !== false) v[k] = x;
+  }
+  testi[s.nome] = v;
+}
+// ogni stella «nostra» del cielo deve trovare il suo testo: se no il riquadro si aprirebbe vuoto,
+// e un riquadro vuoto non dice che manca — dice che la stella non ha significato
+for (const s of stelle) if (s.nostra && !testi[s.n]) guai.push('manca il testo di ' + s.n);
+ferma();
+fs.writeFileSync(TESTI, '// GENERATO da scripts/genera-cielo.mjs il ' + uscita.generato + ' — non si scrive a mano.\n' +
+  '// I testi delle 121 stelle di Regulus: sono materia dell\'autore, riportati tali e quali.\n' +
+  '// Si carica PIGRAMENTE, col riquadro della stella (tasto Y).\n' +
+  'window.STELLE_TESTI = ' + JSON.stringify(testi) + ';\n');
+
 // ---------- i LUOGHI per la scelta del luogo (luoghi-dati.js, si carica solo aprendo il box) ----------
 // Dal database città di Regulus (GeoNames cities500, CC BY 4.0): stessi nomi, stessi fusi.
 // Tutto il mondo ai livelli 0-1 (capitali, capoluoghi, grandi città), al livello 2 le città sopra
@@ -236,5 +263,6 @@ console.log('  nostre:             ' + nostre.length + ' (' + nostre.filter((s) 
 console.log('costellazioni:        ' + figure.length + ' · lati: ' + figure.reduce((t, f) => t + f.l.length / 2, 0));
 console.log('Swiss contro Yale:    peggiore ' + peggiore.toFixed(2) + '′ sulle ' + NOSTRE.filter((s) => hrDi.get(s.id)).length + ' stelle confrontabili');
 console.log('scritto: ' + path.relative(RADICE, FUORI) + ' (' + (fs.statSync(FUORI).size / 1024).toFixed(1) + ' KB)');
+console.log('testi:   ' + Object.keys(testi).length + ' stelle — ' + path.relative(RADICE, TESTI) + ' (' + (fs.statSync(TESTI).size / 1024).toFixed(1) + ' KB)');
 console.log(luoghiScritti ? 'luoghi:  ' + luoghiScritti.n + ' (Italia ' + luoghiScritti.it + ') — luoghi-dati.js ' + luoghiScritti.kb.toFixed(0) + ' KB'
   : 'luoghi:  citta/citta.tsv di Regulus non trovato (npm run download-citta in Regulus): luoghi-dati.js non rifatto');
