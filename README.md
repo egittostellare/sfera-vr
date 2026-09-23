@@ -97,12 +97,17 @@ In tutto 720 stelle e 657 lati di figura.
   col grilletto (o col clic) lo si seleziona, con un anello e la sua scheda. Nel visore il raggio
   arriva **fino alla volta** e ci posa un **mirino**, un cerchietto vuoto sempre largo un grado: col
   grandangolo si posa dove la stella **si vede**, non dove sta.
-- **Le ghiere del cielo**, quattro tasti nuovi: **Azimut** gradua l'orizzonte come la rosa di una
+- **Le ghiere del cielo**, cinque tasti nuovi: **Azimut** gradua l'orizzonte come la rosa di una
   bussola (un grado, cinque, dieci, e il numero ogni trenta, contato da nord verso est); **Meridiano**
-  mostra il cerchio che passa per nord, zenit, sud e nadir, dove ogni astro culmina; **Zodiaco**
+  mostra il cerchio che passa per nord, zenit, sud e nadir, dove ogni astro culmina; **Primo
+  verticale** quello che passa per est, zenit, ovest e nadir, e divide il cielo in quello che sale e
+  quello che scende (il Vertex è proprio dove lo taglia l'eclittica, a occidente); **Zodiaco**
   divide l'eclittica nei dodici segni, la gradua e mette il glifo di ciascuno al suo grado di mezzo,
   nel colore del suo elemento; **Latitudini** traccia i diciannove fili delle latitudini eclittiche,
   da −9° a +9° (nove bastano: la più larga escursione è quella di Venere, poco più di otto gradi).
+  Orizzonte, meridiano e primo verticale — i tre grandi cerchi della **sfera locale** — sono **tubi**
+  e non righe, perché in WebGL una riga è sempre spessa un pixel qualunque numero le si dia: i primi
+  due verdi, il terzo di un giallo cupo.
 - **Gli elementi celesti**, col tasto **«Elementi ›»** accanto a *Pianeti*: si apre a destra l'ala del
   banco, con **tutti** quelli che Regulus mette in *Settaggi › Elementi Celesti* — i dieci pianeti uno
   per uno, i **nodi** e le **absidi** della Luna (veri e medi), i quattro **angoli** col **Vertex**, le

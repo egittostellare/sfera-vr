@@ -94,7 +94,8 @@
   <div class="row on" data-k="equator"  style="--a:#4da3ff"><span class="sw"></span>Equatore (blu)</div>
   <div class="row on" data-k="ecliptic" style="--a:#ff5a5a"><span class="sw"></span>Eclittica (rossa)</div>
   <div class="row on" data-k="frame"    style="--a:#57d68f"><span class="sw"></span>Orizzonte</div>
-  <div class="row on" data-k="meridiano" style="--a:#8493bd"><span class="sw"></span>Meridiano</div>
+  <div class="row on" data-k="meridiano" style="--a:#57d68f"><span class="sw"></span>Meridiano</div>
+  <div class="row"    data-k="primovert" style="--a:#d9a400"><span class="sw"></span>Primo verticale</div>
   <div class="row"    data-k="azimut"   style="--a:#57d68f"><span class="sw"></span>Azimut (orizzonte graduato)</div>
   <div class="row"    data-k="zodiaco"  style="--a:#ff9a9a"><span class="sw"></span>Zodiaco (dodici segni)</div>
   <div class="row"    data-k="latitudini" style="--a:#c9a8e0"><span class="sw"></span>Latitudini eclittiche</div>
@@ -130,8 +131,9 @@
   <b>elementi celesti</b> di Regulus — i dieci pianeti uno per uno, i nodi e le absidi (veri e medi), i
   quattro angoli col Vertex, le quattro Sorti e le cinque parti planetarie. Sono gradi dello zodiaco, e
   compaiono sull'eclittica: l'<b>Ascendente</b> resta appeso all'orizzonte a oriente mentre il cielo gira.
-  I tasti <b>Azimut</b>, <b>Meridiano</b>, <b>Zodiaco</b> e <b>Latitudini</b> graduano l'orizzonte, mostrano il meridiano,
-  dividono l'eclittica nei dodici segni e tracciano i diciannove fili delle latitudini eclittiche.
+  I tasti <b>Azimut</b>, <b>Meridiano</b>, <b>Primo verticale</b>, <b>Zodiaco</b> e <b>Latitudini</b> graduano l'orizzonte,
+  mostrano i due grandi cerchi della sfera locale (verde e giallo cupo), dividono l'eclittica nei
+  dodici segni e tracciano i diciannove fili delle latitudini eclittiche.
   La <b>levetta</b> di traverso sposta il bordo del mare; col tasto «Zoom con la levetta» acceso fa lo
   zoom come Stellarium. Il tasto <b>Lente</b> sceglie fra <b>normale</b> (com'è ora: la levetta in avanti non
   fa nulla) e <b>solo periferia</b> — il centro della vista resta esatto e si stringe solo l'anello
@@ -291,6 +293,20 @@ function label(text,color,scale){
   const h=scale||0.6;s.scale.set(h*rapp,h,1);s.renderOrder=10;
   etichette.push({s,text,color,h});return s;}
 function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||world).add(g);return g;}
+// I tre grandi cerchi della SFERA LOCALE — orizzonte, meridiano, primo verticale — sono TUBI e non
+// righe: in WebGL una riga e' sempre spessa un pixel, qualunque numero le si dia, e a un pixel questi
+// tre si perdevano fra le altre. Il tubo invece ha uno spessore vero.
+// Per lo zoom ogni vertice del tubo porta scritto il punto del cerchio su cui sta, cosi' il tubo
+// resta sottile anche ingrandito (deformandolo tutto diventerebbe una fascia larga).
+function cerchioTubo(colore,rotX,rotY){
+  const m=new THREE.Mesh(new THREE.TorusGeometry(R,0.0175,10,200),new THREE.MeshBasicMaterial({color:colore}));
+  const p=m.geometry.attributes.position, a=new Float32Array(p.count*3);
+  for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), l=Math.hypot(x,y)||1; a[i*3]=x/l*R; a[i*3+1]=y/l*R; }
+  m.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3));
+  m.userData.zoomAncora=true;
+  m.rotation.set(rotX||0,rotY||0,0);
+  return m;
+}
 
 // ====================== la sfera celeste e il suo orientamento ======================
 // Tutto il cielo e' costruito nel sistema EQUATORIALE — x verso il punto gamma, y verso l'ascensione
@@ -320,14 +336,7 @@ function orientaCielo(){
   const hp=new THREE.Mesh(new THREE.CircleGeometry(R,96),
     new THREE.MeshBasicMaterial({color:0x57d68f,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}));
   hp.rotation.x=-Math.PI/2; g.add(hp); DISCO=hp;
-  const rim=new THREE.Mesh(new THREE.TorusGeometry(R,0.0175,10,200),new THREE.MeshBasicMaterial({color:0x57d68f}));
-  rim.rotation.x=Math.PI/2; g.add(rim);
-  // per lo zoom: ogni vertice del tubo segue il punto del cerchio su cui sta, cosi' il tubo resta
-  // sottile anche ingrandito (deformandolo tutto diventerebbe una fascia larga)
-  { const p=rim.geometry.attributes.position, a=new Float32Array(p.count*3);
-    for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), l=Math.hypot(x,y)||1; a[i*3]=x/l*R; a[i*3+1]=y/l*R; }
-    rim.geometry.setAttribute('aZoomAncora',new THREE.BufferAttribute(a,3));
-    rim.userData.zoomAncora=true; }
+  g.add(cerchioTubo(0x57d68f,Math.PI/2,0));
   [[new THREE.Vector3(1,0,0),'Est'],[new THREE.Vector3(-1,0,0),'Ovest'],
    [new THREE.Vector3(0,0,1),'Sud'],[new THREE.Vector3(0,0,-1),'Nord'],
    [new THREE.Vector3(0,1,0),'Zenit'],[new THREE.Vector3(0,-1,0),'Nadir']]
@@ -335,14 +344,15 @@ function orientaCielo(){
      if(!v.y) CARDINALI.push(s);});
 }
 
-// ====================== il meridiano ======================
-// Il cerchio che passa per nord, zenit, sud e nadir: e' il taglio del cielo che ogni astro
-// attraversa quando culmina. Stava dentro «Orizzonte»; ora ha un tasto suo.
-{
-  const g=G('meridiano');
-  const mer=[];for(let i=0;i<=180;i++){const t=i/180*TAU;mer.push(new THREE.Vector3(0,Math.cos(t)*R,Math.sin(t)*R));}
-  g.add(line(mer,0x8493bd,.45,1));
-}
+// ====================== il meridiano e il primo verticale ======================
+// Col cerchio dell'orizzonte sono i TRE grandi cerchi della sfera locale, e ora si somigliano: stesso
+// tubo, stessa misura.
+//   il MERIDIANO passa per nord, zenit, sud e nadir: e' il taglio del cielo che ogni astro attraversa
+//     quando culmina. Stava dentro «Orizzonte»; ora ha un tasto suo, ed e' verde come l'orizzonte.
+//   il PRIMO VERTICALE passa per est, zenit, ovest e nadir: divide il cielo in quello che sale e
+//     quello che scende, e il VERTEX e' proprio dove lo taglia l'eclittica, a occidente.
+{ const g=G('meridiano');    g.add(cerchioTubo(0x57d68f,0,Math.PI/2)); }   // il piano x=0
+{ const g=G('primovert'); g.visible=false; g.add(cerchioTubo(0xd9a400,0,0)); }   // il piano z=0
 
 // ====================== l'azimut: l'orizzonte graduato ======================
 // Il cerchio dell'orizzonte con le sue tacche, come la rosa di una bussola: un grado corte, cinque
@@ -406,7 +416,8 @@ const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
   for(let i=0;i<12;i++){
     const gl=dati&&dati.glifi&&dati.glifi['seg'+i]; if(!gl) continue;
     const sp=spriteGlifo(gl,EL[i%4],0.55);        // fuoco, terra, aria, acqua, e da capo
-    sp.position.copy(eclVb((15+30*i)*DEG,4.4*DEG).multiplyScalar(R)); g.add(sp);
+    // un passo DENTRO la volta: i fili delle latitudini corrono a R e gli passavano davanti
+    sp.position.copy(eclVb((15+30*i)*DEG,4.4*DEG).multiplyScalar(R*0.985)); g.add(sp);
   }
 }
 // ====================== le latitudini eclittiche: diciannove fili ======================
@@ -448,11 +459,21 @@ const dirEq=p=>eqv(p.ra,p.de);   // la direzione nella volta (sistema equatorial
 let posSole=A?diCorpo('Sun'):{ra:raOf(60*DEG), de:decOf(60*DEG)};
 const SOLE={};   // i pezzi del Sole, da ricollocare quando il tempo scorre
 function cerchioDiurno(de){ const p=[]; for(let i=0;i<=240;i++)p.push(eqv(i/240*TAU,de).multiplyScalar(R)); return p; }
+// IL SOLE STA UN PASSO DENTRO LA VOLTA, e non sopra.
+// Era una sfera di raggio 0,22 col centro ESATTAMENTE sul cielo: percio' tutto quello che si disegna
+// sulla volta — eclittica, equatore, le tacche dello zodiaco, i fili delle latitudini, il suo stesso
+// cerchio diurno — gli passava DENTRO, e due superfici che si toccano litigano sulla profondita': e'
+// quello lo sfarfallio. Peggio ancora, attraversava la velatura del cielo (a 0,99 R), che e'
+// trasparente: due trasparenze che si compenetrano cambiano ordine a ogni fotogramma.
+// Portandolo a 0,93 R il Sole, col suo alone, sta tutto DAVANTI: le righe del cielo gli passano
+// dietro, come in un atlante. Cresce del 7% in apparenza — il nostro disco e' gia' tre volte il vero,
+// e non si nota.
+const R_SOLE=R*0.93;
 { // Sole e suo cerchio diurno
   const g=G('planet',sky);
   SOLE.cerchio=line(cerchioDiurno(posSole.de),0xffcf5a,.30,1); g.add(SOLE.cerchio);
   SOLE.mesh=new THREE.Mesh(new THREE.SphereGeometry(0.22,24,24),new THREE.MeshBasicMaterial({color:0xfff1c0}));
-  SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R));
+  SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R_SOLE));
   const glow=new THREE.Mesh(new THREE.SphereGeometry(0.42,20,20),
     new THREE.MeshBasicMaterial({color:0xffcf5a,transparent:true,opacity:.3})); SOLE.mesh.add(glow);
   SOLE.mesh.userData.zoomRigido=glow.userData.zoomRigido=true;   // con lo zoom si sposta, non si gonfia
@@ -582,7 +603,7 @@ function collocaPianeti(){
   const t=A.MakeTime(istanteCielo()), rot=A.Rotation_EQJ_EQD(t);
   for(const p of PIANETI) p.punto.position.copy(dirEq(diCorpo(p.en,t,rot)).multiplyScalar(RS));
   posSole=diCorpo('Sun',t,rot);
-  SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R));
+  SOLE.mesh.position.copy(dirEq(posSole).multiplyScalar(R_SOLE));
   SOLE.cerchio.geometry.setFromPoints(cerchioDiurno(posSole.de));
   calcolaLenti(t,rot);
   aggiornaGlifi();
@@ -1091,7 +1112,7 @@ function aggiornaIndicazioni(){
 // si toglievano e non tornavano piu'.
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
   pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,
-  mare:true,onda:true,meridiano:true,azimut:false,zodiaco:false,latitudini:false};
+  mare:true,onda:true,meridiano:true,primovert:false,azimut:false,zodiaco:false,latitudini:false};
 // gli elementi celesti, uno per uno: i pianeti accesi (li spegne chi vuole), i punti dello zodiaco
 // spenti — si accendono dal sottomenu del tasto «Pianeti»
 Object.keys(PIANETI_EN).forEach(n=>stato['el-'+n]=true);
@@ -1120,7 +1141,8 @@ const BUTTONS=[
   {k:'equator', t:'Equatore', on:true, c:0x4da3ff},
   {k:'ecliptic',t:'Eclittica',on:true, c:0xff5a5a},
   {k:'frame',   t:'Orizzonte',on:true, c:0x57d68f},
-  {k:'meridiano',t:'Meridiano',on:true, c:0x8493bd},
+  {k:'meridiano',t:'Meridiano',on:true, c:0x57d68f},
+  {k:'primovert',t:'Primo verticale',on:false,c:0xd9a400},
   {k:'azimut',  t:'Azimut',   on:false,c:0x57d68f},
   {k:'zodiaco', t:'Zodiaco',  on:false,c:0xff9a9a},
   {k:'latitudini',t:'Latitudini',on:false,c:0xc9a8e0},
@@ -1159,12 +1181,14 @@ const INTERATTIVI=[];
 // qui sotto sono quelle del disegno.
 // (Provvisorio nelle misure e nei colori: la pulsantiera definitiva la disegna l'autore.)
 const CRUSCOTTO=[
-  {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','azimut','zodiaco','latitudini']},
+  {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','primovert','azimut','zodiaco','latitudini']},
   {nome:'ASTRI',  tasti:['axis','planet','pianeti','elementi','stelle','costellazioni','linee']},
   {nome:'TERRA',  tasti:['orizReale','mare','onda','quota','altezza']},
   {nome:'VISTA',  tasti:['zoom','lente','recenter','luogo','spin','velocita']},
 ];
-const K_W=0.086, K_H=0.048, K_GAP=0.008, SEZ_W=0.062, MARG=0.020, QUADRO_H=0.085;
+// otto colonne invece di sette (e' entrato il primo verticale): i tasti si stringono di un
+// centimetro, cosi' il banco resta largo come prima
+const K_W=0.076, K_H=0.048, K_GAP=0.008, SEZ_W=0.062, MARG=0.020, QUADRO_H=0.085;
 const PPM=1600, PPM_K=3000;   // pixel per metro: il corpo e i tasti
 const CR_COL=Math.max(...CRUSCOTTO.map(r=>r.tasti.length));
 const CR_W=2*MARG+SEZ_W+K_GAP+CR_COL*K_W+(CR_COL-1)*K_GAP;
