@@ -57,6 +57,17 @@ In tutto 720 stelle e 657 lati di figura.
   stessi campi, la stessa regola di riconoscimento (nome, istante, luogo a quattro decimali) — così
   l'`archivio.json` di Regulus si riversa qui tale e quale e quello di qui può tornare là. Per ora i
   due restano separati: **la porta è il formato**.
+- **La consolle, dentro il visore**: i pannelli **non si escludono**. Stanno tutti insieme attorno a
+  chi guarda, come i fogli su un banco: il **cruscotto** va a sinistra appena si apre qualcosa,
+  l'**ultimo aperto** sta davanti e quelli di prima **scorrono a destra**, uno per volta. Così si
+  preme «avanti un mese» e subito dopo si cambia il luogo o si dà un nome, senza chiudere nulla.
+  Tutto si dispone attorno alla direzione in cui si guarda nel momento in cui qualcosa si apre, e poi
+  resta lì. Il tasto B manda via tutta la consolle e la richiama com'era.
+- **Inserisci un tema**: una scheda come quella di Regulus — nome, cognome, data, ora, luogo — fatta
+  di tasti da premere col raggio. Non c'è una copia dei dati da nessuna parte: data, ora e luogo
+  **sono** quelli del planetario, e toccandoli **il cielo si compone mentre si scrive**. Quello che
+  la scheda tiene di suo sono soltanto il nome e il cognome; «erigi e salva» mette il tema in
+  archivio e lo erige.
 - **Girare il planetario**: entrando si guarda a nord. Per scegliere l'orientamento si punta il raggio
   nel vuoto, si stringe il **tasto laterale** del controller e si trascina a destra o a sinistra: il
   planetario intero (orizzonte, cardinali, cielo) segue il raggio, e rilasciato il tasto resta lì.

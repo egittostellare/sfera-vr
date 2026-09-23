@@ -232,6 +232,14 @@
   luogo</b>, coi fusi storici veri. Saltando di secoli il cielo si <b>ri-precessa</b>: le stelle
   tornano dov'erano (0,014° l'anno, un grado in settant'anni). Fuori dal 1700–2200 la finestra dice
   quanto stanno sbagliando le effemeridi.
+  <b>Dentro il visore i pannelli non si escludono</b>: stanno tutti insieme attorno a te, come i fogli
+  su un banco. Il <b>cruscotto</b> va a sinistra appena si apre qualcosa, l'<b>ultimo aperto</b> sta
+  davanti e quelli di prima <b>scorrono a destra</b>, uno per volta — così puoi premere «avanti un
+  mese» e subito dopo cambiare il luogo o dare un nome, senza chiudere nulla. Il tasto B manda via
+  tutta la consolle e la richiama com'era.
+  Il tasto <b>Inserisci tema</b> apre una <b>scheda</b> — nome, cognome, data, ora, luogo — e toccando
+  i suoi campi <b>il cielo si compone mentre scrivi</b>: data, ora e luogo della scheda <i>sono</i>
+  quelli del planetario, non una copia.
   Un <b>tema</b> è il cielo che stai guardando, con un nome: scegli luogo e istante, poi salvalo.
   Riaprendolo il planetario torna lì, e i <b>pianeti di nascita restano segnati</b> sulla volta
   mentre il tempo scorre — si velano in tre gradi, si tolgono e si rimettono. L'archivio ha
@@ -1831,6 +1839,7 @@ const BUTTONS=[
   {k:'luogo',   t:'Luogo: '+LUOGO.nome, on:false, c:0xe3c169, azione:true},
   {k:'tempo',   t:'Tempo', on:false, c:0xe3c169, azione:true},
   {k:'temi',    t:'Temi', on:false, c:0xd8b4ff, azione:true},
+  {k:'nuovo',   t:'Inserisci tema', on:false, c:0xd8b4ff, azione:true},
 ];
 // tutto cio' che il raggio puo' premere: i tasti del pannello e quelli della tastiera
 const INTERATTIVI=[];
@@ -1851,7 +1860,7 @@ const CRUSCOTTO=[
   {nome:'CERCHI', tasti:['equator','ecliptic','frame','meridiano','primovert','azimut']},
   {nome:'GRIGLIE',tasti:['grigliaEq','grigliaEcl','grigliaAz','zodiaco','latitudini','vis']},
   {nome:'ASTRI',  tasti:['axis','planet','pianeti','elementi','stelle','costellazioni','linee']},
-  {nome:'QUANDO', tasti:['luogo','tempo','temi','spin','velocita','recenter']},
+  {nome:'QUANDO', tasti:['luogo','tempo','temi','nuovo','spin','velocita','recenter']},
   {nome:'MONDO',  tasti:['orizReale','mare','onda','quota','altezza','zoom','lente']},
 ];
 // CINQUE FILE DI SETTE, invece di quattro di nove. I cerchi si sono divisi in due: i grandi cerchi
@@ -2188,15 +2197,58 @@ inPrimoPiano(vrPanel);   // tutto il cruscotto si disegna dopo il mare, che se n
 // il banco si mette ATTORNO a chi guarda — l'origine e' l'occhio — e si gira solo di traverso,
 // quanto ti sei girato tu: alzando o abbassando la testa resta dov'e', come un tavolo vero
 const _cp=new THREE.Vector3(), _cd=new THREE.Vector3();
-function posizionaComandi(){
+// ====================== LA CONSOLLE: piu' pannelli, tutti insieme ======================
+// I pannelli non si escludono piu' a vicenda: stanno tutti intorno a chi guarda, come i fogli su un
+// banco. L'ordine e' questo: il BANCO dei comandi va a SINISTRA appena si apre qualcosa, l'ULTIMO
+// APERTO sta DAVANTI, e quelli di prima scorrono a DESTRA, uno per volta. Cosi' si puo' premere
+// «avanti un mese» e subito dopo cambiare il luogo o dare un nome, senza chiudere nulla.
+// Tutto si dispone attorno alla direzione in cui si guarda NEL MOMENTO in cui qualcosa si apre, e
+// poi resta li': girando la testa ci si guarda attorno, come a un banco vero.
+const SLOT_PASSO=55*DEG;        // quanto sta di lato un pannello dall'altro
+const SLOT_BANCO=58*DEG;        // e quanto va a sinistra il banco, quando c'e' qualcosa davanti
+const APERTI=[];                // i pannelli aperti, in ordine: l'ultimo e' quello davanti
+const _sD=new THREE.Vector3();
+const dirAzimut=a=>_sD.set(-Math.sin(a),0,-Math.cos(a));
+function posaSlot(g,a,cp,raggio,giu){
+  dirAzimut(a);
+  g.position.copy(cp).addScaledVector(_sD,raggio);
+  g.position.y=cp.y-giu;
+  g.lookAt(cp.x,g.position.y,cp.z);
+}
+function disponiConsolle(){
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
   cam.getWorldPosition(_cp); cam.getWorldDirection(_cd);
+  const az=Math.atan2(-_cd.x,-_cd.z);
   vrPanel.position.copy(_cp);
-  vrPanel.rotation.set(0,Math.atan2(-_cd.x,-_cd.z),0);
+  vrPanel.rotation.set(0, az+(APERTI.length?SLOT_BANCO:0), 0);
+  // l'ultimo aperto davanti (k=0), gli altri a destra: l'azimut cala andando a destra
+  APERTI.forEach((p,i)=>{
+    const k=APERTI.length-1-i;
+    posaSlot(p.g, az-k*SLOT_PASSO, _cp, p.raggio, p.giu);
+  });
 }
+function apriPannello(g,raggio,giu){
+  const i=APERTI.findIndex(p=>p.g===g);
+  if(i>=0) APERTI.splice(i,1);          // riaprendolo torna davanti
+  APERTI.push({g,raggio,giu});
+  g.visible=consolleAperta;
+  disponiConsolle();
+}
+function chiudiPannello(g){
+  const i=APERTI.findIndex(p=>p.g===g);
+  if(i>=0) APERTI.splice(i,1);
+  g.visible=false;
+  disponiConsolle();
+}
+let consolleAperta=true;
+function posizionaComandi(){ disponiConsolle(); }
+// il tasto B manda via TUTTA la consolle e la richiama com'era: i pannelli aperti non si perdono
 function mostraComandi(on){
-  if(on){ posizionaComandi(); vrPanel.visible=true; diag('cruscotto davanti allo sguardo (tasto B)'); }
-  else { vrPanel.visible=false; chiudiTastiera(); chiudiPanTempo(); chiudiPanTemi(); diag('cruscotto via (tasto B per rivederlo)'); }
+  consolleAperta=on;
+  vrPanel.visible=on;
+  for(const p of APERTI) p.g.visible=on;
+  if(on){ disponiConsolle(); diag('consolle davanti allo sguardo (tasto B)'); }
+  else diag('consolle via (tasto B per rivederla)');
 }
 // I due tasti alti: il B della mano DESTRA fa comparire e sparire il cruscotto, il Y della SINISTRA
 // il riquadro della stella scelta. Nella mappatura del visore sono lo stesso numero (5): a dire quale
@@ -2246,6 +2298,7 @@ function toggleBtn(b){
   if(b.k==='luogo'){ if(TASTIERA.visible) chiudiTastiera(); else apriTastiera(); return; }
   if(b.k==='tempo'){ if(PAN_TEMPO.visible) chiudiPanTempo(); else apriPanTempo(); return; }
   if(b.k==='temi'){ if(PAN_TEMI.visible) chiudiPanTemi(); else apriPanTemi(); return; }
+  if(b.k==='nuovo'){ if(PAN_NUOVO.visible) chiudiPanNuovo(); else apriPanNuovo(); return; }
   if(b.k==='altezza'){
     modoAltezza = modoAltezza==='occhi' ? 'piedi' : 'occhi';
     b.t = modoAltezza==='occhi' ? 'Occhi all’orizzonte' : 'Piedi all’orizzonte';
@@ -2757,6 +2810,7 @@ function aggiornaPresa(){
 // niente pagina da ricaricare, niente uscita dalla VR.
 const TASTIERA=new THREE.Group(); TASTIERA.visible=false; scene.add(TASTIERA);
 let tastieraFatta=false, testoLuogo='', risultatiVR=[], campoLuogo=null, modoTastiera='luogo';
+let testoQuando=null, testoTitolo='';   // in modo «testo»: che farne, e come si chiama il campo
 const tastiRis=[];
 const RIGHE_TASTI=['1234567890','QWERTYUIOP',"ASDFGHJKL'",'ZXCVBNM-.,'];
 const TW=0.056, TH=0.056, TG=0.006, PXM=1600;   // tasto, respiro (metri), pixel per metro
@@ -2840,8 +2894,8 @@ function aggiornaRisultatiVR(){
   const scrivi=lista=>{ if(mio!==seqRis) return;
     risultatiVR=lista; tastiRis.forEach((m,i)=>{ const r=lista[i]; m.visible=!!r; if(r) riscriviTasto(m,r.testo); }); };
   // scrivendo un NOME di tema non si cerca nulla: il primo tasto salva, e basta
-  if(modoTastiera==='nome'){
-    scrivi(testoLuogo.trim()?[{testo:'salva «'+testoLuogo.trim()+'» — questo cielo', salva:true}]:[]);
+  if(modoTastiera==='testo'){
+    scrivi(testoLuogo.trim()?[{testo:'usa «'+testoLuogo.trim()+'» come '+testoTitolo, testo2:true}]:[]);
     return;
   }
   const c=coordDaTesto(testoLuogo);
@@ -2855,15 +2909,18 @@ function aggiornaRisultatiVR(){
 }
 function scegliRisultatoVR(i){
   const r=risultatiVR[i]; if(!r) return;
-  if(r.salva){ salvaTemaDiAdesso(testoLuogo.trim()); chiudiTastiera(); return; }
+  if(r.testo2){ const f=testoQuando; chiudiTastiera(); if(f) f(testoLuogo.trim()); return; }
   cambiaLuogo(r.luogo); chiudiTastiera();
 }
-// la stessa tastiera, per dare un nome al cielo che si sta guardando
-function apriTastieraNome(){
-  apriTastiera(); modoTastiera='nome'; aggiornaRisultatiVR();
-  riscriviTasto(campoLuogo,'');
-  diag('scrivi il nome del tema, poi premi la riga che compare sotto');
+// la stessa tastiera, per scrivere un testo qualunque: chi la apre dice come si chiama il campo e
+// che cosa farne di quello che si e' scritto
+function apriTastieraTesto(titolo,valore,quando){
+  apriTastiera();
+  modoTastiera='testo'; testoTitolo=titolo; testoQuando=quando;
+  testoLuogo=String(valore||''); aggiornaCampo(); aggiornaRisultatiVR();
+  diag('scrivi '+titolo+', poi premi la riga che compare sotto');
 }
+const apriTastieraNome=()=>apriTastieraTesto('nome del tema','',v=>salvaTemaDiAdesso(v));
 function apriTastiera(){
   modoTastiera='luogo';
   if(!tastieraFatta) costruisciTastiera();
@@ -2873,12 +2930,11 @@ function apriTastiera(){
   cam.getWorldPosition(p); cam.getWorldDirection(d); d.y=0; if(d.lengthSq()<1e-6) d.set(0,0,-1); d.normalize();
   TASTIERA.position.copy(p).addScaledVector(d,0.62); TASTIERA.position.y=p.y-0.16;
   TASTIERA.lookAt(p.x,TASTIERA.position.y,p.z);
-  chiudiPanTempo(); chiudiPanTemi();
   testoLuogo=''; aggiornaCampo(); aggiornaRisultatiVR();
-  TASTIERA.visible=true; caricaLuoghi().catch(()=>{});
+  apriPannello(TASTIERA,0.70,0.16); caricaLuoghi().catch(()=>{});
   diag('scrivi il luogo col raggio; due numeri valgono come coordinate');
 }
-function chiudiTastiera(){ TASTIERA.visible=false; }
+function chiudiTastiera(){ chiudiPannello(TASTIERA); }
 // un pannello davanti a chi guarda, un poco sotto lo sguardo e rivolto verso di lui
 function davanti(g,quanto,giu){
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
@@ -2936,12 +2992,10 @@ function scriviPanTempo(){
 }
 function apriPanTempo(){
   if(!panTempoFatto) costruisciPanTempo();
-  chiudiTastiera(); chiudiPanTemi();
-  davanti(PAN_TEMPO,0.62,0.16);
-  scriviPanTempo(); PAN_TEMPO.visible=true;
+  scriviPanTempo(); apriPannello(PAN_TEMPO,0.70,0.12);
   diag('il tempo: le frecce muovono giorno, mese, anno, ore, minuti, secondi');
 }
-function chiudiPanTempo(){ PAN_TEMPO.visible=false; }
+function chiudiPanTempo(){ chiudiPannello(PAN_TEMPO); }
 
 // ====================== i temi, dentro il visore ======================
 // L'archivio da scorrere col raggio, e «dai un nome» che apre la tastiera: il tema e' il cielo che
@@ -2966,7 +3020,9 @@ function costruisciPanTemi(){
   const titolo=label('I TEMI','#d8b4ff',0.045); titolo.position.set(-larg/2+0.05,0.19,0); PAN_TEMI.add(titolo);
   rigaAdesso=creaTasto('',0,0.146,larg,0.040,()=>{},{sinistra:true,fondo:'rgba(10,14,28,0)',bordo:'rgba(0,0,0,0)',fs:23},PAN_TEMI);
   INTERATTIVI.splice(INTERATTIVI.indexOf(rigaAdesso),1);
-  creaTasto('dai un nome a questo cielo',0,0.098,larg,0.046,apriTastieraNome,
+  creaTasto('dai un nome a questo cielo',-larg/4-0.004,0.098,larg/2-0.004,0.046,apriTastieraNome,
+    {bordo:'rgba(216,180,255,.7)'},PAN_TEMI);
+  creaTasto('inserisci un tema ›',larg/4+0.004,0.098,larg/2-0.004,0.046,apriPanNuovo,
     {bordo:'rgba(216,180,255,.7)'},PAN_TEMI);
   for(let i=0;i<TEMI_PER_PAGINA;i++){
     const m=creaTasto('',0,0.040-i*0.050,larg,0.044,()=>scegliTemaVR(i),{sinistra:true,fs:23},PAN_TEMI);
@@ -3003,12 +3059,79 @@ function scriviPanTemi(){
 function scegliTemaVR(i){ const t=temiMostrati[i]; if(t) erigiTema(t); }
 function apriPanTemi(){
   if(!panTemiFatto) costruisciPanTemi();
-  chiudiTastiera(); chiudiPanTempo();
-  davanti(PAN_TEMI,0.66,0.12);
-  scriviPanTemi(); PAN_TEMI.visible=true;
+  scriviPanTemi(); apriPannello(PAN_TEMI,0.70,0.10);
   diag('i temi: scegline uno col raggio, o dai un nome al cielo che stai guardando');
 }
-function chiudiPanTemi(){ PAN_TEMI.visible=false; }
+function chiudiPanTemi(){ chiudiPannello(PAN_TEMI); }
+
+// ====================== INSERISCI UN TEMA: la scheda ======================
+// La scheda di un tema come in Regulus — nome, cognome, data, ora, luogo — fatta di tasti da
+// premere col raggio. Non c'e' una copia dei dati da nessuna parte: la data, l'ora e il luogo SONO
+// quelli del planetario, e toccandoli IL CIELO SI COMPONE mentre si scrive. Quello che la scheda
+// tiene di suo sono soltanto il nome e il cognome.
+const PAN_NUOVO=new THREE.Group(); PAN_NUOVO.visible=false; scene.add(PAN_NUOVO);
+let panNuovoFatto=false;
+const NUOVO={nome:'', cognome:''};
+const celleNuovo={}; let rigaNuovoNome=null, rigaNuovoCogn=null, rigaNuovoLuogo=null, rigaNuovoCielo=null;
+const N_CAMPI=[['giorno',0.100],['mese',0.100],['anno',0.150],['ora',0.100],['minuto',0.100]];
+const N_ETI={giorno:'giorno',mese:'mese',anno:'anno',ora:'ore',minuto:'min'};
+const nomeIntero=()=>[NUOVO.nome,NUOVO.cognome].map(x=>String(x||'').trim()).filter(Boolean).join(' ');
+function costruisciPanNuovo(){
+  panNuovoFatto=true;
+  const larg=0.66;
+  const fondo=new THREE.Mesh(new THREE.PlaneGeometry(larg+0.06,0.56),
+    new THREE.MeshBasicMaterial({color:0x080b16,transparent:true,opacity:.88,depthWrite:false}));
+  fondo.position.set(0,-0.045,-0.006); PAN_NUOVO.add(fondo);
+  const titolo=label('INSERISCI UN TEMA','#d8b4ff',0.042); titolo.position.set(-larg/2+0.12,0.205,0); PAN_NUOVO.add(titolo);
+  rigaNuovoNome=creaTasto('',0,0.155,larg,0.046,
+    ()=>apriTastieraTesto('il nome',NUOVO.nome,v=>{ NUOVO.nome=v; scriviPanNuovo(); }),
+    {sinistra:true},PAN_NUOVO);
+  rigaNuovoCogn=creaTasto('',0,0.103,larg,0.046,
+    ()=>apriTastieraTesto('il cognome',NUOVO.cognome,v=>{ NUOVO.cognome=v; scriviPanNuovo(); }),
+    {sinistra:true},PAN_NUOVO);
+  // data e ora: le frecce muovono IL CIELO, e la scheda mostra dove si e' arrivati
+  const tot=N_CAMPI.reduce((t,c)=>t+c[1],0)+0.008*(N_CAMPI.length-1);
+  let x=-tot/2;
+  for(const [n,w] of N_CAMPI){
+    const cx=x+w/2;
+    const et=label(N_ETI[n],'#7a86a6',0.024); et.position.set(cx,0.068,0); PAN_NUOVO.add(et);
+    creaTasto('▲',cx,0.040,w,0.030,()=>{ passoLocale(n,1); scriviPanNuovo(); },{fs:22},PAN_NUOVO);
+    celleNuovo[n]=creaTasto('',cx,-0.002,w,0.046,()=>{},{fondo:'rgba(10,14,28,.98)',bordo:'rgba(216,180,255,.7)'},PAN_NUOVO);
+    INTERATTIVI.splice(INTERATTIVI.indexOf(celleNuovo[n]),1);
+    creaTasto('▼',cx,-0.044,w,0.030,()=>{ passoLocale(n,-1); scriviPanNuovo(); },{fs:22},PAN_NUOVO);
+    x+=w+0.008;
+  }
+  rigaNuovoLuogo=creaTasto('',0,-0.096,larg,0.046,apriTastiera,{sinistra:true},PAN_NUOVO);
+  rigaNuovoCielo=creaTasto('',0,-0.144,larg,0.038,()=>{},
+    {sinistra:true,fondo:'rgba(10,14,28,0)',bordo:'rgba(0,0,0,0)',fs:22},PAN_NUOVO);
+  INTERATTIVI.splice(INTERATTIVI.indexOf(rigaNuovoCielo),1);
+  const w3=(larg-2*0.008)/3;
+  creaTasto('erigi e salva',-w3-0.008,-0.196,w3,0.046,()=>{
+    const n=nomeIntero();
+    if(!n){ diag('alla scheda manca il nome','warn'); apriTastieraTesto('il nome','',v=>{ NUOVO.nome=v; scriviPanNuovo(); }); return; }
+    salvaTemaDiAdesso(n);
+  },{bordo:'rgba(150,230,170,.7)'},PAN_NUOVO);
+  creaTasto('svuota',0,-0.196,w3,0.046,()=>{ NUOVO.nome=''; NUOVO.cognome=''; scriviPanNuovo(); },{},PAN_NUOVO);
+  creaTasto('chiudi',w3+0.008,-0.196,w3,0.046,chiudiPanNuovo,{bordo:'rgba(255,138,138,.65)'},PAN_NUOVO);
+  inPrimoPiano(PAN_NUOVO);
+}
+function scriviPanNuovo(){
+  if(!panNuovoFatto) return;
+  riscriviTasto(rigaNuovoNome,'Nome        '+(NUOVO.nome||'—'));
+  riscriviTasto(rigaNuovoCogn,'Cognome   '+(NUOVO.cognome||'—'));
+  const c=pezziLocali(istanteCielo(),LUOGO.fuso);
+  for(const [n] of N_CAMPI) riscriviTasto(celleNuovo[n],(n==='anno')?String(c.anno):String(c[n]).padStart(2,'0'));
+  riscriviTasto(rigaNuovoLuogo,'Luogo        '+LUOGO.nome+'   '+coordTesto(LUOGO.lat,LUOGO.lng));
+  const q=qualitaEpoca(annoDelCielo());
+  riscriviTasto(rigaNuovoCielo,(nomeIntero()||'senza nome')+' · '+quandoTesto(istanteCielo(),true)+
+    (q?'  ('+q.t+')':''));
+}
+function apriPanNuovo(){
+  if(!panNuovoFatto) costruisciPanNuovo();
+  scriviPanNuovo(); apriPannello(PAN_NUOVO,0.70,0.10);
+  diag('scrivi i dati: il cielo si compone mentre li tocchi');
+}
+function chiudiPanNuovo(){ chiudiPannello(PAN_NUOVO); }
 
 // ====================== ingresso in VR ======================
 const enter=document.getElementById('enter');
@@ -3444,7 +3567,7 @@ function aggiornaFinestraTempo(){
   document.getElementById('t-dove').innerHTML='<b>'+quandoTesto(istanteCielo(),true)+'</b> · ora di '+
     LUOGO.nome+'<br>'+istanteCielo().toISOString().replace('T',' ').slice(0,19)+' universale';
   av.hidden=!q; if(q) av.textContent='Fuori dal 1700–2200: '+q.t+'.';
-  scriviPanTempo();
+  scriviPanTempo(); scriviPanNuovo();
 }
 // scritti i campi a mano, si va li'
 function leggiCampiTempo(){
@@ -3529,7 +3652,7 @@ function aggiornaTemi(){
     c.addEventListener('click',chiudiTema); v.appendChild(c);
   }
   btnTemi.textContent='☰ '+(RADIX.tema?RADIX.tema.nome:'temi');
-  scriviPanTemi();
+  scriviPanTemi(); scriviPanNuovo();
 }
 document.getElementById('tema-salva').addEventListener('click',()=>{
   const t=temaDiAdesso(inNome.value);
