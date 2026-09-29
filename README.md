@@ -190,7 +190,7 @@ In tutto 720 stelle e 657 lati di figura.
   curvo, a portata di mani come una tastiera sul tavolo, inclinato verso chi guarda come un tavolo da
   disegno. La superficie è un pezzo di cono attorno all'osservatore, perciò ogni tasto guarda dritto
   verso di lui. È un **anello** color avorio **attorno a chi guarda**: un tavolo **all'altezza della
-  vita** (58 cm sotto gli occhi) largo 184°, da 34 a 62 cm dagli occhi, appena inclinato, che sul
+  vita** (58 cm sotto gli occhi) largo 228°, da 27 a 50 cm dagli occhi, appena inclinato, che sul
   davanti si alza un poco come il bordo di una ciotola. Davanti stanno luogo, tempo, moto diurno,
   l'orizzonte e le stelle; a sinistra i cerchi dell'equatore e la vista; a destra l'eclittica, i
   pianeti e gli angoli. I tasti hanno le forme e i colori del disegno dell'autore (la consolle
@@ -202,6 +202,8 @@ In tutto 720 stelle e 657 lati di figura.
 - **Stelle e figure sul banco**: *stelle maggiori* sono le stelle di Regulus, *stelle minori* le
   altre stelle che formano le costellazioni, *linee* i lati delle figure; il tasto *costellazioni*
   accende e spegne stelle minori e linee insieme.
+- **Le scritte ferme**: nomi delle stelle, punti cardinali, gradi e glifi restano dritti rispetto
+  all'orizzonte anche inclinando la testa, come scritti sul cielo (prima giravano con la testa).
 - **Alt**: un cerchio verticale — per lo zenit e il nadir — che **segue lo sguardo**: sta sempre
   sull'azimut verso cui si guarda, e girando la testa gira con lei.
 - Interruttori per equatore, eclittica, orizzonte, asse, Sole, pianeti, stelle di Regulus,

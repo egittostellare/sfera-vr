@@ -1865,13 +1865,16 @@ const INTERATTIVI=[];
 // a destra i cerchi dell'eclittica, i pianeti e gli angoli.
 // Tutto si DISEGNA IN PIANO — x lungo l'anello (l'arco al raggio medio), y dal bordo vicino al
 // lontano — e poi si posa sull'anello.
-const U=0.0006;                              // metri per unita' del disegno dei tasti
+// Quarta prova (stesso giorno): tasti piu' grandi del 20%, anello piu' vicino del 20% (da 27 a 50 cm);
+// per starci, l'anello gira di piu' — 228°, scelta dell'autore.
+const U=0.00072;                             // metri per unita' del disegno dei tasti
 const LUCE=0.45;                             // quanta luce ha il banco rispetto ai colori del disegno
-const R_IN=0.34, R_OUT=0.62, R_MID=(R_IN+R_OUT)/2;   // i due bordi dell'anello, in orizzontale dagli occhi
-const GIRO_BANCO=184;                        // gradi, da un capo all'altro dell'anello
+const R_IN=0.272, R_OUT=0.496, R_MID=(R_IN+R_OUT)/2;   // i due bordi dell'anello, in orizzontale dagli occhi
+const GIRO_BANCO=228;                        // gradi, da un capo all'altro dell'anello
 const CONS_Y0=-0.58;                         // il bordo vicino: 58 cm sotto gli occhi (in piedi, la vita)
 const INCL=10*DEG;                           // quanto il tavolo sale allontanandosi
-const CONCA=0.08;                            // quanto sale in piu', di fronte, il bordo lontano
+const CONCA=0.065;                           // quanto sale in piu', di fronte, il bordo lontano
+const FILI=[-82,-38,38,82];                  // i fili che separano i gruppi, in gradi
 const CR_W=GIRO_BANCO*DEG*R_MID, CR_H=R_OUT-R_IN, CX_CORPO=0, LARG_T=CR_W;
 const CONS_R0=R_MID;                         // per l'ala degli elementi: gli angoli si contano qui
 const DW=1460, DH=990;
@@ -1954,52 +1957,55 @@ const CORPO_PATH='M38,290 L445,102 L527,22 L933,22 L1015,102 L1422,290 L1422,830
 
 // ---- i tasti: dove stanno sull'anello, che forma hanno, che cosa fanno ----
 // pa = l'azimut del centro del tasto, in gradi (0 davanti, negativo a sinistra); pr = la sua
-// distanza dagli occhi in orizzontale, in metri. w, h = la misura in unita' del disegno (0,6 mm).
+// distanza dagli occhi in orizzontale, in metri. w, h = la misura in unita' del disegno (0,72 mm).
 // k = la funzione (lo stato o l'azione di sempre). f = la forma: rett, hex, oct, diamond, cerchio,
 // pallino, moto, freccia. (I trapezi del disegno servivano a fare il ventaglio su un banco piatto:
 // sull'anello il ventaglio c'e' davvero, e sono tornati rettangoli.)
+// Le file: davanti a 47,4 · 42,5 · 37,8 · 31,7 cm; nelle ali a 46,8 · 42 · 37,2 · 32,4 cm, e nelle
+// ali esterne a 45,2 e 37,6 cm. Gli azimut sono contati perche' fra un tasto e l'altro resti
+// almeno un grado e mezzo.
 const CONSOLLE=[
-  // DAVANTI: il luogo e il tempo, il moto diurno, l'orizzonte; ai lati le stelle
-  {id:'milano',   k:'luogo',     f:'rett',  pa:0,   pr:0.585, w:300, h:52, big:true},
-  {id:'archivio', k:'temi',      f:'rett',  pa:-21, pr:0.585, w:188, h:42, t:'archivio'},
-  {id:'nuovo',    k:'nuovo',     f:'rett',  pa:21,  pr:0.585, w:188, h:42, t:'nuovo tema'},
-  {id:'tempo',    k:'tempo',     f:'rett',  pa:0,   pr:0.525, w:380, h:50, t:'tempo'},
-  {id:'moto',                    f:'moto',  pa:0,   pr:0.465, w:380, h:56, t:'moto diurno'},
-  {id:'motoL',                   f:'freccia', pa:-160, pr:0.465, w:44, h:44, t:'‹', motoDx:-160},
-  {id:'motoR',                   f:'freccia', pa:160,  pr:0.465, w:44, h:44, t:'›', motoDx:160},
-  {id:'cost',                    f:'hex',   pa:-23, pr:0.52,  w:88, h:80, icona:'Const'},
-  {id:'lin',      k:'linee',     f:'hex',   pa:-23, pr:0.455, w:88, h:80, icona:'Lines'},
-  {id:'sBig',     k:'stelle',    f:'hex',   pa:23,  pr:0.52,  w:88, h:80, icona:'StarBig'},
-  {id:'sSmall',   k:'costellazioni', f:'hex', pa:23, pr:0.455, w:88, h:80, icona:'StarSmall'},
-  {id:'oriz',     k:'frame',     f:'cerchio', pa:-12, pr:0.395, d:104, col:'oriz', t:'oriz', oriz:true},
-  {id:'azimut',   k:'azimut',    f:'cerchio', pa:0,   pr:0.40,  d:124, t:'Azimut'},
-  {id:'alt',      k:'alt',       f:'cerchio', pa:12,  pr:0.395, d:104, t:'Alt'},
-  {id:'dFull',                   f:'pallino', pa:-28.5, pr:0.40, d:38, col:'oriz', icona:'Full'},
-  {id:'dRefl',                   f:'pallino', pa:-24.5, pr:0.40, d:38, col:'oriz', icona:'Refl'},
-  {id:'dTrans',                  f:'pallino', pa:-20.5, pr:0.40, d:38, col:'oriz', icona:'Trans'},
-  {id:'grAz',     k:'grigliaAz', f:'cerchio', pa:21,  pr:0.40,  d:64, icona:'Grid'},
-  // A SINISTRA: i cerchi dell'equatore e del luogo, poi la vista
-  {id:'equatore', k:'equator',   f:'rett', pa:-41, pr:0.585, w:236, h:70, col:'equat', t:'equatore'},
-  {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-55, pr:0.585, d:64, col:'equat', icona:'Grid'},
-  {id:'meridiano',k:'meridiano', f:'rett', pa:-45, pr:0.525, w:332, h:70, col:'merid', t:'meridiano'},
-  {id:'pvert',    k:'primovert', f:'rett', pa:-46, pr:0.465, w:318, h:58, col:'pvert', t:'p. verticale'},
-  {id:'axis',     k:'axis',      f:'rett', pa:-47, pr:0.405, w:310, h:70, t:'axis mundi'},
-  {id:'onda',     k:'onda',      f:'rett', pa:-69, pr:0.565, w:112, h:76, t:'onda'},
-  {id:'quota',    k:'quota',     f:'rett', pa:-81, pr:0.565, w:168, h:80, t:'quota'},
-  {id:'occhi',    k:'altezza',   f:'rett', pa:-69, pr:0.47,  w:112, h:76, t:'occhi'},
-  {id:'zoom',     k:'zoom',      f:'rett', pa:-81, pr:0.47,  w:168, h:80, t:'zoom'},
-  // A DESTRA: i cerchi dell'eclittica, i pianeti, poi gli angoli
-  {id:'eclittica',k:'ecliptic',  f:'rett', pa:41,  pr:0.585, w:236, h:70, col:'eclit', t:'eclittica'},
-  {id:'grEc',     k:'grigliaEcl',f:'cerchio', pa:55, pr:0.585, d:64, col:'eclit', icona:'Grid'},
-  {id:'zodiaco',  k:'zodiaco',   f:'rett', pa:45,  pr:0.525, w:332, h:70, col:'zod', t:'zodiaco'},
-  {id:'latit',    k:'latitudini',f:'rett', pa:41,  pr:0.465, w:196, h:58, col:'lat', t:'latitudini'},
-  {id:'visL',     k:'vis',       f:'rett', pa:55,  pr:0.465, w:108, h:58, col:'lat', t:'vis L'},
-  {id:'pianeti',  k:'pianeti',   f:'rett', pa:44,  pr:0.405, w:230, h:70, t:'pianeti'},
-  {id:'wheel',    k:'elementi',  f:'cerchio', pa:58, pr:0.405, d:68, icona:'Wheel'},
-  {id:'asc',      k:'p-asc',     f:'hex',     pa:69, pr:0.565, w:96, h:86, col:'asc', t:'asc'},
-  {id:'mc',       k:'p-mc',      f:'oct',     pa:80, pr:0.565, w:84, h:84, col:'mc',  t:'mc'},
-  {id:'ds',       k:'p-ds',      f:'diamond', pa:69, pr:0.47,  w:90, h:90, col:'ds',  t:'ds'},
-  {id:'ic',       k:'p-ic',      f:'rett',    pa:80, pr:0.47,  w:68, h:72, col:'ic',  t:'ic'},
+  // DAVANTI (fino a ±37°): il luogo e il tempo, il moto diurno, l'orizzonte; ai lati le stelle
+  {id:'milano',   k:'luogo',     f:'rett',  pa:0,     pr:0.474, w:300, h:52, big:true},
+  {id:'archivio', k:'temi',      f:'rett',  pa:-23.5, pr:0.474, w:188, h:42, t:'archivio'},
+  {id:'nuovo',    k:'nuovo',     f:'rett',  pa:23.5,  pr:0.474, w:188, h:42, t:'nuovo tema'},
+  {id:'tempo',    k:'tempo',     f:'rett',  pa:0,     pr:0.425, w:380, h:50, t:'tempo'},
+  {id:'moto',                    f:'moto',  pa:0,     pr:0.378, w:380, h:48, t:'moto diurno'},
+  {id:'motoL',                   f:'freccia', pa:0, pr:0.378, w:40, h:40, t:'‹', motoDx:-162},
+  {id:'motoR',                   f:'freccia', pa:0, pr:0.378, w:40, h:40, t:'›', motoDx:162},
+  {id:'cost',                    f:'hex',   pa:-25,   pr:0.425, w:88, h:62, icona:'Const'},
+  {id:'lin',      k:'linee',     f:'hex',   pa:-27.5, pr:0.378, w:88, h:62, icona:'Lines'},
+  {id:'sBig',     k:'stelle',    f:'hex',   pa:25,    pr:0.425, w:88, h:62, icona:'StarBig'},
+  {id:'sSmall',   k:'costellazioni', f:'hex', pa:27.5, pr:0.378, w:88, h:62, icona:'StarSmall'},
+  {id:'oriz',     k:'frame',     f:'cerchio', pa:-13.7, pr:0.317, d:88,  col:'oriz', t:'oriz', oriz:true},
+  {id:'azimut',   k:'azimut',    f:'cerchio', pa:0,     pr:0.317, d:100, t:'Azimut'},
+  {id:'alt',      k:'alt',       f:'cerchio', pa:13.7,  pr:0.317, d:88,  t:'Alt'},
+  {id:'dTrans',                  f:'pallino', pa:-23,   pr:0.317, d:38, col:'oriz', icona:'Trans'},
+  {id:'dRefl',                   f:'pallino', pa:-28.5, pr:0.317, d:38, col:'oriz', icona:'Refl'},
+  {id:'dFull',                   f:'pallino', pa:-34,   pr:0.317, d:38, col:'oriz', icona:'Full'},
+  {id:'grAz',     k:'grigliaAz', f:'cerchio', pa:25,    pr:0.317, d:64, icona:'Grid'},
+  // A SINISTRA: i cerchi dell'equatore e del luogo (da −41° a −81°), poi la vista (oltre −84°)
+  {id:'equatore', k:'equator',   f:'rett', pa:-51.4, pr:0.468, w:236, h:58, col:'equat', t:'equatore'},
+  {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-65, pr:0.468, d:64, col:'equat', icona:'Grid'},
+  {id:'meridiano',k:'meridiano', f:'rett', pa:-57.3, pr:0.420, w:332, h:58, col:'merid', t:'meridiano'},
+  {id:'pvert',    k:'primovert', f:'rett', pa:-58.6, pr:0.372, w:318, h:58, col:'pvert', t:'p. verticale'},
+  {id:'axis',     k:'axis',      f:'rett', pa:-61,   pr:0.324, w:310, h:58, t:'axis mundi'},
+  {id:'onda',     k:'onda',      f:'rett', pa:-89.1,  pr:0.452, w:112, h:76, t:'onda'},
+  {id:'quota',    k:'quota',     f:'rett', pa:-101.8, pr:0.452, w:140, h:80, t:'quota'},
+  {id:'occhi',    k:'altezza',   f:'rett', pa:-90.2,  pr:0.376, w:112, h:76, t:'occhi'},
+  {id:'zoom',     k:'zoom',      f:'rett', pa:-105.2, pr:0.376, w:140, h:80, t:'zoom'},
+  // A DESTRA: i cerchi dell'eclittica e i pianeti (da 41° a 80°), poi gli angoli (oltre 84°)
+  {id:'eclittica',k:'ecliptic',  f:'rett', pa:51.4, pr:0.468, w:236, h:58, col:'eclit', t:'eclittica'},
+  {id:'grEc',     k:'grigliaEcl',f:'cerchio', pa:65, pr:0.468, d:64, col:'eclit', icona:'Grid'},
+  {id:'zodiaco',  k:'zodiaco',   f:'rett', pa:57.3, pr:0.420, w:332, h:58, col:'zod', t:'zodiaco'},
+  {id:'latit',    k:'latitudini',f:'rett', pa:51.9, pr:0.372, w:196, h:58, col:'lat', t:'latitudini'},
+  {id:'visL',     k:'vis',       f:'rett', pa:70,   pr:0.372, w:108, h:58, col:'lat', t:'vis L'},
+  {id:'pianeti',  k:'pianeti',   f:'rett', pa:55.7, pr:0.324, w:230, h:58, t:'pianeti'},
+  {id:'wheel',    k:'elementi',  f:'cerchio', pa:75.9, pr:0.324, d:60, icona:'Wheel'},
+  {id:'asc',      k:'p-asc',     f:'hex',     pa:89,  pr:0.452, w:96, h:86, col:'asc', t:'asc'},
+  {id:'mc',       k:'p-mc',      f:'oct',     pa:100, pr:0.452, w:84, h:84, col:'mc',  t:'mc'},
+  {id:'ds',       k:'p-ds',      f:'diamond', pa:89,  pr:0.376, w:90, h:90, col:'ds',  t:'ds'},
+  {id:'ic',       k:'p-ic',      f:'rett',    pa:100, pr:0.376, w:68, h:72, col:'ic',  t:'ic'},
 ];
 CONSOLLE.forEach(s=>{
   if(s.d){ s.w=s.h=s.d; }
@@ -2174,9 +2180,9 @@ function disegnaCorpo(){
   x.clearRect(0,0,W,H);
   x.fillStyle=TEMA.cornice; roundRect(x,0,0,W,H,px(0.035)); x.fill();
   x.fillStyle=TEMA.corpo;   roundRect(x,px(0.003),px(0.003),W-px(0.006),H-px(0.006),px(0.032)); x.fill();
-  // un filo che separa il gruppo di fronte dalle due ali (a ±30°)
+  // i fili che separano i gruppi: quello di fronte, i cerchi, e le ali esterne
   x.strokeStyle=TEMA.cornice; x.lineWidth=px(0.0015);
-  [-30,30].forEach(g=>{ const u=W/2+px(g*DEG*R_MID);
+  FILI.forEach(g=>{ const u=W/2+px(g*DEG*R_MID);
     x.beginPath(); x.moveTo(u,px(0.02)); x.lineTo(u,H-px(0.02)); x.stroke(); });
   corpoTex.needsUpdate=true;
 }
@@ -3576,6 +3582,22 @@ function aggiornaRaggi(){
 // del mondo (x est, y zenit, z sud), che la calibrazione puo' aver girato; guardando dritto allo
 // zenit l'azimut non c'e', e il cerchio resta dov'era
 const _gA=new THREE.Vector3(), _mWI=new THREE.Matrix4();
+// LE SCRITTE FERME. Nomi, cardinali, gradi e glifi sono «sprite»: three.js li tiene sempre dritti
+// sullo SCHERMO, percio' inclinando la testa giravano con lei e sul cielo sembravano oscillare.
+// Qui si misura di quanto e' inclinata la testa rispetto alla verticale vera e li si gira tutti
+// della stessa quantita' al contrario: restano dritti rispetto all'orizzonte, come scritti sul cielo.
+let _spriteTutti=[], _spriteConto=0;
+const _suVista=new THREE.Vector3(), _mVI=new THREE.Matrix4();
+function scritteFerme(){
+  if(_spriteConto--<=0){   // l'elenco si rifa' ogni tanto: qualche scritta nasce strada facendo
+    _spriteConto=60; _spriteTutti=[]; scene.traverse(o=>{ if(o.isSprite) _spriteTutti.push(o); });
+  }
+  const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
+  _mVI.copy(cam.matrixWorld).invert();
+  _suVista.set(0,1,0).transformDirection(_mVI);            // la verticale vera, vista dalla testa
+  const giro=Math.hypot(_suVista.x,_suVista.y)<1e-3?0:Math.atan2(-_suVista.x,_suVista.y);
+  for(const s of _spriteTutti) s.material.rotation=giro;
+}
 function aggiornaAlt(){
   if(!stato.alt) return;
   sguardoOra(_gA); _gA.transformDirection(_mWI.copy(world.matrixWorld).invert());
@@ -3595,6 +3617,7 @@ renderer.setAnimationLoop((time,frame)=>{
     aggiornaGlifi();
     aggiornaVis();
     aggiornaAlt();
+    scritteFerme();
     aggiornaFasi();
     aggiornaPunti();
     aggiornaVelo(ora);
