@@ -438,9 +438,21 @@ function tavolaEtichetta(text,color){const pad=8,fs=52,c=document.createElement(
   x.font="600 "+fs+"px 'Cormorant Garamond', Georgia, serif";x.fillStyle=color;x.textBaseline='middle';
   x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=8;x.fillText(text,pad,c.height/2);
   const t=new THREE.CanvasTexture(c);t.anisotropy=4;return {t,rapp:c.width/c.height};}
+// LE SCRITTE DEL CIELO sono TAVOLETTE PIANE, non «sprite». Uno sprite sta sempre parallelo allo
+// schermo: girava con la testa e, guardando su e giu', si coricava avanti e indietro. La tavoletta
+// invece sta sul cielo: guarda l'occhio e ha l'alto verso lo zenit (orientaScritte, a ogni
+// fotogramma), percio' dipende solo da DOVE sta, non da come si muove la testa — come scritta sulla
+// volta. Con lo zoom si sposta in blocco attorno al suo centro, come i globi.
+const PIANO_SCRITTA=new THREE.PlaneGeometry(1,1);
+const SCRITTE=[];
+function scrittaPiana(opz){
+  const m=new THREE.Mesh(PIANO_SCRITTA,new THREE.MeshBasicMaterial(Object.assign({side:THREE.DoubleSide},opz)));
+  m.userData.scritta=true; m.userData.zoomRigido=true;
+  SCRITTE.push(m); return m;
+}
 function label(text,color,scale){
   const {t,rapp}=tavolaEtichetta(text,color);
-  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:true}));
+  const s=scrittaPiana({map:t,transparent:true,depthTest:true});
   const h=scale||0.6;s.scale.set(h*rapp,h,1);s.renderOrder=10;
   etichette.push({s,text,color,h});return s;}
 function G(name,parent){const g=new THREE.Group();groups[name]=g;(parent||world).add(g);return g;}
@@ -771,7 +783,7 @@ function spriteGlifo(g,colore,alto){
   x.lineJoin='round'; x.lineWidth=5/s; x.strokeStyle='rgba(255,255,255,.55)'; x.stroke(p);
   x.fillStyle=colore; x.fill(p);
   const t=new THREE.CanvasTexture(c); t.anisotropy=4;
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:true}));
+  const sp=scrittaPiana({map:t,transparent:true,depthTest:true});
   sp.scale.set(alto,alto,1); sp.renderOrder=11; return sp;
 }
 let quantiPianeti=0;
@@ -1072,7 +1084,7 @@ function spritePunto(def,alto){
     x.lineWidth=8; x.strokeText(def.t,64,64); x.fillStyle=def.c; x.fillText(def.t,64,64);
   }
   const t=new THREE.CanvasTexture(c); t.anisotropy=4;
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:true}));
+  const sp=scrittaPiana({map:t,transparent:true,depthTest:true});
   sp.scale.set(alto,alto,1); sp.renderOrder=11; return sp;
 }
 if(A) PUNTI_DEF.forEach(def=>{
@@ -1449,7 +1461,7 @@ function aggiornaPiano(){
   PIANO.normal.copy(_nPiano); PIANO.constant=-_nPiano.dot(world.position);
 }
 function applicaOrizzonte(on){
-  sky.traverse(o=>{ if(o.material && !o.isSprite){ o.material.clippingPlanes=on?[PIANO]:null; o.material.needsUpdate=true; } });
+  sky.traverse(o=>{ if(o.material && !o.isSprite && !o.userData.scritta){ o.material.clippingPlanes=on?[PIANO]:null; o.material.needsUpdate=true; } });
   if(DISCO) DISCO.material.opacity=on?.42:.16;   // il piano dell'orizzonte si fa terra
   trasparenzaMare();                            // e il mare, da vetro, si fa acqua
   if(!on) SPRITE_CIELO.forEach(s=>s.visible=true);      // spento: le scritte tornano tutte
@@ -1457,7 +1469,7 @@ function applicaOrizzonte(on){
 }
 const _w=new THREE.Vector3();
 const sottoOrizzonte=o=>{ o.getWorldPosition(_w); return PIANO.distanceToPoint(_w)<0; };
-const SPRITE_CIELO=[]; sky.traverse(o=>{ if(o.isSprite) SPRITE_CIELO.push(o); });   // glifi, «Sole», «Polo»
+const SPRITE_CIELO=[]; sky.traverse(o=>{ if(o.isSprite||o.userData.scritta) SPRITE_CIELO.push(o); });   // glifi, «Sole», «Polo»
 
 // ====================== puntare: il nome al passaggio, la selezione al clic ======================
 // Col raggio del controller (o col mouse sul desktop): passando su una stella o un pianeta compare
@@ -1511,7 +1523,7 @@ function tavolaNome(nome,sotto,colore){
   if(sotto){ x.font=f2; x.fillStyle='#b4bdd6'; x.fillText(sotto,c.width/2,62); }
   const t=new THREE.CanvasTexture(c); t.anisotropy=4; return {t,rapp:c.width/c.height,alto:c.height/64};
 }
-const nuovaScritta=()=>{ const s=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:true}));
+const nuovaScritta=()=>{ const s=scrittaPiana({transparent:true,depthTest:true});
   s.renderOrder=13; s.visible=false; world.add(s); return s; };
 const ET_HOVER=nuovaScritta(), ET_SEL=nuovaScritta();
 // con lo zoom la scritta segue l'astro dove si vede, alla stessa distanza da lui
@@ -2211,7 +2223,7 @@ CONSOLLE.forEach(s=>{
   // il raggio preme solo dentro la forma: gli angoli vuoti del riquadro non contano
   m.userData.dentro=uv=>_prova.isPointInPath(sg,-MRG+uv.x*(s.w+2*MRG),-MRG+(1-uv.y)*(s.h+2*MRG));
   m.userData.fai=()=>premiTasto(s);
-  INTERATTIVI.push(m); TASTI.push({s,m});
+  INTERATTIVI.push(m); TASTI.push({s,m,sg});
 });
 function ridipingiTasto(t){
   if(t.m.material.map) t.m.material.map.dispose();
@@ -2625,6 +2637,67 @@ function vibra(ctl,forza,ms){
 }
 let c0,c1;
 function inVista(o){ for(;o;o=o.parent) if(!o.visible) return false; return true; }
+
+// ====================== LE MANI ======================
+// Senza controller, col visore che vede le mani (la sessione chiede «hand-tracking»):
+// - le mani SI VEDONO: un pallino per giuntura, grande quanto la giuntura vera;
+// - il raggio esce dalla mano da se' (e' il targetRay della mano), e il PIZZICO — pollice e indice
+//   che si toccano — e' il grilletto: preme i tasti di tutti i pannelli, come prima;
+// - sul BANCO si puo' anche PREMERE COL DITO: la punta dell'indice che scende dentro la forma di un
+//   tasto lo fa scattare; per ripremerlo il dito deve risalire di un paio di centimetri.
+// I tasti B, X e Y del controller, con le mani, non ci sono.
+const MANI=[];
+const MANO_MAT=new THREE.MeshBasicMaterial({color:0xd9ccb6,transparent:true,opacity:.8,depthWrite:false});
+const PUNTA_MAT=new THREE.MeshBasicMaterial({color:0xfff2da,transparent:true,opacity:.95,depthWrite:false});
+const PALLINO=new THREE.SphereGeometry(1,10,8);
+const DITO_GIU=0.010, DITO_SU=0.025;   // sopra il tavolo: sotto il primo il tasto scatta, oltre il secondo si riarma
+function creaMani(){
+  for(let i=0;i<2;i++){
+    const h=renderer.xr.getHand(i); scene.add(h);
+    MANI.push({h, premuto:null});
+  }
+}
+// il tasto del banco sotto un punto (nel mondo), e quanto il punto sta sopra il tavolo
+const _pD=new THREE.Vector3();
+function tastoSottoDito(pMondo){
+  if(!inVista(banco)) return null;
+  banco.worldToLocal(_pD.copy(pMondo));
+  const a=Math.atan2(_pD.x,-_pD.z), r=Math.hypot(_pD.x,_pD.z);
+  if(r<R_IN-0.02||r>R_OUT+0.02) return null;
+  const sopra=_pD.y-altezzaAnello(a,r);
+  let meglio=null;
+  for(const t of TASTI){
+    const s=t.s, u=s.w/2+(a-s.pa*DEG)*s.pr/U, v=s.h/2-(r-s.pr)/U;
+    if(u<0||u>s.w||v<0||v>s.h) continue;
+    if(!_prova.isPointInPath(t.sg,u,v)) continue;
+    if(!meglio||s.f==='freccia') meglio=t;   // le frecce stanno sopra la capsula del moto
+  }
+  return meglio?{t:meglio,sopra}:null;
+}
+function aggiornaMani(){
+  for(const M of MANI){
+    const giunture=M.h.joints?Object.values(M.h.joints):[];
+    for(const j of giunture){
+      if(!j.userData.pallino){
+        const p=new THREE.Mesh(PALLINO,MANO_MAT); p.renderOrder=34; j.add(p); j.userData.pallino=p;
+      }
+      j.userData.pallino.scale.setScalar(Math.max(0.004,(j.jointRadius||0.008)*0.9));
+    }
+    const punta=M.h.joints&&M.h.joints['index-finger-tip'];
+    if(!punta||!punta.visible||!M.h.visible){ M.premuto=null; continue; }
+    if(punta.userData.pallino) punta.userData.pallino.material=PUNTA_MAT;
+    punta.updateWorldMatrix(true,false);
+    const sotto=tastoSottoDito(punta.getWorldPosition(_occhio2));
+    if(M.premuto){                                     // gia' premuto: si riarma solo risalendo
+      if(!sotto||sotto.sopra>DITO_SU) M.premuto=null;
+      continue;
+    }
+    if(!sotto) continue;
+    if(sotto.sopra<0.04){ sotto.t.m.userData.halo.material.opacity=.55; }   // il dito si avvicina: l'alone
+    if(sotto.sopra<DITO_GIU){ M.premuto=sotto.t; sotto.t.m.userData.fai(); }
+  }
+}
+const _occhio2=new THREE.Vector3();
 
 // ====================== la dissolvenza ======================
 // Cambiando luogo la vista si oscura, il cielo si gira nel buio e poi si riaccende: un salto a occhi
@@ -3443,7 +3516,7 @@ async function entraVR(){
     diag(GRAND.modo==='normale'?'levetta: di traverso il bordo del mare'
                                :'grandangolo '+testoGrand()+' (la levetta lo cambia)');
 
-    if(!c0){ c0=makeController(0); c1=makeController(1); }
+    if(!c0){ c0=makeController(0); c1=makeController(1); creaMani(); }
     enter.classList.add('small'); enter.textContent='◉ Esci';
   }catch(err){
     diag('ERRORE: '+(err.name||'')+' — '+(err.message||err),'err');
@@ -3582,21 +3655,18 @@ function aggiornaRaggi(){
 // del mondo (x est, y zenit, z sud), che la calibrazione puo' aver girato; guardando dritto allo
 // zenit l'azimut non c'e', e il cerchio resta dov'era
 const _gA=new THREE.Vector3(), _mWI=new THREE.Matrix4();
-// LE SCRITTE FERME. Nomi, cardinali, gradi e glifi sono «sprite»: three.js li tiene sempre dritti
-// sullo SCHERMO, percio' inclinando la testa giravano con lei e sul cielo sembravano oscillare.
-// Qui si misura di quanto e' inclinata la testa rispetto alla verticale vera e li si gira tutti
-// della stessa quantita' al contrario: restano dritti rispetto all'orizzonte, come scritti sul cielo.
-let _spriteTutti=[], _spriteConto=0;
-const _suVista=new THREE.Vector3(), _mVI=new THREE.Matrix4();
+// LE SCRITTE FERME: ogni tavoletta guarda l'occhio e ha l'alto verso lo zenit. Dipende solo da
+// dove sta la scritta e da dove sta l'occhio — non da come la testa si inclina o si piega — percio'
+// sulla volta resta ferma come dipinta. (Gli sprite di prima stavano paralleli allo schermo e
+// giravano e basculavano con la testa.)
+const _occhio=new THREE.Vector3();
 function scritteFerme(){
-  if(_spriteConto--<=0){   // l'elenco si rifa' ogni tanto: qualche scritta nasce strada facendo
-    _spriteConto=60; _spriteTutti=[]; scene.traverse(o=>{ if(o.isSprite) _spriteTutti.push(o); });
-  }
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
-  _mVI.copy(cam.matrixWorld).invert();
-  _suVista.set(0,1,0).transformDirection(_mVI);            // la verticale vera, vista dalla testa
-  const giro=Math.hypot(_suVista.x,_suVista.y)<1e-3?0:Math.atan2(-_suVista.x,_suVista.y);
-  for(const s of _spriteTutti) s.material.rotation=giro;
+  cam.getWorldPosition(_occhio);
+  for(const s of SCRITTE){
+    if(!s.visible||!s.parent) continue;
+    s.up.set(0,1,0); s.lookAt(_occhio);
+  }
 }
 function aggiornaAlt(){
   if(!stato.alt) return;
@@ -3629,6 +3699,7 @@ renderer.setAnimationLoop((time,frame)=>{
       INTERATTIVI.forEach(m=>{ m.userData.halo.material.opacity=0; m.scale.setScalar(1); });
       renderer.xr.getCamera(camera).getWorldPosition(_testa);
       indica(aggiornaRaggi());
+      aggiornaMani();
       if(logSporco) disegnaLog();
     } else {
       updateOrbit();
