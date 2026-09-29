@@ -1858,10 +1858,13 @@ const INTERATTIVI=[];
 // si guarda — solo di traverso: un tavolo resta un tavolo, e non si corica quando si alza la testa.
 // LA FORMA E' IL DISEGNO DELL'AUTORE («Consolle Sfera 4A»): un ferro di cavallo largo, con la torre
 // di luogo e tempo in fondo, le due ali dei cerchi e le due gambe che vengono verso chi guarda.
-// Il disegno e' in unita' sue (1460 × 990): qui ogni unita' e' MEZZO MILLIMETRO, percio' il banco e'
-// largo 73 cm e profondo 49,5. Forme, posizioni, colori e caratteri sono ricalcati dal disegno.
+// Il disegno e' in unita' sue (1460 × 990): qui ogni unita' e' 0,7 mm, percio' il banco e' largo
+// 1,02 m e profondo 69 cm. Forme e posizioni sono ricalcate dal disegno.
 // Tutto si DISEGNA IN PIANO (x di traverso, y in profondita') e poi si posa sul banco.
-const U=0.0005;                              // metri per unita' del disegno
+// 29 settembre, seconda prova, su richiesta dell'autore: il banco e' un TAVOLO all'altezza della
+// vita, piu' piatto, che AVVOLGE (circa 140° attorno a chi guarda) e piu' TENUE — la luce al 45%.
+const U=0.0007;                              // metri per unita' del disegno
+const LUCE=0.45;                             // quanta luce ha il banco rispetto ai colori del disegno
 const DW=1460, DH=990;
 const CR_W=DW*U, CR_H=DH*U, CX_CORPO=0, LARG_T=CR_W;
 const dX=xd=>(xd-DW/2)*U, dY=yd=>(DH/2-yd)*U;   // dal disegno al banco (y del disegno scende verso chi guarda)
@@ -1870,9 +1873,10 @@ const PPM=1600, PPM_K=3000;                  // pixel per metro: l'ala degli ele
 const btnMeshes=[];                          // i tasti dell'ala
 const vrPanel=new THREE.Group(); scene.add(vrPanel);
 const banco=new THREE.Group(); vrPanel.add(banco);   // dentro: tutto il disegno, posato sul cono
-// il bordo vicino del banco: quaranta centimetri sotto gli occhi, a mezzo metro e mezzo, inclinato
-// di 55° — cosi' lo si guarda quasi in faccia senza chinare il collo
-const CONS_R0=0.55, CONS_Y0=-0.44, CONS_TAU=55*DEG;
+// il bordo vicino del banco: 58 cm sotto gli occhi (in piedi e' la vita), a 42 cm di distanza, e
+// inclinato di soli 25°, come un tavolo da disegno appena sollevato. Il raggio vicino corto fa si'
+// che le gambe del banco vengano ai fianchi: da un capo all'altro il banco gira di circa 140°.
+const CONS_R0=0.42, CONS_Y0=-0.58, CONS_TAU=25*DEG;
 const _bX=new THREE.Vector3(), _bY=new THREE.Vector3(), _bZ=new THREE.Vector3(), _bM=new THREE.Matrix4();
 function puntoBanco(x,y,fuori,out){
   const d=y+CR_H/2, th=x/CONS_R0, st=Math.sin(CONS_TAU), ct=Math.cos(CONS_TAU);
@@ -2151,7 +2155,7 @@ function disegnaCorpo(){
   corpoTex.needsUpdate=true;
 }
 disegnaCorpo();
-const corpo=pianoPiegato(CR_W,CR_H,CX_CORPO,0,0,new THREE.MeshBasicMaterial({map:corpoTex,transparent:true}));
+const corpo=pianoPiegato(CR_W,CR_H,CX_CORPO,0,0,new THREE.MeshBasicMaterial({map:corpoTex,transparent:true,color:new THREE.Color(LUCE,LUCE,LUCE)}));
 banco.add(corpo);
 
 // ---- i tasti sul banco ----
@@ -2162,7 +2166,8 @@ CONSOLLE.forEach(s=>{
   const fuori=s.f==='freccia'?0.007:0.004;   // le frecce stanno sopra la loro capsula
   // alphaTest: il margine trasparente attorno al tasto non deve scrivere la profondita', se no
   // buca il corpo del banco e ci si vede il cielo attraverso
-  const m=pianoPosato(wb,hb,cx,cy,fuori,new THREE.MeshBasicMaterial({map:disegnaTasto(s),transparent:true,alphaTest:0.02}));
+  const m=pianoPosato(wb,hb,cx,cy,fuori,new THREE.MeshBasicMaterial({map:disegnaTasto(s),transparent:true,alphaTest:0.02,
+    color:new THREE.Color(LUCE,LUCE,LUCE)}));   // tenue: la tinta del disegno per LUCE
   const halo=pianoPosato(wb,hb,cx,cy,fuori-0.002,
     new THREE.MeshBasicMaterial({map:disegnaAlone(s),color:0x9fd0ff,transparent:true,opacity:0,depthWrite:false}));
   banco.add(halo); banco.add(m);
@@ -2374,12 +2379,12 @@ function ridipingi(b){
 
 // il quadro: l'ora del cielo e il diario di bordo (nel visore la pagina non si vede). Il disegno
 // non ce l'ha: sta DA PARTE, nel vano fra le due gambe del banco, finche' l'autore non gli da' un posto
-const QU_W=536*U, QUADRO_H=170*U, QU_PPM=4000;
+const QU_W=536*U, QUADRO_H=170*U, QU_PPM=2/U;   // la tela ha sempre gli stessi pixel, qualunque sia U
 const logCv=document.createElement('canvas');
 logCv.width=Math.round(QU_W*QU_PPM); logCv.height=Math.round(QUADRO_H*QU_PPM);
 const logTex=new THREE.CanvasTexture(logCv); logTex.anisotropy=4;
 const logMesh=pianoPiegato(QU_W,QUADRO_H,dX(730),dY(565),0.003,
-  new THREE.MeshBasicMaterial({map:logTex,transparent:true}));
+  new THREE.MeshBasicMaterial({map:logTex,transparent:true,color:new THREE.Color(LUCE,LUCE,LUCE)}));
 banco.add(logMesh);
 let fps=0, oraVR='';
 function scriviOrologioVR(testo){ oraVR=testo; logSporco=true; }

@@ -190,9 +190,11 @@ In tutto 720 stelle e 657 lati di figura.
   curvo, a portata di mani come una tastiera sul tavolo, inclinato verso chi guarda come un tavolo da
   disegno. La superficie è un pezzo di cono attorno all'osservatore, perciò ogni tasto guarda dritto
   verso di lui. La **forma è il disegno dell'autore** (la consolle «4A»): un ferro di cavallo color
-  avorio, largo 73 cm e profondo 50, con la torre di luogo e tempo in fondo, le ali dei cerchi ai lati
-  e le due gambe che vengono verso chi guarda; ogni famiglia ha il suo colore di cornice, e il tasto
-  acceso si riempie di quel colore. Il raggio preme solo **dentro** la forma di un tasto (cerchio,
+  avorio, largo un metro e profondo 69 cm, con la torre di luogo e tempo in fondo, le ali dei cerchi
+  ai lati e le due gambe che vengono verso chi guarda; ogni famiglia ha il suo colore di cornice, e il
+  tasto acceso si riempie di quel colore. È un **tavolo all'altezza della vita** (58 cm sotto gli
+  occhi, inclinato di appena 25°) che **avvolge** chi guarda per circa 140°, e ha una **luce tenue**
+  (il 45% dei colori del disegno), per non abbagliare sul cielo notturno. Il raggio preme solo **dentro** la forma di un tasto (cerchio,
   esagono, trapezio), non nel riquadro che la contiene. Nel vano fra le gambe sta, per ora, il quadro
   con l'ora e il diario di bordo. Si gira **solo di traverso**, quanto ti sei girato tu: un tavolo
   resta un tavolo, e non si corica quando alzi la testa. Il **tasto B** del controller destro lo manda
