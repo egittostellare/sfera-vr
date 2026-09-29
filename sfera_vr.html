@@ -1856,47 +1856,65 @@ const INTERATTIVI=[];
 // e' un pezzo di cono attorno all'osservatore, percio' ogni tasto sta alla stessa distanza e guarda
 // dritto verso di lui. Col **tasto B** compare e sparisce, e si mette sempre nella direzione in cui
 // si guarda — solo di traverso: un tavolo resta un tavolo, e non si corica quando si alza la testa.
-// LA FORMA E' IL DISEGNO DELL'AUTORE («Consolle Sfera 4A»): un ferro di cavallo largo, con la torre
-// di luogo e tempo in fondo, le due ali dei cerchi e le due gambe che vengono verso chi guarda.
-// Il disegno e' in unita' sue (1460 × 990): qui ogni unita' e' 0,7 mm, percio' il banco e' largo
-// 1,02 m e profondo 69 cm. Forme e posizioni sono ricalcate dal disegno.
-// Tutto si DISEGNA IN PIANO (x di traverso, y in profondita') e poi si posa sul banco.
-// 29 settembre, seconda prova, su richiesta dell'autore: il banco e' un TAVOLO all'altezza della
-// vita, piu' piatto, che AVVOLGE (circa 140° attorno a chi guarda) e piu' TENUE — la luce al 45%.
-const U=0.0007;                              // metri per unita' del disegno
+// I tasti hanno le forme e i colori del disegno dell'autore («Consolle Sfera 4A»).
+// 29 settembre, terza prova, su richiesta dell'autore: il banco e' un ANELLO attorno a chi guarda —
+// un tavolo alla vita largo 184°, da 34 a 62 cm dagli occhi, appena inclinato verso di lui, e sul
+// DAVANTI una conca moderata: il bordo lontano di fronte si alza di qualche centimetro. La luce e'
+// al 45%. I tasti sono ridisposti a gruppi attorno a chi guarda (l'autore ha lasciato mano libera):
+// davanti luogo, tempo, moto diurno e l'orizzonte; a sinistra i cerchi dell'equatore e la vista;
+// a destra i cerchi dell'eclittica, i pianeti e gli angoli.
+// Tutto si DISEGNA IN PIANO — x lungo l'anello (l'arco al raggio medio), y dal bordo vicino al
+// lontano — e poi si posa sull'anello.
+const U=0.0006;                              // metri per unita' del disegno dei tasti
 const LUCE=0.45;                             // quanta luce ha il banco rispetto ai colori del disegno
+const R_IN=0.34, R_OUT=0.62, R_MID=(R_IN+R_OUT)/2;   // i due bordi dell'anello, in orizzontale dagli occhi
+const GIRO_BANCO=184;                        // gradi, da un capo all'altro dell'anello
+const CONS_Y0=-0.58;                         // il bordo vicino: 58 cm sotto gli occhi (in piedi, la vita)
+const INCL=10*DEG;                           // quanto il tavolo sale allontanandosi
+const CONCA=0.08;                            // quanto sale in piu', di fronte, il bordo lontano
+const CR_W=GIRO_BANCO*DEG*R_MID, CR_H=R_OUT-R_IN, CX_CORPO=0, LARG_T=CR_W;
+const CONS_R0=R_MID;                         // per l'ala degli elementi: gli angoli si contano qui
 const DW=1460, DH=990;
-const CR_W=DW*U, CR_H=DH*U, CX_CORPO=0, LARG_T=CR_W;
-const dX=xd=>(xd-DW/2)*U, dY=yd=>(DH/2-yd)*U;   // dal disegno al banco (y del disegno scende verso chi guarda)
-const PPU_C=1.6, PPU_K=2.6;                  // pixel per unita': il corpo e i tasti
+const dX=xd=>(xd-DW/2)*U, dY=yd=>(DH/2-yd)*U;   // (resta per il quadro, che per ora non si monta)
+const PPU_K=2.6, PPM_C=1500;                 // pixel per unita' dei tasti, pixel per metro del corpo
 const PPM=1600, PPM_K=3000;                  // pixel per metro: l'ala degli elementi, che e' rimasta com'era
 const btnMeshes=[];                          // i tasti dell'ala
 const vrPanel=new THREE.Group(); scene.add(vrPanel);
-const banco=new THREE.Group(); vrPanel.add(banco);   // dentro: tutto il disegno, posato sul cono
-// il bordo vicino del banco: 58 cm sotto gli occhi (in piedi e' la vita), a 42 cm di distanza, e
-// inclinato di soli 25°, come un tavolo da disegno appena sollevato. Il raggio vicino corto fa si'
-// che le gambe del banco vengano ai fianchi: da un capo all'altro il banco gira di circa 140°.
-const CONS_R0=0.42, CONS_Y0=-0.58, CONS_TAU=25*DEG;
-const _bX=new THREE.Vector3(), _bY=new THREE.Vector3(), _bZ=new THREE.Vector3(), _bM=new THREE.Matrix4();
+const banco=new THREE.Group(); vrPanel.add(banco);   // dentro: tutto il disegno, posato sull'anello
+// l'altezza del tavolo, a un raggio e a un azimut (0 = davanti)
+function altezzaAnello(a,r){
+  const t=Math.max(0,Math.min(1,(r-R_IN)/CR_H)), c=Math.max(0,Math.cos(a));
+  return CONS_Y0+(r-R_IN)*Math.tan(INCL)+CONCA*t*t*c*c;
+}
+// la normale del tavolo in quel punto (dalle derivate dell'altezza)
+const _nA=new THREE.Vector3();
+function normaleAnello(a,r,out){
+  const e=1e-3, dr=(altezzaAnello(a,r+e)-altezzaAnello(a,r-e))/(2*e),
+        da=(altezzaAnello(a+e,r)-altezzaAnello(a-e,r))/(2*e)/r;
+  const sa=Math.sin(a), ca=Math.cos(a);
+  // e_r = (sin a, 0, -cos a), e_a = (cos a, 0, sin a)
+  out=out||new THREE.Vector3();
+  return out.set(-dr*sa-da*ca, 1, dr*ca-da*sa).normalize();
+}
 function puntoBanco(x,y,fuori,out){
-  const d=y+CR_H/2, th=x/CONS_R0, st=Math.sin(CONS_TAU), ct=Math.cos(CONS_TAU);
-  const rag=CONS_R0+d*ct, alt=CONS_Y0+d*st, sth=Math.sin(th), cth=Math.cos(th);
-  out=out||new THREE.Vector3(); out.set(rag*sth,alt,-rag*cth);
-  if(fuori) out.set(out.x-sth*st*fuori, out.y+ct*fuori, out.z+cth*st*fuori);
+  const a=x/R_MID, r=R_IN+y+CR_H/2;
+  out=out||new THREE.Vector3(); out.set(r*Math.sin(a),altezzaAnello(a,r),-r*Math.cos(a));
+  if(fuori){ normaleAnello(a,r,_nA); out.addScaledVector(_nA,fuori); }
   return out;
 }
+const _bX=new THREE.Vector3(), _bY=new THREE.Vector3(), _bZ=new THREE.Vector3(), _bM=new THREE.Matrix4();
 // posa un pezzo piatto sul banco: dove va, e rivolto come la superficie in quel punto
 function posaBanco(o,x,y,fuori){
   puntoBanco(x,y,fuori,o.position);
-  const th=x/CONS_R0, st=Math.sin(CONS_TAU), ct=Math.cos(CONS_TAU);
-  _bX.set(Math.cos(th),0,Math.sin(th));
-  _bZ.set(-Math.sin(th)*st,ct,Math.cos(th)*st);
+  const a=x/R_MID, r=R_IN+y+CR_H/2;
+  normaleAnello(a,r,_bZ);
+  _bX.set(Math.cos(a),0,Math.sin(a)); _bX.addScaledVector(_bZ,-_bX.dot(_bZ)).normalize();
   _bY.crossVectors(_bZ,_bX);
   o.quaternion.setFromRotationMatrix(_bM.makeBasis(_bX,_bY,_bZ));
 }
-// i pezzi vanno PIEGATI sul cono: piatti, i larghi bucherebbero il banco da parte a parte
+// i pezzi vanno PIEGATI sull'anello: piatti, i larghi bucherebbero il banco da parte a parte
 function pianoPiegato(w,h,cx,cy,fuori,mat){
-  const g=new THREE.PlaneGeometry(w,h,Math.max(8,Math.round(w*60)),4);
+  const g=new THREE.PlaneGeometry(w,h,Math.max(8,Math.round(w*60)),Math.max(4,Math.round(h*40)));
   const p=g.attributes.position, v=new THREE.Vector3();
   for(let i=0;i<p.count;i++){ puntoBanco(cx+p.getX(i),cy+p.getY(i),fuori,v); p.setXYZ(i,v.x,v.y,v.z); }
   p.needsUpdate=true; g.computeVertexNormals(); g.computeBoundingSphere();
@@ -1934,51 +1952,59 @@ const PAL_C={oriz:['#8B5A2B','#7A4E24'], merid:['#2E7D46','#26683A'], pvert:['#D
   ds:['#8B3A1F','#7D331A'], ic:['#2B4A8B','#24407A']};
 const CORPO_PATH='M38,290 L445,102 L527,22 L933,22 L1015,102 L1422,290 L1422,830 L1072,940 L1018,454 L442,454 L388,940 L38,830 Z';
 
-// ---- i tasti: dove stanno nel disegno, che forma hanno, che cosa fanno ----
-// k = la funzione (lo stato o l'azione di sempre). f = la forma: rett, trap (col suo sbieco sk),
-// hex, oct, diamond, cerchio, pallino, moto, freccia.
+// ---- i tasti: dove stanno sull'anello, che forma hanno, che cosa fanno ----
+// pa = l'azimut del centro del tasto, in gradi (0 davanti, negativo a sinistra); pr = la sua
+// distanza dagli occhi in orizzontale, in metri. w, h = la misura in unita' del disegno (0,6 mm).
+// k = la funzione (lo stato o l'azione di sempre). f = la forma: rett, hex, oct, diamond, cerchio,
+// pallino, moto, freccia. (I trapezi del disegno servivano a fare il ventaglio su un banco piatto:
+// sull'anello il ventaglio c'e' davvero, e sono tornati rettangoli.)
 const CONSOLLE=[
-  {id:'milano',   k:'luogo',     f:'rett',  x:580, y:38,  w:300, h:52, big:true},
-  {id:'tempo',    k:'tempo',     f:'rett',  x:493, y:112, w:474, h:50, t:'tempo'},
-  {id:'moto',                    f:'moto',  x:523, y:176, w:414, h:56, t:'moto diurno'},
-  {id:'motoL',                   f:'freccia', x:531, y:182, w:44, h:44, t:'‹'},
-  {id:'motoR',                   f:'freccia', x:885, y:182, w:44, h:44, t:'›'},
-  {id:'cost',                    f:'hex',   x:398, y:140, w:88,  h:80, icona:'Const'},
-  {id:'lin',      k:'linee',     f:'hex',   x:398, y:236, w:88,  h:80, icona:'Lines'},
-  {id:'sBig',     k:'stelle',    f:'hex',   x:974, y:140, w:88,  h:80, icona:'StarBig'},
-  {id:'sSmall',   k:'costellazioni', f:'hex', x:974, y:236, w:88, h:80, icona:'StarSmall'},
-  {id:'equatore', k:'equator',   f:'trap', sk:{y:-6}, x:96,  y:288, w:236, h:78, col:'equat', t:'equatore'},
-  {id:'grEq',     k:'grigliaEq', f:'cerchio', cx:362, cy:326, r:32, col:'equat', icona:'Grid'},
-  {id:'eclittica',k:'ecliptic',  f:'trap', sk:{y:6},  x:1128, y:288, w:236, h:78, col:'eclit', t:'eclittica'},
-  {id:'grEc',     k:'grigliaEcl',f:'cerchio', cx:1098, cy:326, r:32, col:'eclit', icona:'Grid'},
-  {id:'oriz',     k:'frame',     f:'cerchio', cx:563, cy:298, r:52, col:'oriz', t:'oriz', oriz:true},
-  {id:'dFull',                   f:'pallino', cx:503, cy:378, r:19, col:'oriz', icona:'Full'},
-  {id:'dRefl',                   f:'pallino', cx:563, cy:384, r:19, col:'oriz', icona:'Refl'},
-  {id:'dTrans',                  f:'pallino', cx:623, cy:378, r:19, col:'oriz', icona:'Trans'},
-  {id:'azimut',   k:'azimut',    f:'cerchio', cx:730, cy:298, r:62, t:'Azimut'},
-  {id:'alt',      k:'alt',       f:'cerchio', cx:897, cy:298, r:52, t:'Alt'},
-  {id:'grAz',     k:'grigliaAz', f:'cerchio', cx:730, cy:404, r:32, icona:'Grid'},
-  {id:'archivio', k:'temi',      f:'rett',  x:452, y:406, w:188, h:42, t:'archivio'},
-  {id:'nuovo',    k:'nuovo',     f:'rett',  x:820, y:406, w:188, h:42, t:'nuovo tema'},
-  {id:'meridiano',k:'meridiano', f:'trap', sk:{x:-14}, x:70,   y:382, w:332, h:72, col:'merid', t:'meridiano'},
-  {id:'zodiaco',  k:'zodiaco',   f:'trap', sk:{x:14},  x:1058, y:382, w:332, h:72, col:'zod', t:'zodiaco'},
-  {id:'pvert',    k:'primovert', f:'trap', sk:{x:-10}, x:70,   y:476, w:318, h:56, col:'pvert', t:'p. verticale'},
-  {id:'latit',    k:'latitudini',f:'trap', sk:{x:10},  x:1072, y:476, w:196, h:56, col:'lat', t:'latitudini'},
-  {id:'visL',     k:'vis',       f:'trap', sk:{x:10},  x:1282, y:476, w:108, h:56, col:'lat', t:'vis L'},
-  {id:'axis',     k:'axis',      f:'trap', sk:{x:8},   x:70,   y:556, w:310, h:76, t:'axis mundi'},
-  {id:'pianeti',  k:'pianeti',   f:'trap', sk:{x:-8},  x:1080, y:556, w:230, h:76, t:'pianeti'},
-  {id:'wheel',    k:'elementi',  f:'cerchio', cx:1354, cy:594, r:34, icona:'Wheel'},
-  {id:'onda',     k:'onda',      f:'trap', sk:{y:6},   x:70,   y:654, w:112, h:76, t:'onda'},
-  {id:'quota',    k:'quota',     f:'trap', sk:{y:4},   x:198,  y:660, w:168, h:88, t:'quota'},
-  {id:'occhi',    k:'altezza',   f:'trap', sk:{y:6},   x:70,   y:746, w:112, h:76, t:'occhi'},
-  {id:'zoom',     k:'zoom',      f:'trap', sk:{y:8},   x:198,  y:766, w:168, h:90, t:'zoom'},
-  {id:'asc',      k:'p-asc',     f:'hex',     x:1104, y:658, w:96, h:86, col:'asc', t:'asc'},
-  {id:'mc',       k:'p-mc',      f:'oct',     x:1258, y:654, w:84, h:84, col:'mc',  t:'mc'},
-  {id:'ds',       k:'p-ds',      f:'diamond', x:1106, y:768, w:90, h:90, col:'ds',  t:'ds'},
-  {id:'ic',       k:'p-ic',      f:'rett',    x:1266, y:776, w:68, h:72, col:'ic',  t:'ic'},
+  // DAVANTI: il luogo e il tempo, il moto diurno, l'orizzonte; ai lati le stelle
+  {id:'milano',   k:'luogo',     f:'rett',  pa:0,   pr:0.585, w:300, h:52, big:true},
+  {id:'archivio', k:'temi',      f:'rett',  pa:-21, pr:0.585, w:188, h:42, t:'archivio'},
+  {id:'nuovo',    k:'nuovo',     f:'rett',  pa:21,  pr:0.585, w:188, h:42, t:'nuovo tema'},
+  {id:'tempo',    k:'tempo',     f:'rett',  pa:0,   pr:0.525, w:380, h:50, t:'tempo'},
+  {id:'moto',                    f:'moto',  pa:0,   pr:0.465, w:380, h:56, t:'moto diurno'},
+  {id:'motoL',                   f:'freccia', pa:-160, pr:0.465, w:44, h:44, t:'‹', motoDx:-160},
+  {id:'motoR',                   f:'freccia', pa:160,  pr:0.465, w:44, h:44, t:'›', motoDx:160},
+  {id:'cost',                    f:'hex',   pa:-23, pr:0.52,  w:88, h:80, icona:'Const'},
+  {id:'lin',      k:'linee',     f:'hex',   pa:-23, pr:0.455, w:88, h:80, icona:'Lines'},
+  {id:'sBig',     k:'stelle',    f:'hex',   pa:23,  pr:0.52,  w:88, h:80, icona:'StarBig'},
+  {id:'sSmall',   k:'costellazioni', f:'hex', pa:23, pr:0.455, w:88, h:80, icona:'StarSmall'},
+  {id:'oriz',     k:'frame',     f:'cerchio', pa:-12, pr:0.395, d:104, col:'oriz', t:'oriz', oriz:true},
+  {id:'azimut',   k:'azimut',    f:'cerchio', pa:0,   pr:0.40,  d:124, t:'Azimut'},
+  {id:'alt',      k:'alt',       f:'cerchio', pa:12,  pr:0.395, d:104, t:'Alt'},
+  {id:'dFull',                   f:'pallino', pa:-28.5, pr:0.40, d:38, col:'oriz', icona:'Full'},
+  {id:'dRefl',                   f:'pallino', pa:-24.5, pr:0.40, d:38, col:'oriz', icona:'Refl'},
+  {id:'dTrans',                  f:'pallino', pa:-20.5, pr:0.40, d:38, col:'oriz', icona:'Trans'},
+  {id:'grAz',     k:'grigliaAz', f:'cerchio', pa:21,  pr:0.40,  d:64, icona:'Grid'},
+  // A SINISTRA: i cerchi dell'equatore e del luogo, poi la vista
+  {id:'equatore', k:'equator',   f:'rett', pa:-41, pr:0.585, w:236, h:70, col:'equat', t:'equatore'},
+  {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-55, pr:0.585, d:64, col:'equat', icona:'Grid'},
+  {id:'meridiano',k:'meridiano', f:'rett', pa:-45, pr:0.525, w:332, h:70, col:'merid', t:'meridiano'},
+  {id:'pvert',    k:'primovert', f:'rett', pa:-46, pr:0.465, w:318, h:58, col:'pvert', t:'p. verticale'},
+  {id:'axis',     k:'axis',      f:'rett', pa:-47, pr:0.405, w:310, h:70, t:'axis mundi'},
+  {id:'onda',     k:'onda',      f:'rett', pa:-69, pr:0.565, w:112, h:76, t:'onda'},
+  {id:'quota',    k:'quota',     f:'rett', pa:-81, pr:0.565, w:168, h:80, t:'quota'},
+  {id:'occhi',    k:'altezza',   f:'rett', pa:-69, pr:0.47,  w:112, h:76, t:'occhi'},
+  {id:'zoom',     k:'zoom',      f:'rett', pa:-81, pr:0.47,  w:168, h:80, t:'zoom'},
+  // A DESTRA: i cerchi dell'eclittica, i pianeti, poi gli angoli
+  {id:'eclittica',k:'ecliptic',  f:'rett', pa:41,  pr:0.585, w:236, h:70, col:'eclit', t:'eclittica'},
+  {id:'grEc',     k:'grigliaEcl',f:'cerchio', pa:55, pr:0.585, d:64, col:'eclit', icona:'Grid'},
+  {id:'zodiaco',  k:'zodiaco',   f:'rett', pa:45,  pr:0.525, w:332, h:70, col:'zod', t:'zodiaco'},
+  {id:'latit',    k:'latitudini',f:'rett', pa:41,  pr:0.465, w:196, h:58, col:'lat', t:'latitudini'},
+  {id:'visL',     k:'vis',       f:'rett', pa:55,  pr:0.465, w:108, h:58, col:'lat', t:'vis L'},
+  {id:'pianeti',  k:'pianeti',   f:'rett', pa:44,  pr:0.405, w:230, h:70, t:'pianeti'},
+  {id:'wheel',    k:'elementi',  f:'cerchio', pa:58, pr:0.405, d:68, icona:'Wheel'},
+  {id:'asc',      k:'p-asc',     f:'hex',     pa:69, pr:0.565, w:96, h:86, col:'asc', t:'asc'},
+  {id:'mc',       k:'p-mc',      f:'oct',     pa:80, pr:0.565, w:84, h:84, col:'mc',  t:'mc'},
+  {id:'ds',       k:'p-ds',      f:'diamond', pa:69, pr:0.47,  w:90, h:90, col:'ds',  t:'ds'},
+  {id:'ic',       k:'p-ic',      f:'rett',    pa:80, pr:0.47,  w:68, h:72, col:'ic',  t:'ic'},
 ];
 CONSOLLE.forEach(s=>{
-  if(s.r){ s.x=s.cx-s.r; s.y=s.cy-s.r; s.w=s.h=2*s.r; }
+  if(s.d){ s.w=s.h=s.d; }
+  // le frecce stanno sulla capsula del moto diurno: il loro scarto e' in unita' lungo l'arco
+  if(s.motoDx!==undefined) s.pa=s.motoDx*U/s.pr/DEG;
   // da quali stati dipende il suo aspetto: cambiando quelli, il tasto si ridipinge
   s.dip={cost:['costellazioni','linee'], motoL:['spin'], motoR:['spin'], dFull:['orizReale'],
          dRefl:['orizReale'], dTrans:['orizReale']}[s.id]||[s.k];
@@ -2139,19 +2165,19 @@ function disegnaAlone(s){
   const tx=new THREE.CanvasTexture(c); tx.anisotropy=4; return tx;
 }
 
-// il corpo: la sagoma del banco con la sua cornice
+// il corpo: la fascia dell'anello, coi due capi arrotondati e la sua cornice
 const corpoCv=document.createElement('canvas');
-corpoCv.width=Math.round(DW*PPU_C); corpoCv.height=Math.round(DH*PPU_C);
+corpoCv.width=Math.round(CR_W*PPM_C); corpoCv.height=Math.round(CR_H*PPM_C);
 const corpoTex=new THREE.CanvasTexture(corpoCv); corpoTex.anisotropy=4;
 function disegnaCorpo(){
-  const x=corpoCv.getContext('2d');
-  x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,corpoCv.width,corpoCv.height);
-  x.scale(PPU_C,PPU_C); x.lineJoin='round';
-  const p=new Path2D(CORPO_PATH);
-  x.fillStyle=x.strokeStyle=TEMA.cornice; x.lineWidth=46; x.fill(p); x.stroke(p);
-  x.fillStyle=x.strokeStyle=TEMA.corpo;   x.lineWidth=42; x.fill(p); x.stroke(p);
-  x.strokeStyle=TEMA.cornice; x.lineWidth=1.5;
-  x.beginPath(); x.moveTo(462,102); x.lineTo(998,102); x.stroke();
+  const x=corpoCv.getContext('2d'), W=corpoCv.width, H=corpoCv.height, px=m=>m*PPM_C;
+  x.clearRect(0,0,W,H);
+  x.fillStyle=TEMA.cornice; roundRect(x,0,0,W,H,px(0.035)); x.fill();
+  x.fillStyle=TEMA.corpo;   roundRect(x,px(0.003),px(0.003),W-px(0.006),H-px(0.006),px(0.032)); x.fill();
+  // un filo che separa il gruppo di fronte dalle due ali (a ±30°)
+  x.strokeStyle=TEMA.cornice; x.lineWidth=px(0.0015);
+  [-30,30].forEach(g=>{ const u=W/2+px(g*DEG*R_MID);
+    x.beginPath(); x.moveTo(u,px(0.02)); x.lineTo(u,H-px(0.02)); x.stroke(); });
   corpoTex.needsUpdate=true;
 }
 disegnaCorpo();
@@ -2162,7 +2188,10 @@ banco.add(corpo);
 const TASTI=[];                 // {s, m}: da ridipingere quando cambia uno stato da cui dipendono
 const _prova=document.createElement('canvas').getContext('2d');
 CONSOLLE.forEach(s=>{
-  const wb=(s.w+2*MRG)*U, hb=(s.h+2*MRG)*U, cx=dX(s.x+s.w/2), cy=dY(s.y+s.h/2);
+  // sull'anello: il centro va all'azimut e alla distanza del tasto; la larghezza «in piano» va
+  // corretta perche' sul tavolo, a quella distanza, il tasto abbia la sua misura vera
+  const cx=s.pa*DEG*R_MID, cy=s.pr-R_IN-CR_H/2;
+  const wb=(s.w+2*MRG)*U*R_MID/s.pr, hb=(s.h+2*MRG)*U;
   const fuori=s.f==='freccia'?0.007:0.004;   // le frecce stanno sopra la loro capsula
   // alphaTest: il margine trasparente attorno al tasto non deve scrivere la profondita', se no
   // buca il corpo del banco e ci si vede il cielo attraverso
@@ -2336,7 +2365,9 @@ ALETTA.forEach((riga,i)=>riga.t.forEach((k,j)=>{
 }));
 // aprendo l'ala tutto l'assieme si sposta, per restare centrato su chi guarda
 let alettaAperta=false;
-const AL_SPOSTA=((-LARG_T/2)+(AL_X0+AL_W))/2/CONS_R0;
+// l'ala sta oltre il capo destro dell'anello: aprendola, l'anello gira quanto basta perche' il
+// centro dell'ala venga a 70° sulla destra, dove lo si vede girando appena la testa
+const AL_SPOSTA=(AL_X0+AL_W/2)/R_MID-70*DEG;
 function apriAletta(on){
   alettaAperta=!!on; aletta.visible=alettaAperta;
   banco.rotation.y=alettaAperta?AL_SPOSTA:0;
@@ -2385,7 +2416,9 @@ logCv.width=Math.round(QU_W*QU_PPM); logCv.height=Math.round(QUADRO_H*QU_PPM);
 const logTex=new THREE.CanvasTexture(logCv); logTex.anisotropy=4;
 const logMesh=pianoPiegato(QU_W,QUADRO_H,dX(730),dY(565),0.003,
   new THREE.MeshBasicMaterial({map:logTex,transparent:true,color:new THREE.Color(LUCE,LUCE,LUCE)}));
-banco.add(logMesh);
+// TOLTO dal banco su richiesta dell'autore (29 settembre): si reinserira'. Resta pronto e
+// continua a scriversi, solo non si vede.
+// banco.add(logMesh);
 let fps=0, oraVR='';
 function scriviOrologioVR(testo){ oraVR=testo; logSporco=true; }
 function disegnaLog(){
