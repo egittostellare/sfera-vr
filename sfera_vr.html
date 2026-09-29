@@ -796,7 +796,7 @@ function tangenteSu(dir,su){
 }
 // Glifi dei pianeti e scritta del Sole stanno appena SOPRA il loro punto, secondo l'alto del mondo:
 // mentre la volta gira l'alto, visto dalla volta, cambia, e li si ricolloca a ogni fotogramma.
-const _qInv=new THREE.Quaternion(), _suV=new THREE.Vector3(), _dG=new THREE.Vector3();
+const _qInv=new THREE.Quaternion(), _suV=new THREE.Vector3(), _dG=new THREE.Vector3(), _rV=new THREE.Vector3();
 function aggiornaGlifi(){
   _qInv.copy(sky.quaternion).invert(); _suV.set(0,1,0).applyQuaternion(_qInv);
   for(const p of PIANETI){
@@ -809,6 +809,10 @@ function aggiornaGlifi(){
     if(!s.anello.visible) continue;
     _dG.copy(s.anello.position).normalize();
     s.sp.position.copy(s.anello.position).addScaledVector(tangenteSu(_dG,_suV),0.26);
+    // il glifo del tema sopra il suo pianeta vivo (all'istante di nascita coincidono) sembrava un
+    // glifo raddoppiato: finche' stanno a meno di un grado e mezzo resta solo l'anello
+    const vivo=s.en==='Sun'?SOLE.mesh:(PIANETI.find(p=>p.en===s.en)||{}).punto;
+    s.sp.visible=!(vivo && _dG.angleTo(_rV.copy(vivo.position).normalize())<1.5*DEG);
   }
 }
 // ====================== i globi: la faccia vera dei pianeti ======================
@@ -3659,13 +3663,33 @@ const _gA=new THREE.Vector3(), _mWI=new THREE.Matrix4();
 // dove sta la scritta e da dove sta l'occhio — non da come la testa si inclina o si piega — percio'
 // sulla volta resta ferma come dipinta. (Gli sprite di prima stavano paralleli allo schermo e
 // giravano e basculavano con la testa.)
-const _occhio=new THREE.Vector3();
+// VERSO LO ZENIT pero' «l'alto verso lo zenit» non ha piu' senso (una scritta appena oltre lo
+// zenit ha l'alto che punta verso chi guarda, e si legge capovolta). Li', sopra i 60° d'altezza,
+// l'alto della scritta scivola piano verso la direzione in cui si e' girati: guardando in su la
+// si legge dritta. Conta solo dove si e' girati (non come si inclina la testa), e lo si segue
+// con un piccolo ritardo, perche' non tremi.
+const _occhio=new THREE.Vector3(), _dS=new THREE.Vector3(), _suS=new THREE.Vector3();
+const _fW=new THREE.Vector3(), _uW=new THREE.Vector3(), _verso=new THREE.Vector3(0,0,1);
+const SIN60=Math.sin(60*DEG), SIN85=Math.sin(85*DEG);
 function scritteFerme(){
   const cam=renderer.xr.isPresenting?renderer.xr.getCamera(camera):camera;
   cam.getWorldPosition(_occhio);
+  // «dove si e' girati», in orizzontale: la testa guarda avanti, o in su (e allora conta l'alto
+  // dello schermo, che guardando allo zenit punta dalla parte opposta a dove si e' rivolti)
+  cam.getWorldDirection(_fW); _uW.set(0,1,0).transformDirection(cam.matrixWorld);
+  const hx=_uW.x-_fW.x, hz=_uW.z-_fW.z, hl=Math.hypot(hx,hz);
+  if(hl>1e-3){   // si segue l'ANGOLO, cosi' anche girandosi del tutto la scritta ruota, e non s'inceppa
+    const a0=Math.atan2(_verso.x,_verso.z);
+    let da=Math.atan2(hx,hz)-a0; da-=TAU*Math.round(da/TAU);
+    const a=a0+da*0.08; _verso.set(Math.sin(a),0,Math.cos(a));
+  }
   for(const s of SCRITTE){
     if(!s.visible||!s.parent) continue;
-    s.up.set(0,1,0); s.lookAt(_occhio);
+    s.getWorldPosition(_dS).sub(_occhio).normalize();
+    const t=Math.max(0,Math.min(1,(_dS.y-SIN60)/(SIN85-SIN60))), w=t*t*(3-2*t);
+    _suS.set(0,1,0).multiplyScalar(1-w).addScaledVector(_verso,w);
+    if(_suS.lengthSq()<1e-6) _suS.set(0,1,0);
+    s.up.copy(_suS.normalize()); s.lookAt(_occhio);
   }
 }
 function aggiornaAlt(){
