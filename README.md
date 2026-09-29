@@ -206,6 +206,16 @@ In tutto 720 stelle e 657 lati di figura.
   all'orizzonte anche inclinando la testa, come scritti sul cielo (prima giravano con la testa).
 - **Alt**: un cerchio verticale — per lo zenit e il nadir — che **segue lo sguardo**: sta sempre
   sull'azimut verso cui si guarda, e girando la testa gira con lei.
+- **Le mani**: senza controller il visore vede le mani; il pizzico è il grilletto, e sul banco i
+  tasti si premono anche **col dito**.
+- **I corpi** (prova): sopra il banco, tre oggetti di cristallo da prendere in mano, primo passo verso
+  una consolle fatta di cose e non di tasti. Il **globo dello zodiaco**, davanti, è il cielo in
+  piccolo visto da fuori: gira col cielo vero dentro l'anello verde dell'orizzonte, e toccato col dito
+  accende e spegne lo zodiaco. La **leva del moto diurno**, a sinistra: spinta via il cielo va avanti,
+  tirata indietro va all'indietro, più è inclinata più corre (quattro gradi), dritta si ferma. La
+  **manopola dell'ora**, a destra, è un quadrante di 24 ore (mezzogiorno lontano, mezzanotte vicino)
+  con la tacca sull'ora del luogo: presa col pizzico e girata porta il tempo, in senso orario avanti,
+  un giro intero è un giorno.
 - Interruttori per equatore, eclittica, orizzonte, asse, Sole, pianeti, stelle di Regulus,
   stelle delle costellazioni e **linee delle costellazioni**, ognuno per conto suo.
 

@@ -2603,10 +2603,12 @@ function makeController(i){
   ctl.addEventListener('squeezestart',()=>prendi(ctl));   // il tasto laterale: afferra il planetario
   ctl.addEventListener('squeezeend',()=>lascia(ctl));
   ctl.addEventListener('selectend',()=>{
+    lasciaCorpo(i);
     if(scPresa&&scPresa.ctl===ctl){ scPresa=null; vibra(ctl,0.3,25); diag('riquadro posato'); }
   });
   ctl.addEventListener('selectstart',()=>{
-    if(prendiScheda(ctl)) return;          // la cornice del riquadro, se il raggio la tocca
+    if(prendiCorpo(i)) return;             // la mano sta su un corpo (leva, manopola, globo)
+    if(prendiScheda(ctl)) return;         // la cornice del riquadro, se il raggio la tocca
     const hit=hitTest(ctl);
     if(hit){ vibra(ctl,0.6,45); hit.object.userData.fai(); return; }
     // fuori dal pannello: si seleziona quello che il raggio indica, o si toglie la selezione
@@ -2702,6 +2704,231 @@ function aggiornaMani(){
   }
 }
 const _occhio2=new THREE.Vector3();
+
+// ====================== I CORPI: la prima prova di una consolle fatta di cose da prendere ======================
+// Tre corpi di cristallo sospesi sopra il banco, per sentire in mano se toccare, afferrare e girare
+// funziona, prima di costruirci sopra una consolle intera:
+// - il GLOBO dello zodiaco, davanti: un piccolo cielo visto da fuori, che gira col cielo vero dentro
+//   un anello fermo (l'orizzonte), coi dodici segni colorati per elemento. Toccato col dito (o col
+//   grilletto del controller, standoci dentro) accende e spegne lo zodiaco;
+// - la LEVA del moto diurno, a sinistra: spinta via da se' il cielo va avanti, tirata verso di se' va
+//   indietro; piu' e' inclinata piu' corre (i quattro gradi di velocita'); dritta, il cielo sta
+//   fermo. Lasciata si posa sul grado piu' vicino, e se il moto cambia dai tasti la leva lo segue;
+// - la MANOPOLA dell'ora, a destra: un quadrante di 24 ore (mezzogiorno lontano da se', mezzanotte
+//   verso di se'), con la tacca luminosa sull'ora del luogo. Presa e girata attorno al suo asse porta
+//   il tempo: in senso orario avanti, e un giro intero e' un giorno.
+// Leva e manopola si prendono col PIZZICO (pollice e indice) o col grilletto, con la mano sul corpo.
+// Il cristallo e' finto: brilla sui bordi e si fa trasparente al centro, e costa quasi niente.
+const CRISTALLO_V=`varying vec3 vN; varying vec3 vV;
+void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0);
+  vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`;
+const CRISTALLO_F=`uniform vec3 uCol; uniform float uLuce; varying vec3 vN; varying vec3 vV;
+void main(){ float f=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.0);
+  gl_FragColor=vec4(uCol*(0.25+0.9*f)*uLuce, (0.10+0.55*f)*(0.6+0.4*uLuce)); }`;
+function cristallo(col){
+  return new THREE.ShaderMaterial({uniforms:{uCol:{value:new THREE.Color(col)}, uLuce:{value:0.55}},
+    vertexShader:CRISTALLO_V, fragmentShader:CRISTALLO_F, transparent:true, depthWrite:false});
+}
+const COL_CRISTALLO=0xd6ecff, LUCE_CORPO=0.55, LUCE_VICINO=0.85, LUCE_PRESO=1.0;
+const CORPI_G=new THREE.Group(); banco.add(CORPI_G);
+// un punto del banco: azimut (gradi, 0 davanti), distanza dagli occhi in orizzontale, e quanto sta
+// sopra il tavolo
+function posaCorpo(aGr,r,su){
+  const a=aGr*DEG; return new THREE.Vector3(r*Math.sin(a), altezzaAnello(a,r)+su, -r*Math.cos(a));
+}
+const CORPI=[];
+const _pl=new THREE.Vector3(), _pc=new THREE.Vector3(), _qB=new THREE.Quaternion(), _qS=new THREE.Quaternion();
+
+// ---- il globo dello zodiaco ----
+const RG=0.05;
+const GLOBO={nome:'globo', zona:RG+0.03, luce:LUCE_CORPO};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(0,0.40,0.245)); CORPI_G.add(casa);
+  GLOBO.casa=casa;
+  GLOBO.mat=cristallo(COL_CRISTALLO);
+  casa.add(new THREE.Mesh(new THREE.SphereGeometry(RG,40,24),GLOBO.mat));
+  const orizz=new THREE.Mesh(new THREE.TorusGeometry(RG*1.15,0.0015,6,72),
+    new THREE.MeshBasicMaterial({color:0x57d68f,transparent:true,opacity:.8}));
+  orizz.rotation.x=Math.PI/2; casa.add(orizz);
+  // dentro, il cielo in piccolo: gli assi sono quelli di `sky`, percio' basta dargli il suo verso
+  const cielo=new THREE.Group(); casa.add(cielo); GLOBO.cielo=cielo;
+  const EL=(window.CIELO&&window.CIELO.elementi)||['#FF2930','#1ED135','#FCC10B','#6699FF'];
+  for(let i=0;i<12;i++){
+    const p=[]; for(let k=0;k<=12;k++) p.push(eclV((30*i+k*2.5)*DEG).multiplyScalar(RG*0.985));
+    const arco=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(p),12,0.0024,5,false),
+      new THREE.MeshBasicMaterial({color:new THREE.Color(EL[i%4]).multiplyScalar(0.85)}));
+    cielo.add(arco);
+  }
+  const gamma=new THREE.Mesh(new THREE.SphereGeometry(0.0045,10,8),new THREE.MeshBasicMaterial({color:0xffffff}));
+  gamma.position.copy(eclV(0).multiplyScalar(RG*0.985)); cielo.add(gamma);   // il punto gamma: dove comincia l'Ariete
+}
+GLOBO.centro=out=>GLOBO.casa.getWorldPosition(out);
+GLOBO.fai=()=>{ toggleBtn(BUTTONS.find(x=>x.k==='zodiaco'));
+  diag(stato.zodiaco?'zodiaco acceso (dal globo)':'zodiaco spento (dal globo)'); };
+// col pizzico il globo non fa nulla (lo fa il dito, e insieme scatterebbe due volte); col controller
+// il grilletto dentro il globo lo preme
+GLOBO.prendi=(p,mano)=>{ if(!mano) GLOBO.fai(); return false; };
+GLOBO.aggiorna=()=>{
+  banco.getWorldQuaternion(_qB).invert(); sky.getWorldQuaternion(_qS);
+  GLOBO.cielo.quaternion.copy(_qB).multiply(_qS);
+  if(stato.zodiaco) GLOBO.luce=Math.max(GLOBO.luce,0.75);
+};
+CORPI.push(GLOBO);
+
+// ---- la leva del moto diurno ----
+const LEVA_MAX=35*DEG, LEVA_FERMA=6, LEVA_PASSO=7, LEVA_BRACCIO=0.075;   // gradi: fermo sotto i 6, poi un grado di velocita' ogni 7
+const LEVA={nome:'leva', zona:0.045, luce:LUCE_CORPO, incl:0, presa:false};
+{
+  const perno=new THREE.Group(); perno.position.copy(posaCorpo(-30,0.40,0.15));
+  perno.rotation.y=30*DEG;          // il suo -z guarda via da chi sta al centro
+  CORPI_G.add(perno); LEVA.perno=perno;
+  LEVA.mat=cristallo(COL_CRISTALLO);
+  const slitta=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.008,0.11),LEVA.mat); slitta.position.y=-0.006; perno.add(slitta);
+  // le tacche dei gradi, sulla slitta: una per verso e per grado, e lo zero piu' chiaro
+  const tac=[];
+  for(let g=-LEVA_FERMA-4*LEVA_PASSO; g<=LEVA_FERMA+4*LEVA_PASSO; g+=1){
+    const m=Math.abs(g); if(g!==0&&(m<LEVA_FERMA||(m-LEVA_FERMA)%LEVA_PASSO)) continue;
+    const z=-Math.sin(g*DEG)*0.052;
+    tac.push(new THREE.Vector3(-0.016,-0.001,z),new THREE.Vector3(g===0?0.016:-0.008,-0.001,z));
+  }
+  perno.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(tac),
+    new THREE.LineBasicMaterial({color:0xcfe0ff,transparent:true,opacity:.7})));
+  const asta=new THREE.Group(); perno.add(asta); LEVA.asta=asta;
+  const bastone=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.005,LEVA_BRACCIO,10),LEVA.mat);
+  bastone.position.y=LEVA_BRACCIO/2; asta.add(bastone);
+  const pomo=new THREE.Mesh(new THREE.SphereGeometry(0.017,24,16),LEVA.mat); pomo.position.y=LEVA_BRACCIO; asta.add(pomo);
+  LEVA.pomo=pomo;
+}
+LEVA.centro=out=>LEVA.pomo.getWorldPosition(out);
+const inclDaPunto=p=>{ LEVA.perno.worldToLocal(_pl.copy(p)); return Math.atan2(-_pl.z,_pl.y); };
+LEVA.prendi=p=>{ LEVA.off=LEVA.incl-inclDaPunto(p); LEVA.presa=true; return true; };
+LEVA.trascina=p=>{
+  LEVA.incl=Math.max(-LEVA_MAX,Math.min(LEVA_MAX,inclDaPunto(p)+LEVA.off));
+  applicaLeva(LEVA.incl);
+};
+LEVA.lascia=()=>{ LEVA.presa=false; };
+// dove sta la leva quando nessuno la tiene: sul grado del moto di adesso
+const inclDelMoto=()=>stato.spin?dirMoto*(LEVA_FERMA+LEVA_PASSO*(livVel+0.5))*DEG:0;
+LEVA.aggiorna=dt=>{
+  if(!LEVA.presa) LEVA.incl+=(inclDelMoto()-LEVA.incl)*Math.min(1,dt*0.012);
+  LEVA.asta.rotation.x=-LEVA.incl;
+};
+function applicaLeva(t){
+  const g=Math.abs(t)/DEG;
+  if(g<LEVA_FERMA){
+    if(stato.spin){ imposta('spin',false); ridipingiTasti(['spin']); diag('moto diurno fermo (dalla leva)'); }
+    return;
+  }
+  const d=t>0?1:-1, l=Math.min(VELOCITA.length-1,Math.floor((g-LEVA_FERMA)/LEVA_PASSO));
+  if(stato.spin&&dirMoto===d&&livVel===l) return;
+  dirMoto=d; if(livVel!==l) impostaVelocita(l);
+  if(!stato.spin) imposta('spin',true);
+  ridipingiTasti(['spin']);
+  diag('moto diurno '+(d>0?'in avanti':'all’indietro')+', velocità '+(l+1)+': '+VELOCITA[l].d);
+}
+CORPI.push(LEVA);
+
+// ---- la manopola dell'ora ----
+const RM=0.032;
+const MANOPOLA={nome:'manopola', zona:0.06, luce:LUCE_CORPO};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(30,0.40,0.18));
+  casa.rotation.y=-30*DEG; CORPI_G.add(casa); MANOPOLA.casa=casa;
+  MANOPOLA.mat=cristallo(COL_CRISTALLO);
+  // il quadrante fermo: 24 tacche, piu' lunghe alle 0, 6, 12 e 18; il mezzogiorno lontano da se'
+  const tac=[];
+  for(let h=0;h<24;h++){
+    const f=(h-12)*15*DEG, r1=RM+0.004, r2=RM+(h%6===0?0.014:0.008);
+    tac.push(new THREE.Vector3(Math.sin(f)*r1,0,-Math.cos(f)*r1),new THREE.Vector3(Math.sin(f)*r2,0,-Math.cos(f)*r2));
+  }
+  casa.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(tac),
+    new THREE.LineBasicMaterial({color:0xcfe0ff,transparent:true,opacity:.7})));
+  const disco=new THREE.Group(); casa.add(disco); MANOPOLA.disco=disco;
+  const corpo=new THREE.Mesh(new THREE.CylinderGeometry(RM,RM,0.018,40),MANOPOLA.mat); corpo.position.y=0.009; disco.add(corpo);
+  const tacca=new THREE.Mesh(new THREE.BoxGeometry(0.004,0.003,RM*0.8),new THREE.MeshBasicMaterial({color:0xffe6a8}));
+  tacca.position.set(0,0.0195,-RM*0.5); disco.add(tacca);
+}
+const SU_MANOPOLA=new THREE.Vector3(0,0.009,0);   // il centro della presa: a meta' del disco
+MANOPOLA.centro=out=>MANOPOLA.casa.localToWorld(out.copy(SU_MANOPOLA));
+// l'ora del luogo (quella dell'orologio, col suo fuso): lo scarto dal tempo universale si ricalcola
+// solo ogni tanto, perche' Intl a ogni fotogramma costerebbe
+let _fusoT=NaN, _fusoMs=0, _fusoNome='';
+function oraDelLuogo(){
+  const t=istanteCielo().getTime();
+  if(!(Math.abs(t-_fusoT)<3*3600000)||_fusoNome!==LUOGO.fuso){
+    _fusoT=t; _fusoNome=LUOGO.fuso;
+    try{ _fusoMs=dataDaPezzi(pezziLocali(new Date(t),LUOGO.fuso)).getTime()-t; }catch(e){ _fusoMs=LUOGO.lng/15*3600000; }
+  }
+  const h=((t+_fusoMs)/3600000)%24; return h<0?h+24:h;
+}
+const angoloManopola=p=>{ MANOPOLA.casa.worldToLocal(_pl.copy(p)); return Math.hypot(_pl.x,_pl.z)<0.008?null:Math.atan2(_pl.x,-_pl.z); };
+MANOPOLA.prendi=p=>{ MANOPOLA.fi=angoloManopola(p); MANOPOLA.presa=true; return true; };
+MANOPOLA.trascina=p=>{
+  const f=angoloManopola(p); if(f==null) return;
+  if(MANOPOLA.fi==null){ MANOPOLA.fi=f; return; }
+  let d=f-MANOPOLA.fi; d-=TAU*Math.round(d/TAU); MANOPOLA.fi=f;
+  d=Math.max(-30*DEG,Math.min(30*DEG,d));      // un balzo della mano non e' un giro
+  spostaTempo(d/(15*DEG)*3600000);             // 15 gradi, un'ora
+};
+MANOPOLA.lascia=()=>{ MANOPOLA.presa=false; aggiornaIndirizzo(); diag('il cielo alle '+quandoTesto(istanteCielo(),true)); };
+MANOPOLA.aggiorna=()=>{ MANOPOLA.disco.rotation.y=-(oraDelLuogo()-12)*15*DEG; };
+CORPI.push(MANOPOLA);
+// portare il tempo di un tratto, come fa il moto diurno: la volta gira, i pianeti si ricollocano
+function spostaTempo(ms){
+  simMs+=ms; orientaCielo();
+  if(Math.abs(simMs-simPianeti)>=15*60000){ simPianeti=simMs; collocaPianeti(); }
+}
+inPrimoPiano(CORPI_G);
+
+// ---- prendere e lasciare ----
+// il punto della presa: fra pollice e indice, se si vedono le mani; se no il controller
+const PRESE=[null,null];
+function puntoPresa(i,out){
+  const M=MANI[i], j=M&&M.h.visible&&M.h.joints;
+  const a=j&&j['thumb-tip'], b=j&&j['index-finger-tip'];
+  if(a&&b&&a.visible!==false&&b.visible!==false){
+    a.getWorldPosition(out); return {p:out.add(b.getWorldPosition(_pc)).multiplyScalar(0.5), mano:true};
+  }
+  const c=[c0,c1][i];
+  if(c&&c.visible) return {p:c.getWorldPosition(out), mano:false};
+  return null;
+}
+function corpoVicino(p){
+  let meglio=null, dm=Infinity;
+  for(const c of CORPI){ const d=c.centro(_pc).distanceTo(p); if(d<c.zona&&d<dm){ dm=d; meglio=c; } }
+  return meglio;
+}
+const _pp=new THREE.Vector3();
+// il grilletto (o il pizzico): se la mano sta su un corpo, e' suo; e il raggio quella volta non preme
+function prendiCorpo(i){
+  if(!inVista(CORPI_G)) return false;
+  const q=puntoPresa(i,_pp); if(!q) return false;
+  const c=corpoVicino(q.p); if(!c) return false;
+  if(c.prendi(q.p,q.mano)) PRESE[i]=c;
+  vibra([c0,c1][i],0.4,25);
+  return true;
+}
+function lasciaCorpo(i){ const c=PRESE[i]; if(!c) return; PRESE[i]=null; if(c.lascia) c.lascia(); }
+function aggiornaCorpi(dt){
+  for(const c of CORPI) c.luce=LUCE_CORPO;
+  if(inVista(CORPI_G)){
+    for(let i=0;i<2;i++){
+      const q=puntoPresa(i,_pp);
+      if(PRESE[i]){ if(q) PRESE[i].trascina(q.p); PRESE[i].luce=LUCE_PRESO; continue; }
+      const c=q&&corpoVicino(q.p); if(c) c.luce=Math.max(c.luce,LUCE_VICINO);
+    }
+    // il dito dentro il globo lo preme; per ripremerlo deve uscirne di un paio di centimetri
+    for(const M of MANI){
+      const t=M.h.visible&&M.h.joints&&M.h.joints['index-finger-tip'];
+      if(!t||t.visible===false){ M.globoGiu=false; continue; }
+      const d=t.getWorldPosition(_pp).distanceTo(GLOBO.centro(_pc));
+      if(!M.globoGiu&&d<RG+0.004){ M.globoGiu=true; GLOBO.fai(); }
+      else if(M.globoGiu&&d>RG+0.025) M.globoGiu=false;
+      if(d<RG+0.03) GLOBO.luce=Math.max(GLOBO.luce,LUCE_VICINO);
+    }
+  }
+  for(const c of CORPI){ c.aggiorna(dt); c.mat.uniforms.uLuce.value=c.luce; }
+}
 
 // ====================== la dissolvenza ======================
 // Cambiando luogo la vista si oscura, il cielo si gira nel buio e poi si riaccende: un salto a occhi
@@ -3724,6 +3951,7 @@ renderer.setAnimationLoop((time,frame)=>{
       renderer.xr.getCamera(camera).getWorldPosition(_testa);
       indica(aggiornaRaggi());
       aggiornaMani();
+      aggiornaCorpi(dt);
       if(logSporco) disegnaLog();
     } else {
       updateOrbit();
