@@ -189,14 +189,14 @@ In tutto 720 stelle e 657 lati di figura.
 - **La consolle**: non è un pannello appeso davanti alla faccia ma un **banco** — basso, largo e
   curvo, a portata di mani come una tastiera sul tavolo, inclinato verso chi guarda come un tavolo da
   disegno. La superficie è un pezzo di cono attorno all'osservatore, perciò ogni tasto guarda dritto
-  verso di lui. La **forma è il disegno dell'autore** (la consolle «4A»): un ferro di cavallo color
-  avorio, largo un metro e profondo 69 cm, con la torre di luogo e tempo in fondo, le ali dei cerchi
-  ai lati e le due gambe che vengono verso chi guarda; ogni famiglia ha il suo colore di cornice, e il
-  tasto acceso si riempie di quel colore. È un **tavolo all'altezza della vita** (58 cm sotto gli
-  occhi, inclinato di appena 25°) che **avvolge** chi guarda per circa 140°, e ha una **luce tenue**
-  (il 45% dei colori del disegno), per non abbagliare sul cielo notturno. Il raggio preme solo **dentro** la forma di un tasto (cerchio,
-  esagono, trapezio), non nel riquadro che la contiene. Nel vano fra le gambe sta, per ora, il quadro
-  con l'ora e il diario di bordo. Si gira **solo di traverso**, quanto ti sei girato tu: un tavolo
+  verso di lui. È un **anello** color avorio **attorno a chi guarda**: un tavolo **all'altezza della
+  vita** (58 cm sotto gli occhi) largo 184°, da 34 a 62 cm dagli occhi, appena inclinato, che sul
+  davanti si alza un poco come il bordo di una ciotola. Davanti stanno luogo, tempo, moto diurno,
+  l'orizzonte e le stelle; a sinistra i cerchi dell'equatore e la vista; a destra l'eclittica, i
+  pianeti e gli angoli. I tasti hanno le forme e i colori del disegno dell'autore (la consolle
+  «4A»): ogni famiglia ha il suo colore di cornice, e il tasto acceso si riempie di quel colore. La
+  **luce è tenue** (il 45% dei colori), per non abbagliare sul cielo notturno. Il raggio preme solo
+  **dentro** la forma di un tasto (cerchio, esagono), non nel riquadro che la contiene. Si gira **solo di traverso**, quanto ti sei girato tu: un tavolo
   resta un tavolo, e non si corica quando alzi la testa. Il **tasto B** del controller destro lo manda
   via e lo richiama; il **tasto X** ricentra.
 - **Stelle e figure sul banco**: *stelle maggiori* sono le stelle di Regulus, *stelle minori* le
