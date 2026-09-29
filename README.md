@@ -116,7 +116,8 @@ In tutto 720 stelle e 657 lati di figura.
   sopra la testa). La lente invece **segue lo sguardo**: le proporzioni restano, l'orizzonte resta
   dritto, e la Polare resta dietro — per vederla ci si gira, e quando la si guarda è al suo posto.
   Il prezzo: girando la testa il cielo scorre un po' più piano di lei. Da 1× a 0,40×.
-- **I due modi della lente**, col tasto **«Lente»** del cruscotto — *normale* (come si parte: nessuna
+- **I due modi della lente** (*per ora sospesa*: la nuova consolle non ha il tasto, e la vista resta
+  normale) — *normale* (come si parte: nessuna
   lente, e la levetta in avanti non fa nulla) e *solo periferia*, dove il centro della vista (26°)
   resta **esatto e immobile** e si stringe solo l'anello esterno: quello che si fissa non si deforma
   mai, e ai bordi entra più cielo. È l'idea degli occhiali per la vista a cannocchiale, che mettono
@@ -149,8 +150,14 @@ In tutto 720 stelle e 657 lati di figura.
   lo zoom il mare si toglie: il cielo si deforma, il mare no.
 - **Cambiando luogo** la vista si oscura, il cielo si gira nel buio e poi si riaccende.
 - **Il moto diurno** è tempo che scorre, a quattro velocità: 1 ora di cielo al minuto, in 20 s,
-  in 7,5 s, in 3 s (da 0,25° a 5° al secondo). Sole e pianeti si ricollocano man mano.
-- **L'orizzonte reale**: quello che non è ancora sorto non si vede (orizzonte geometrico).
+  in 7,5 s, in 3 s (da 0,25° a 5° al secondo). Sole e pianeti si ricollocano man mano. Sul banco le
+  due frecce danno il **verso** — **‹ indietro**, **› avanti**; la stessa freccia ripremuta ferma il
+  cielo — e ogni pressione sulla scritta *moto diurno* passa alla **velocità** dopo, dalla quarta
+  tornando alla prima.
+- **L'orizzonte reale**: quello che non è ancora sorto non si vede (orizzonte geometrico). Sul banco
+  sono i tre pallini sotto *oriz*: **pieno** (il mare nasconde ciò che non è sorto), **trasparente**
+  (il mare è un vetro scuro, il cielo di sotto si vede) e **riflesso** (il mare che specchia le
+  stelle: ancora da fare).
 - **Puntare**: col raggio del controller (o col mouse) compare il nome della stella o del pianeta;
   col grilletto (o col clic) lo si seleziona, con un anello e la sua scheda. Nel visore il raggio
   arriva **fino alla volta** e ci posa un **mirino**, un cerchietto vuoto sempre largo un grado: col
@@ -179,14 +186,22 @@ In tutto 720 stelle e 657 lati di figura.
   di astronomy-engine — 0,06′ — che la geometria amplifica: 0,7′ sul nodo (l'inclinazione è 5°) e
   4,5′ sull'apogeo (l'eccentricità è 0,055). Sulla volta sono millimetri. *Chirone* c'è nell'elenco
   ma è spento, e il tasto dice perché: astronomy-engine non ha la sua effemeride.
-- **La consolle**: non è più un pannello appeso davanti alla faccia ma un **banco** — basso, largo e
+- **La consolle**: non è un pannello appeso davanti alla faccia ma un **banco** — basso, largo e
   curvo, a portata di mani come una tastiera sul tavolo, inclinato verso chi guarda come un tavolo da
-  disegno. La superficie è un pezzo di cono attorno all'osservatore, perciò ogni tasto sta alla stessa
-  distanza (70 cm) e guarda dritto verso di lui. In fondo il quadro con l'ora e il diario di bordo,
-  davanti le file dei tasti col nome della sezione a sinistra. Si gira **solo di traverso**, quanto ti
-  sei girato tu: un tavolo resta un tavolo, e non si corica quando alzi la testa. Il **tasto B** del
-  controller destro lo manda via e lo richiama.
-  (Misure e colori sono provvisori: la pulsantiera definitiva la disegna l'autore.)
+  disegno. La superficie è un pezzo di cono attorno all'osservatore, perciò ogni tasto guarda dritto
+  verso di lui. La **forma è il disegno dell'autore** (la consolle «4A»): un ferro di cavallo color
+  avorio, largo 73 cm e profondo 50, con la torre di luogo e tempo in fondo, le ali dei cerchi ai lati
+  e le due gambe che vengono verso chi guarda; ogni famiglia ha il suo colore di cornice, e il tasto
+  acceso si riempie di quel colore. Il raggio preme solo **dentro** la forma di un tasto (cerchio,
+  esagono, trapezio), non nel riquadro che la contiene. Nel vano fra le gambe sta, per ora, il quadro
+  con l'ora e il diario di bordo. Si gira **solo di traverso**, quanto ti sei girato tu: un tavolo
+  resta un tavolo, e non si corica quando alzi la testa. Il **tasto B** del controller destro lo manda
+  via e lo richiama; il **tasto X** ricentra.
+- **Stelle e figure sul banco**: *stelle maggiori* sono le stelle di Regulus, *stelle minori* le
+  altre stelle che formano le costellazioni, *linee* i lati delle figure; il tasto *costellazioni*
+  accende e spegne stelle minori e linee insieme.
+- **Alt**: un cerchio verticale — per lo zenit e il nadir — che **segue lo sguardo**: sta sempre
+  sull'azimut verso cui si guarda, e girando la testa gira con lei.
 - Interruttori per equatore, eclittica, orizzonte, asse, Sole, pianeti, stelle di Regulus,
   stelle delle costellazioni e **linee delle costellazioni**, ognuno per conto suo.
 
