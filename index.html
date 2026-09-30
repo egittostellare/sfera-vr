@@ -2617,6 +2617,9 @@ function makeController(i){
     if(scPresa&&scPresa.ctl===ctl){ scPresa=null; vibra(ctl,0.3,25); diag('riquadro posato'); }
   });
   ctl.addEventListener('selectstart',()=>{
+    // chiudendo il pugno pollice e indice si toccano, e il visore lo prende per un pizzico: con le
+    // altre dita piegate non e' un pizzico, e' il pugno che afferra il cielo
+    if(ctl.userData.src&&ctl.userData.src.hand&&ditaPiegate(i)) return;
     if(prendiCorpo(i)) return;             // la mano sta su un corpo (leva, manopola, globo)
     if(prendiScheda(ctl)) return;         // la cornice del riquadro, se il raggio la tocca
     const hit=hitTest(ctl);
@@ -2714,6 +2717,88 @@ function aggiornaMani(){
   }
 }
 const _occhio2=new THREE.Vector3();
+
+// ---- IL PUGNO DESTRO gira il planetario sull'azimut ----
+// Si chiude il pugno della mano destra e lo si porta a destra o a sinistra: il planetario lo segue,
+// come se si fosse afferrato il cielo (l'angolo di cui il pugno gira attorno a chi guarda e' l'angolo
+// di cui gira il cielo). Aprendo la mano resta dov'e'. E' lo stesso gesto del tasto laterale destro
+// del controller, ma senza raggio: il raggio di una mano trema, il pugno no.
+// Il pugno si riconosce dalle giunture: le punte di indice, medio, anulare e mignolo vicine alle
+// nocche. Per non tremare sul confine, si chiude sotto una distanza e si riapre sopra una piu' larga.
+const DITA4=['index','middle','ring','pinky'];
+const PUGNO_CHIUDE=0.050, PUGNO_APRE=0.070;   // metri fra la punta e la nocca di ogni dito
+function piegaDita(M){   // quante delle quattro dita sono piegate (e la distanza piu' larga), o null
+  const j=M.h.visible&&M.h.joints; if(!j) return null;
+  let peggio=0;
+  for(const d of DITA4){
+    const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
+    if(!t||!n||t.visible===false||n.visible===false) return null;
+    peggio=Math.max(peggio,t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2)));
+  }
+  return peggio;
+}
+// il pugno e' chiuso? (con l'isteresi: la mano che era chiusa resta chiusa fino a PUGNO_APRE)
+function manoChiusa(M){
+  const d=piegaDita(M); if(d==null) return false;
+  return M.pugno?d<PUGNO_APRE:d<PUGNO_CHIUDE;
+}
+// le tre dita lunghe piegate: un pizzico fatto a pugno non e' un pizzico, e non preme nulla
+function ditaPiegate(i){
+  const M=MANI[i]; if(!M) return false;
+  const j=M.h.visible&&M.h.joints; if(!j) return false;
+  for(const d of ['middle','ring','pinky']){
+    const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
+    if(!t||!n||t.visible===false) return false;
+    if(t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2))>PUGNO_APRE) return false;
+  }
+  return true;
+}
+const _pugnoP=new THREE.Vector3(), _testaP=new THREE.Vector3();
+const azimutPugno=(M,testa)=>{ M.h.joints['middle-finger-metacarpal'].getWorldPosition(_pugnoP).sub(testa);
+  return Math.hypot(_pugnoP.x,_pugnoP.z)<0.08?null:Math.atan2(_pugnoP.x,_pugnoP.z); };
+function aggiornaPugno(testa){
+  MANI.forEach((M,i)=>{
+    const c=[c0,c1][i], lato=c&&c.userData.src&&c.userData.src.handedness;
+    const chiusa=lato==='right'&&!PRESE[i]&&manoChiusa(M);
+    if(chiusa&&!M.pugno){
+      const a=azimutPugno(M,testa);
+      if(a==null) return;
+      M.pugno={psi0:a, yaw0:ORIENT.yaw};
+      if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xe3c169); c.userData.ray.material.opacity=.8; }
+    } else if(!chiusa&&M.pugno){
+      M.pugno=null;
+      if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xffffff); c.userData.ray.material.opacity=.4; }
+      diag('orientamento fissato (pugno)');
+    }
+    if(M.pugno){
+      const a=azimutPugno(M,testa); if(a==null) return;
+      let d=a-M.pugno.psi0; d-=TAU*Math.round(d/TAU);
+      ORIENT.yaw=M.pugno.yaw0+d; applicaOrientamento();
+    }
+  });
+}
+
+// ---- I RAGGI DELLE MANI, AMMORBIDITI ----
+// Il raggio di una mano esce dalla stima della sua posa, che trema di qualche decimo di grado: a
+// sei chilometri, sulla volta, e' un raggio ubriaco. Lo si ammorbidisce con un filtro che si adatta
+// alla velocita' (il «filtro 1€»): quando la mano e' quasi ferma il raggio si calma molto (e si mira),
+// quando la mano si muove davvero segue subito (e non resta indietro). I controller non ne hanno
+// bisogno e restano come sono.
+const RAGGIO_CALMO=0.08, RAGGIO_SVELTO=6;   // quanto segue da fermo (per fotogramma), e quanto cresce con la velocita' (rad/s)
+const _mP=new THREE.Vector3(), _mQ=new THREE.Quaternion(), _mS=new THREE.Vector3();
+function ammorbidisciRaggi(dt){
+  for(const c of [c0,c1]){
+    const s=c&&c.userData.src;
+    if(!s||!s.hand){ if(c) c.userData.qLiscia=null; continue; }
+    c.matrix.decompose(_mP,_mQ,_mS);
+    const u=c.userData;
+    if(!u.qLiscia){ u.qLiscia=_mQ.clone(); continue; }
+    const vel=u.qLiscia.angleTo(_mQ)/Math.max(dt,1)*1000;          // radianti al secondo
+    const k=Math.min(1,RAGGIO_CALMO+RAGGIO_SVELTO*vel*Math.max(dt,1)/1000);
+    u.qLiscia.slerp(_mQ,k);
+    c.matrix.compose(_mP,u.qLiscia,_mS); c.matrixWorldNeedsUpdate=true; c.updateMatrixWorld(true);
+  }
+}
 
 // ====================== I CORPI: la prima prova di una consolle fatta di cose da prendere ======================
 // Tre corpi di cristallo sospesi sopra il banco, per sentire in mano se toccare, afferrare e girare
@@ -2894,7 +2979,8 @@ function spostaTempo(ms){
 // grilletto, standoci dentro) accende e spegne il suo cerchio. Spenta, il disegno dentro si vela.
 // Cominciano a 40 gradi dall'asse di chi guarda e vanno verso l'esterno, una ogni SF_PASSO gradi:
 // a sinistra i cerchi dell'equatore e del luogo, a destra quelli dell'eclittica.
-const R_SF=0.032, SF_PASSO=12, SF_R=0.70, SF_SU=0.19;
+// R_SF e' la misura del disegno; SF_SCALA la ingrandisce tutta insieme (sfera, cerchi, glifi)
+const R_SF=0.032, SF_SCALA=2, SF_PASSO=16, SF_R=0.70, SF_SU=0.19;
 const SFERETTE=[];
 const SF_DEF=[
   {k:'equator',    lato:-1, i:0},
@@ -2923,9 +3009,9 @@ function glifoSf(gl,col){
 }
 SF_DEF.forEach(d=>{
   const a=d.lato*(40+d.i*SF_PASSO);
-  const S={nome:'sfera-'+d.k, k:d.k, zona:R_SF+0.02, luce:LUCE_CORPO, dentro:[]};
+  const S={nome:'sfera-'+d.k, k:d.k, zona:R_SF*SF_SCALA+0.02, luce:LUCE_CORPO, dentro:[]};
   const casa=new THREE.Group(); casa.position.copy(posaCorpo(a,SF_R,SF_SU));
-  casa.rotation.y=-a*DEG;            // il suo +z guarda chi sta al centro
+  casa.rotation.y=-a*DEG; casa.scale.setScalar(SF_SCALA);   // il suo +z guarda chi sta al centro
   CORPI_G.add(casa); S.casa=casa;
   S.mat=cristallo(COL_CRISTALLO);
   casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_SF,36,22),S.mat));
@@ -2992,7 +3078,7 @@ SF_DEF.forEach(d=>{
 });
 // quelli che si premono col dito: il globo e le sferette
 const TOCCABILI=[GLOBO,...SFERETTE];
-GLOBO.raggio=RG; SFERETTE.forEach(S=>S.raggio=R_SF);
+GLOBO.raggio=RG; SFERETTE.forEach(S=>S.raggio=R_SF*SF_SCALA);
 inPrimoPiano(CORPI_G);
 
 // ---- prendere e lasciare ----
@@ -4068,8 +4154,10 @@ renderer.setAnimationLoop((time,frame)=>{
       aggiornaLente(dt);
       INTERATTIVI.forEach(m=>{ m.userData.halo.material.opacity=0; m.scale.setScalar(1); });
       renderer.xr.getCamera(camera).getWorldPosition(_testa);
+      ammorbidisciRaggi(dt);
       indica(aggiornaRaggi());
       aggiornaMani();
+      aggiornaPugno(_testa);
       aggiornaCorpi(dt);
       if(logSporco) disegnaLog();
     } else {
