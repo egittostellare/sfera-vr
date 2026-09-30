@@ -23,7 +23,12 @@
     font-size:22px;letter-spacing:.02em;cursor:pointer;backdrop-filter:blur(8px)}
   #enter:hover{background:rgba(40,80,150,.6)}
   #enter.small{left:auto;right:18px;top:auto;bottom:18px;transform:none;font-size:16px;padding:11px 18px}
-  #panel{position:fixed;z-index:4;bottom:16px;left:16px;padding:12px 14px;min-width:196px;
+  /* la colonna di sinistra: il diario in cima e il pannello sotto, che scorre se non ci sta —
+     cosi' nessuno dei due copre l'altro, qualunque sia l'altezza della finestra */
+  #sinistra{position:fixed;z-index:4;top:68px;bottom:16px;left:16px;display:flex;flex-direction:column;
+    gap:8px;width:min(420px,calc(100vw - 32px));pointer-events:none}
+  #sinistra>*{pointer-events:auto}
+  #panel{flex:0 1 auto;min-height:0;overflow:auto;align-self:flex-start;padding:12px 14px;min-width:196px;
     background:rgba(10,14,28,.74);border:1px solid rgba(150,166,205,.16);border-radius:12px;
     backdrop-filter:blur(9px)}
   #panel .grp{font-family:'Cormorant Garamond',serif;font-size:12px;letter-spacing:.16em;
@@ -40,14 +45,19 @@
   .cassetto>summary::before{content:"▸ ";color:#e3c169}
   .cassetto[open]>summary::before{content:"▾ "}
   .cassetto .row{font-size:13px;padding:3px 0}
-  #hint{position:fixed;z-index:3;bottom:16px;right:16px;font-size:12px;color:#9aa2bd;max-width:230px;text-align:right}
-  /* diario di bordo: nel visore la console non si vede, quindi i passi si scrivono qui */
-  #diag{position:fixed;z-index:5;top:68px;left:16px;width:min(420px,calc(100vw - 32px));padding:11px 13px;
+  /* la guida: una finestra della barra come le altre, non piu' una colonna fissa sopra i tasti */
+  #hint{font-size:13px;line-height:1.55;color:#c3cbe2}
+  /* diario di bordo: nel visore la console non si vede, quindi i passi si scrivono qui.
+     Chiuso mostra solo l'ultima riga; un clic sul titolo lo apre e lo richiude */
+  #diag{flex:none;padding:11px 13px;
     background:rgba(8,11,22,.92);border:1px solid rgba(227,193,105,.45);border-radius:10px;
-    font-family:ui-monospace,Consolas,monospace;font-size:14px;line-height:1.6;color:#c3cbe2}
-  #diag::before{content:"DIARIO DI BORDO";display:block;font-family:'Cormorant Garamond',serif;
+    font-family:ui-monospace,Consolas,monospace;font-size:14px;line-height:1.6;color:#c3cbe2;cursor:pointer}
+  #diag::before{content:"▾ DIARIO DI BORDO";display:block;font-family:'Cormorant Garamond',serif;
     font-size:13px;letter-spacing:.18em;color:#e3c169;margin:0 0 7px;border-bottom:1px solid rgba(227,193,105,.22);
     padding-bottom:6px}
+  #diag.chiuso::before{content:"▸ DIARIO DI BORDO"}
+  #diag.chiuso>div:not(:last-child){display:none}
+  #diag.chiuso>div:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #diag b{color:#7a86a6;font-weight:400;margin-right:6px}
   #diag .ok{color:#7fd6a4} #diag .warn{color:#e3c169} #diag .err{color:#ff8a8a}
   /* la velocita' del moto diurno: quattro gradi */
@@ -122,7 +132,8 @@
 </header>
 
 <button id="enter">◉ Entra in VR</button>
-<div id="diag"></div>
+<div id="sinistra">
+<div id="diag" class="chiuso" title="Clic per aprire o chiudere il diario"></div>
 
 <div id="panel">
   <p class="grp">Elementi</p>
@@ -152,10 +163,12 @@
     <button data-v="0" class="on">1</button><button data-v="1">2</button><button data-v="2">3</button><button data-v="3">4</button>
   </div>
 </div>
+</div>
 <div id="barra">
   <button id="luogo-btn">⌖ Milano</button>
   <button id="tempo-btn">◷ tempo</button>
   <button id="temi-btn">☰ temi</button>
+  <button id="guida-btn">? guida</button>
 </div>
 <div id="temi" class="box" hidden>
   <h3>I temi</h3>
@@ -219,7 +232,7 @@
     Nel visore c'è il tasto «Luogo», con una tastiera da premere col raggio.
     Le città vengono dal database di Regulus (GeoNames, CC BY 4.0).</div>
 </div>
-<div id="hint">Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
+<div id="hint" class="box" hidden><h3>La guida</h3>Desktop: trascina per ruotare, scorri per lo zoom; passa su una stella per il nome, cliccala per selezionarla.
   Nel Quest: premi <b>Entra in VR</b>; col raggio del controller si premono i tasti del cruscotto, nel cielo si leggono i nomi,
   e il grilletto seleziona. Il <b>tasto B</b> (mano destra) manda via il cruscotto e lo richiama davanti allo
   sguardo; il <b>tasto Y</b> (mano sinistra), scelta una stella, apre il suo <b>riquadro</b>: il significato del
@@ -300,6 +313,7 @@ function diag(msg,kind){
   diagBox.innerHTML=diagRighe.map(l=>'<div class="'+l.kind+'"><b>'+l.t+'</b>'+l.msg+'</div>').join('');
   logSporco=true;
 }
+diagBox.addEventListener('click',()=>diagBox.classList.toggle('chiuso'));
 addEventListener('error',e=>diag('JS: '+(e.message||e.type),'err'));
 addEventListener('unhandledrejection',e=>{
   const r=e.reason; diag('Promessa: '+((r&&(r.name+' — '+r.message))||r),'err');
@@ -3702,9 +3716,9 @@ let xrSession=null, calibrato=false, eyeY=0, rifTipo=null, modoAltezza='occhi';
 if(navigator.xr && navigator.xr.isSessionSupported){
   navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
     if(ok) diag('il visore risponde: immersive-vr disponibile','ok');
-    else { enter.textContent='VR non disponibile qui'; enter.style.opacity=.6;
+    else { enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; enter.classList.add('small');
            diag('immersive-vr non disponibile su questo dispositivo','warn'); }
-  }).catch(e=>{ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6;
+  }).catch(e=>{ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; enter.classList.add('small');
                 diag('controllo VR fallito: '+e.name,'warn'); });
 } else {
   enter.textContent='WebXR non supportato dal browser'; enter.style.opacity=.6;
@@ -4294,6 +4308,7 @@ document.getElementById('tema-esporta').addEventListener('click',()=>{
   diag('archivio esportato: si apre in Regulus com’è','ok');
 });
 registraFinestra(btnTemi,boxTemi,aggiornaTemi);
+registraFinestra(document.getElementById('guida-btn'),document.getElementById('hint'));
 aggiornaTemi();
 
 document.getElementById('luogo-usa').addEventListener('click',()=>{
