@@ -2014,22 +2014,16 @@ const CONSOLLE=[
   {id:'dRefl',                   f:'pallino', pa:-28.5, pr:0.317, d:38, col:'oriz', icona:'Refl'},
   {id:'dFull',                   f:'pallino', pa:-34,   pr:0.317, d:38, col:'oriz', icona:'Full'},
   {id:'grAz',     k:'grigliaAz', f:'cerchio', pa:25,    pr:0.317, d:64, icona:'Grid'},
-  // A SINISTRA: i cerchi dell'equatore e del luogo (da −41° a −81°), poi la vista (oltre −84°)
-  {id:'equatore', k:'equator',   f:'rett', pa:-51.4, pr:0.468, w:236, h:58, col:'equat', t:'equatore'},
+  // A SINISTRA: la griglia equatoriale, poi la vista (oltre −84°). I cerchi dell'equatore e del luogo
+  // (equatore, meridiano, primo verticale, asse) sono diventati SFERETTE, sospese sopra il banco
   {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-65, pr:0.468, d:64, col:'equat', icona:'Grid'},
-  {id:'meridiano',k:'meridiano', f:'rett', pa:-57.3, pr:0.420, w:332, h:58, col:'merid', t:'meridiano'},
-  {id:'pvert',    k:'primovert', f:'rett', pa:-58.6, pr:0.372, w:318, h:58, col:'pvert', t:'p. verticale'},
-  {id:'axis',     k:'axis',      f:'rett', pa:-61,   pr:0.324, w:310, h:58, t:'axis mundi'},
   {id:'onda',     k:'onda',      f:'rett', pa:-89.1,  pr:0.452, w:112, h:76, t:'onda'},
   {id:'quota',    k:'quota',     f:'rett', pa:-101.8, pr:0.452, w:140, h:80, t:'quota'},
   {id:'occhi',    k:'altezza',   f:'rett', pa:-90.2,  pr:0.376, w:112, h:76, t:'occhi'},
   {id:'zoom',     k:'zoom',      f:'rett', pa:-105.2, pr:0.376, w:140, h:80, t:'zoom'},
-  // A DESTRA: i cerchi dell'eclittica e i pianeti (da 41° a 80°), poi gli angoli (oltre 84°)
-  {id:'eclittica',k:'ecliptic',  f:'rett', pa:51.4, pr:0.468, w:236, h:58, col:'eclit', t:'eclittica'},
+  // A DESTRA: la griglia eclittica e i pianeti, poi gli angoli (oltre 84°). Eclittica, zodiaco,
+  // latitudini e vis luminis sono diventati SFERETTE
   {id:'grEc',     k:'grigliaEcl',f:'cerchio', pa:65, pr:0.468, d:64, col:'eclit', icona:'Grid'},
-  {id:'zodiaco',  k:'zodiaco',   f:'rett', pa:57.3, pr:0.420, w:332, h:58, col:'zod', t:'zodiaco'},
-  {id:'latit',    k:'latitudini',f:'rett', pa:51.9, pr:0.372, w:196, h:58, col:'lat', t:'latitudini'},
-  {id:'visL',     k:'vis',       f:'rett', pa:70,   pr:0.372, w:108, h:58, col:'lat', t:'vis L'},
   {id:'pianeti',  k:'pianeti',   f:'rett', pa:55.7, pr:0.324, w:230, h:58, t:'pianeti'},
   {id:'wheel',    k:'elementi',  f:'cerchio', pa:75.9, pr:0.324, d:60, icona:'Wheel'},
   {id:'asc',      k:'p-asc',     f:'hex',     pa:89,  pr:0.452, w:96, h:86, col:'asc', t:'asc'},
@@ -2433,6 +2427,8 @@ function apriAletta(on){
   // tolti dal banco di proposito: il mare resta acceso di suo, la lente e' sospesa, ricentrare sta
   // sul tasto X, la velocita' e' la scritta del moto diurno, l'orizzonte reale sono i tre pallini
   ['mare','lente','recenter','velocita','spin','orizReale'].forEach(k=>messi.add(k));
+  // e questi stanno sulle sferette (vedi LE SFERETTE, piu' sotto)
+  ['equator','meridiano','primovert','axis','ecliptic','zodiaco','latitudini','vis'].forEach(k=>messi.add(k));
   const fuori=BUTTONS.filter(b=>!messi.has(b.k)).map(b=>b.k);
   if(fuori.length) diag('tasti fuori dal banco: '+fuori.join(', '),'warn');
 })();
@@ -2892,6 +2888,111 @@ function spostaTempo(ms){
   simMs+=ms; orientaCielo();
   if(Math.abs(simMs-simPianeti)>=15*60000){ simPianeti=simMs; collocaPianeti(); }
 }
+
+// ---- le SFERETTE: otto tasti fatti a sfera, al posto dei tasti piatti dei cerchi ----
+// Ognuna porta dentro il suo cerchio in piccolo, del colore che ha in cielo; toccata col dito (o col
+// grilletto, standoci dentro) accende e spegne il suo cerchio. Spenta, il disegno dentro si vela.
+// Cominciano a 40 gradi dall'asse di chi guarda e vanno verso l'esterno, una ogni SF_PASSO gradi:
+// a sinistra i cerchi dell'equatore e del luogo, a destra quelli dell'eclittica.
+const R_SF=0.032, SF_PASSO=12, SF_R=0.40, SF_SU=0.19;
+const SFERETTE=[];
+const SF_DEF=[
+  {k:'equator',    lato:-1, i:0},
+  {k:'meridiano',  lato:-1, i:1},
+  {k:'primovert',  lato:-1, i:2},
+  {k:'axis',       lato:-1, i:3},
+  {k:'ecliptic',   lato: 1, i:0},
+  {k:'zodiaco',    lato: 1, i:1},
+  {k:'latitudini', lato: 1, i:2},
+  {k:'vis',        lato: 1, i:3},
+];
+// un anello sottile di raggio r, nel piano xy del gruppo che lo contiene
+const anelloSf=(r,spess,col)=>new THREE.Mesh(new THREE.TorusGeometry(r,spess,6,64),
+  new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.95}));
+// una scritta o un glifo su una tavoletta rivolta a chi guarda (il +z della sferetta)
+function tavolettaSf(disegna,lato){
+  const c=document.createElement('canvas'); c.width=c.height=128; disegna(c.getContext('2d'));
+  const t=new THREE.CanvasTexture(c); t.anisotropy=4;
+  return new THREE.Mesh(new THREE.PlaneGeometry(lato,lato),
+    new THREE.MeshBasicMaterial({map:t,transparent:true,depthWrite:false,side:THREE.DoubleSide}));
+}
+function glifoSf(gl,col){
+  return x=>{ const [x0,y0,x1,y1]=gl.b, s=128/(Math.max(x1-x0,y1-y0)*1.25);
+    x.translate(64,64); x.scale(s,-s); x.translate(-(x0+x1)/2,-(y0+y1)/2);
+    const p=new Path2D(gl.d); x.fillStyle=col; x.fill(p); };
+}
+SF_DEF.forEach(d=>{
+  const a=d.lato*(40+d.i*SF_PASSO);
+  const S={nome:'sfera-'+d.k, k:d.k, zona:R_SF+0.02, luce:LUCE_CORPO, dentro:[]};
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(a,SF_R,SF_SU));
+  casa.rotation.y=-a*DEG;            // il suo +z guarda chi sta al centro
+  CORPI_G.add(casa); S.casa=casa;
+  S.mat=cristallo(COL_CRISTALLO);
+  casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_SF,36,22),S.mat));
+  const icona=new THREE.Group(); casa.add(icona);
+  const r=R_SF*0.9;
+  if(d.k==='equator'){          // l'equatore blu, appena inclinato verso chi guarda, e la scritta EQ
+    const an=anelloSf(r,0.0016,0x4da3ff); an.rotation.x=Math.PI/2-22*DEG; icona.add(an);
+    const eq=tavolettaSf(x=>{ x.fillStyle='#bfe0ff'; x.font='600 64px "IBM Plex Sans",system-ui,sans-serif';
+      x.textAlign='center'; x.textBaseline='middle'; x.fillText('EQ',64,66); },R_SF*1.0);
+    icona.add(eq);
+  }
+  if(d.k==='meridiano'){        // un cerchio verticale verde, girato di tre quarti
+    const an=anelloSf(r,0.0016,0x57d68f); an.rotation.y=35*DEG; icona.add(an);
+  }
+  if(d.k==='primovert'){        // un cerchio verticale giallo, ad angolo retto col meridiano
+    const an=anelloSf(r,0.0016,0xd9a400); an.rotation.y=-55*DEG; icona.add(an);
+  }
+  if(d.k==='axis'){             // l'asse del mondo, turchese, inclinato come a mezza latitudine
+    const asse=new THREE.Mesh(new THREE.CylinderGeometry(0.0022,0.0022,R_SF*1.9,10),
+      new THREE.MeshBasicMaterial({color:0x2fd6c8,transparent:true,opacity:.95}));
+    asse.rotation.set(-25*DEG,0,-30*DEG); icona.add(asse);
+  }
+  if(d.k==='ecliptic'){         // l'eclittica rossa, inclinata
+    const an=anelloSf(r,0.0016,0xff5a5a); an.rotation.set(Math.PI/2-22*DEG,0,23.4*DEG); icona.add(an);
+  }
+  if(d.k==='zodiaco'){          // i dodici glifi in giro, nel colore del loro elemento
+    const dati=window.CIELO, EL=(dati&&dati.elementi)||['#FF2930','#1ED135','#FCC10B','#6699FF'];
+    const giro=new THREE.Group(); giro.rotation.x=22*DEG; icona.add(giro); S.giro=giro;
+    for(let i=0;i<12;i++){
+      const gl=dati&&dati.glifi&&dati.glifi['seg'+i]; if(!gl) continue;
+      const g=tavolettaSf(glifoSf(gl,EL[i%4]),R_SF*0.42), f=i*30*DEG;
+      g.position.set(Math.sin(f)*r*0.82,0,Math.cos(f)*r*0.82); giro.add(g);
+    }
+  }
+  if(d.k==='latitudini'){       // la fascia dello zodiaco: fili paralleli attorno a un cerchio inclinato
+    const fascia=new THREE.Group(); fascia.rotation.set(Math.PI/2-22*DEG,0,23.4*DEG); icona.add(fascia);
+    for(let j=-3;j<=3;j++){
+      const h=j*R_SF*0.12, an=anelloSf(Math.sqrt(r*r-h*h),j?0.0008:0.0014,0xc9a8e0);
+      an.position.z=h; fascia.add(an);
+    }
+  }
+  if(d.k==='vis'){              // una luce tenuissima che pulsa piano
+    const m=new THREE.MeshBasicMaterial({color:0xf2d08a,transparent:true,opacity:.2,
+      blending:THREE.AdditiveBlending,depthWrite:false});
+    const nucleo=new THREE.Mesh(new THREE.SphereGeometry(R_SF*0.35,20,14),m); icona.add(nucleo);
+    const alone=new THREE.Mesh(new THREE.SphereGeometry(R_SF*0.7,20,14),m.clone()); icona.add(alone);
+    S.pulsa=[nucleo.material,alone.material];
+  }
+  icona.traverse(o=>{ if(o.material&&!S.pulsa?.includes(o.material)) S.dentro.push(o.material); });
+  S.centro=out=>S.casa.getWorldPosition(out);
+  S.fai=()=>{ toggleBtn(BUTTONS.find(x=>x.k===S.k)); ridipingiTasti([S.k]);
+    const b=BUTTONS.find(x=>x.k===S.k); diag((b?b.t:S.k)+(stato[S.k]?' acceso':' spento')+' (dalla sfera)'); };
+  S.prendi=(p,mano)=>{ if(!mano) S.fai(); return false; };
+  S.aggiorna=()=>{
+    const on=!!stato[S.k];
+    if(on) S.luce=Math.max(S.luce,0.75);
+    for(const m of S.dentro) m.opacity=on?0.95:0.28;
+    if(S.pulsa){   // un respiro ogni sette secondi; spenta, resta un filo di luce ferma
+      const t=performance.now()/7000*TAU, v=on?0.5-0.5*Math.cos(t):0;
+      S.pulsa[0].opacity=on?0.10+0.22*v:0.05; S.pulsa[1].opacity=on?0.03+0.08*v:0.015;
+    }
+  };
+  SFERETTE.push(S); CORPI.push(S);
+});
+// quelli che si premono col dito: il globo e le sferette
+const TOCCABILI=[GLOBO,...SFERETTE];
+GLOBO.raggio=RG; SFERETTE.forEach(S=>S.raggio=R_SF);
 inPrimoPiano(CORPI_G);
 
 // ---- prendere e lasciare ----
@@ -2931,14 +3032,18 @@ function aggiornaCorpi(dt){
       if(PRESE[i]){ if(q) PRESE[i].trascina(q.p); PRESE[i].luce=LUCE_PRESO; continue; }
       const c=q&&corpoVicino(q.p); if(c) c.luce=Math.max(c.luce,LUCE_VICINO);
     }
-    // il dito dentro il globo lo preme; per ripremerlo deve uscirne di un paio di centimetri
+    // il dito dentro il globo (o una sferetta) lo preme; per ripremerlo deve uscirne di un paio di centimetri
     for(const M of MANI){
       const t=M.h.visible&&M.h.joints&&M.h.joints['index-finger-tip'];
-      if(!t||t.visible===false){ M.globoGiu=false; continue; }
-      const d=t.getWorldPosition(_pp).distanceTo(GLOBO.centro(_pc));
-      if(!M.globoGiu&&d<RG+0.004){ M.globoGiu=true; GLOBO.fai(); }
-      else if(M.globoGiu&&d>RG+0.025) M.globoGiu=false;
-      if(d<RG+0.03) GLOBO.luce=Math.max(GLOBO.luce,LUCE_VICINO);
+      if(!M.giu) M.giu=new Set();
+      if(!t||t.visible===false){ M.giu.clear(); continue; }
+      t.getWorldPosition(_pp);
+      for(const c of TOCCABILI){
+        const d=_pp.distanceTo(c.centro(_pc));
+        if(!M.giu.has(c)&&d<c.raggio+0.004){ M.giu.add(c); c.fai(); }
+        else if(M.giu.has(c)&&d>c.raggio+0.025) M.giu.delete(c);
+        if(d<c.raggio+0.03) c.luce=Math.max(c.luce,LUCE_VICINO);
+      }
     }
   }
   for(const c of CORPI){ c.aggiorna(dt); c.mat.uniforms.uLuce.value=c.luce; }
