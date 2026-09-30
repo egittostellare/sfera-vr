@@ -2894,7 +2894,7 @@ function spostaTempo(ms){
 // grilletto, standoci dentro) accende e spegne il suo cerchio. Spenta, il disegno dentro si vela.
 // Cominciano a 40 gradi dall'asse di chi guarda e vanno verso l'esterno, una ogni SF_PASSO gradi:
 // a sinistra i cerchi dell'equatore e del luogo, a destra quelli dell'eclittica.
-const R_SF=0.032, SF_PASSO=12, SF_R=0.40, SF_SU=0.19;
+const R_SF=0.032, SF_PASSO=12, SF_R=0.70, SF_SU=0.19;
 const SFERETTE=[];
 const SF_DEF=[
   {k:'equator',    lato:-1, i:0},
@@ -4429,6 +4429,9 @@ document.getElementById('luogo-usa').addEventListener('click',()=>{
 aggiornaOra();
 if(A) diag('cielo di '+LUOGO.nome+', '+quandoTesto(ISTANTE,true)+' — '+quanteStelle+' stelle, '+
   (CIELO?CIELO.figure.length:0)+' figure, '+quantiPianeti+' pianeti','ok');
+// di partenza l'orizzonte e' REALE: il mare e' acqua e nasconde quello che non e' sorto. Si accende
+// qui, a scena finita, perche' il taglio valga per tutto quello che sta nel cielo (pianeti compresi)
+imposta('orizReale',true); ridipingiTasti(['orizReale']);
 diag('scena pronta — premi «Entra in VR»','ok');
 </script>
 </body>
