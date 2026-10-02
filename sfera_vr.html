@@ -1904,6 +1904,7 @@ const GIRO_BANCO=228;                        // gradi, da un capo all'altro dell
 const CONS_Y0=-0.58;                         // il bordo vicino: 58 cm sotto gli occhi (in piedi, la vita)
 const INCL=10*DEG;                           // quanto il tavolo sale allontanandosi
 const CONCA=0.065;                           // quanto sale in piu', di fronte, il bordo lontano
+let COMPONI=false;                            // il modo «componi»: le sferette si spostano (vedi COMPORRE)
 const FILI=[-82,-38,38,82];                  // i fili che separano i gruppi, in gradi
 const CR_W=GIRO_BANCO*DEG*R_MID, CR_H=R_OUT-R_IN, CX_CORPO=0, LARG_T=CR_W;
 const CONS_R0=R_MID;                         // per l'ala degli elementi: gli angoli si contano qui
@@ -2017,6 +2018,7 @@ const CONSOLLE=[
   // A SINISTRA: la griglia equatoriale, poi la vista (oltre −84°). I cerchi dell'equatore e del luogo
   // (equatore, meridiano, primo verticale, asse) sono diventati SFERETTE, sospese sopra il banco
   {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-65, pr:0.468, d:64, col:'equat', icona:'Grid'},
+  {id:'componi',  k:'componi',   f:'rett', pa:-50, pr:0.335, w:130, h:46, t:'componi'},
   {id:'onda',     k:'onda',      f:'rett', pa:-89.1,  pr:0.452, w:112, h:76, t:'onda'},
   {id:'quota',    k:'quota',     f:'rett', pa:-101.8, pr:0.452, w:140, h:80, t:'quota'},
   {id:'occhi',    k:'altezza',   f:'rett', pa:-90.2,  pr:0.376, w:112, h:76, t:'occhi'},
@@ -2119,6 +2121,7 @@ function accesoTasto(s){
     case 'moto': case 'dRefl': return false;
     case 'dFull':  return !!stato.orizReale;
     case 'dTrans': return !stato.orizReale;
+    case 'componi': return COMPONI;
   }
   const b=BUTTONS.find(x=>x.k===s.k);
   if(b&&b.azione) return !!b.on;
@@ -2261,6 +2264,7 @@ function premiTasto(s){
       diag('orizzonte pieno: il mare nasconde quello che non è sorto'); return;
     case 'dTrans': if(stato.orizReale) imposta('orizReale',false);
       diag('orizzonte trasparente: il mare è un vetro scuro, il cielo di sotto si vede'); return;
+    case 'componi': cambiaComponi(); return;
     case 'dRefl':  diag('orizzonte riflesso (il mare che specchia le stelle): non c’è ancora','warn'); return;
   }
   const b=BUTTONS.find(x=>x.k===s.k);
@@ -3064,7 +3068,9 @@ SF_DEF.forEach(d=>{
   S.centro=out=>S.casa.getWorldPosition(out);
   S.fai=()=>{ toggleBtn(BUTTONS.find(x=>x.k===S.k)); ridipingiTasti([S.k]);
     const b=BUTTONS.find(x=>x.k===S.k); diag((b?b.t:S.k)+(stato[S.k]?' acceso':' spento')+' (dalla sfera)'); };
-  S.prendi=(p,mano)=>{ if(!mano) S.fai(); return false; };
+  S.prendi=(p,mano)=>{ if(COMPONI) return prendiSfera(S,p); if(!mano) S.fai(); return false; };
+  S.trascina=p=>trascinaSfera(S,p);
+  S.lascia=()=>lasciaSfera(S);
   S.aggiorna=()=>{
     const on=!!stato[S.k];
     if(on) S.luce=Math.max(S.luce,0.75);
@@ -3076,6 +3082,91 @@ SF_DEF.forEach(d=>{
   };
   SFERETTE.push(S); CORPI.push(S);
 });
+
+// ---- COMPORRE: le sferette si spostano con la mano ----
+// Col tasto «componi» del banco le sferette smettono di essere tasti e diventano oggetti: si
+// prendono (pizzico o grilletto), si portano dove e' comodo, si lasciano li'. Mentre una e' in mano
+// sotto di lei compare una griglia a quadretti di 5 cm all'altezza del tavolo, un filo che ci scende,
+// e una scritta con angolo, distanza e altezza. Le posizioni restano nel visore (localStorage), in
+// gradi e metri come SF_DEF le vuole: quando l'autore e' contento, si leggono e si fissano nel codice.
+const CHIAVE_SFERE='sfera-vr-sfere';
+// dove sta una sferetta, nella misura di posaCorpo: azimut (gradi), distanza (m), sopra il tavolo (m)
+function polareSfera(S){
+  const p=S.casa.position, a=Math.atan2(p.x,-p.z), r=Math.hypot(p.x,p.z);
+  return {a:a/DEG, r, su:p.y-altezzaAnello(a,r)};
+}
+function posaSfera(S,aGr,r,su){ S.casa.position.copy(posaCorpo(aGr,r,su)); S.casa.rotation.y=-aGr*DEG; }
+function salvaSfere(){
+  const o={}; SFERETTE.forEach(S=>{ const q=polareSfera(S);
+    o[S.k]=[Math.round(q.a*10)/10, Math.round(q.r*1000)/1000, Math.round(q.su*1000)/1000]; });
+  try{ localStorage.setItem(CHIAVE_SFERE,JSON.stringify(o)); }catch(e){}
+}
+try{
+  const o=JSON.parse(localStorage.getItem(CHIAVE_SFERE)||'null');
+  if(o) SFERETTE.forEach(S=>{ const v=o[S.k]; if(Array.isArray(v)&&v.every(Number.isFinite)) posaSfera(S,v[0],v[1],v[2]); });
+}catch(e){}
+// la guida: griglia, filo e scritta, visibile solo mentre una sferetta e' in mano
+const GUIDA={g:new THREE.Group(), testo:''};
+{
+  const G=GUIDA.g; G.visible=false; CORPI_G.add(G);
+  const M=0.30, P=0.05, pt=[];           // 60 cm di lato, un filo ogni 5 cm
+  for(let v=-M; v<=M+1e-6; v+=P) pt.push(new THREE.Vector3(v,0,-M),new THREE.Vector3(v,0,M),new THREE.Vector3(-M,0,v),new THREE.Vector3(M,0,v));
+  GUIDA.rete=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pt),
+    new THREE.LineBasicMaterial({color:0x9fd0ff,transparent:true,opacity:.22,depthWrite:false}));
+  G.add(GUIDA.rete);
+  // la croce dove cade la sferetta, piu' chiara
+  GUIDA.croce=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.03,0,0),new THREE.Vector3(0.03,0,0),new THREE.Vector3(0,0,-0.03),new THREE.Vector3(0,0,0.03)]),
+    new THREE.LineBasicMaterial({color:0xffe6a8,transparent:true,opacity:.9,depthWrite:false}));
+  G.add(GUIDA.croce);
+  GUIDA.filo=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,1,0)]),
+    new THREE.LineBasicMaterial({color:0xffe6a8,transparent:true,opacity:.6,depthWrite:false}));
+  G.add(GUIDA.filo);
+  GUIDA.cv=document.createElement('canvas'); GUIDA.cv.width=768; GUIDA.cv.height=128;
+  GUIDA.tex=new THREE.CanvasTexture(GUIDA.cv); GUIDA.tex.anisotropy=4;
+  GUIDA.scritta=new THREE.Mesh(new THREE.PlaneGeometry(0.24,0.04),
+    new THREE.MeshBasicMaterial({map:GUIDA.tex,transparent:true,depthWrite:false,side:THREE.DoubleSide}));
+  G.add(GUIDA.scritta);
+}
+function aggiornaGuida(S){
+  const q=polareSfera(S), p=S.casa.position, y0=p.y-q.su;
+  GUIDA.rete.position.set(p.x,y0,p.z);
+  // la rete resta ferma sui 5 cm del tavolo: si sposta a scatti, e la croce corre sopra di lei
+  GUIDA.rete.position.x=Math.round(p.x/0.05)*0.05; GUIDA.rete.position.z=Math.round(p.z/0.05)*0.05;
+  GUIDA.croce.position.set(p.x,y0+0.001,p.z);
+  GUIDA.filo.position.set(p.x,y0,p.z); GUIDA.filo.scale.y=Math.max(0.001,q.su-S.raggio);
+  GUIDA.scritta.position.set(p.x,p.y+S.raggio+0.035,p.z); GUIDA.scritta.rotation.y=-q.a*DEG;
+  const t='angolo '+Math.round(q.a)+'°  ·  dist '+Math.round(q.r*100)+' cm  ·  alt '+Math.round(q.su*100)+' cm';
+  if(t!==GUIDA.testo){
+    GUIDA.testo=t; const x=GUIDA.cv.getContext('2d');
+    x.clearRect(0,0,768,128); x.fillStyle='rgba(10,16,28,0.72)'; roundRect(x,4,24,760,80,20); x.fill();
+    let fs=40; const fnt=()=>x.font='500 '+fs+'px "IBM Plex Sans",system-ui,sans-serif';
+    fnt(); while(x.measureText(t).width>720&&fs>20){ fs--; fnt(); }
+    x.fillStyle='#ffe6a8'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(t,384,66);
+    GUIDA.tex.needsUpdate=true;
+  }
+}
+function prendiSfera(S,p){
+  CORPI_G.worldToLocal(_pl.copy(p)); S.off=S.casa.position.clone().sub(_pl);
+  GUIDA.g.visible=true; aggiornaGuida(S); return true;
+}
+function trascinaSfera(S,p){
+  CORPI_G.worldToLocal(_pl.copy(p)).add(S.off);
+  const a=Math.atan2(_pl.x,-_pl.z);
+  S.casa.position.copy(_pl); S.casa.rotation.y=-a;   // il suo davanti resta rivolto a chi sta al centro
+  aggiornaGuida(S);
+}
+function lasciaSfera(S){
+  GUIDA.g.visible=false; salvaSfere();
+  const q=polareSfera(S), b=BUTTONS.find(x=>x.k===S.k);
+  diag((b?b.t:S.k)+' posata: angolo '+Math.round(q.a)+'°, distanza '+Math.round(q.r*100)+' cm, altezza '+Math.round(q.su*100)+' cm');
+}
+function cambiaComponi(){
+  COMPONI=!COMPONI;
+  if(!COMPONI) GUIDA.g.visible=false;
+  ridipingiTasti(['componi']);
+  diag(COMPONI?'COMPONI: prendi una sfera col pizzico e portala dove ti è comoda':'componi finito: le sfere sono di nuovo tasti');
+}
 // quelli che si premono col dito: il globo e le sferette
 const TOCCABILI=[GLOBO,...SFERETTE];
 GLOBO.raggio=RG; SFERETTE.forEach(S=>S.raggio=R_SF*SF_SCALA);
@@ -3125,6 +3216,7 @@ function aggiornaCorpi(dt){
       if(!t||t.visible===false){ M.giu.clear(); continue; }
       t.getWorldPosition(_pp);
       for(const c of TOCCABILI){
+        if(COMPONI&&c.k) continue;   // componendo, le sferette non si premono: si prendono
         const d=_pp.distanceTo(c.centro(_pc));
         if(!M.giu.has(c)&&d<c.raggio+0.004){ M.giu.add(c); c.fai(); }
         else if(M.giu.has(c)&&d>c.raggio+0.025) M.giu.delete(c);
