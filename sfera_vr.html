@@ -1983,7 +1983,7 @@ const TEMA={corpo:'#E6E0D3', cornice:'#BDB2A0', tasto:'#F8F5EF', ink:'#3B352D', 
 const PAL_C={oriz:['#8B5A2B','#7A4E24'], merid:['#2E7D46','#26683A'], pvert:['#D4A017','#8A6A0B'],
   equat:['#5BA4D6','#2C6F9B'], eclit:['#C0392B','#A82F23'], zod:['#C0392B','#A82F23'],
   lat:['#7B2D42','#6B2439'], asc:['#E07B2A','#A8541A'], mc:['#C9A227','#8A6A1E'],
-  ds:['#8B3A1F','#7D331A'], ic:['#2B4A8B','#24407A']};
+  ds:['#8B3A1F','#7D331A'], ic:['#2B4A8B','#24407A'], comp:['#8E6BD8','#6A4FB0']};
 const CORPO_PATH='M38,290 L445,102 L527,22 L933,22 L1015,102 L1422,290 L1422,830 L1072,940 L1018,454 L442,454 L388,940 L38,830 Z';
 
 // ---- i tasti: dove stanno sull'anello, che forma hanno, che cosa fanno ----
@@ -2018,7 +2018,9 @@ const CONSOLLE=[
   // A SINISTRA: la griglia equatoriale, poi la vista (oltre −84°). I cerchi dell'equatore e del luogo
   // (equatore, meridiano, primo verticale, asse) sono diventati SFERETTE, sospese sopra il banco
   {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-65, pr:0.468, d:64, col:'equat', icona:'Grid'},
-  {id:'componi',  k:'componi',   f:'rett', pa:-50, pr:0.335, w:130, h:46, t:'componi'},
+  {id:'componi',  k:'componi',   f:'rett', pa:-50, pr:0.335, w:170, h:60, col:'comp', t:'componi'},
+  // il cartellino della versione: dice nel visore quale pagina si sta guardando (cresce a ogni giro)
+  {id:'versione',                f:'rett', pa:-66, pr:0.36,  w:64,  h:30, t:'v35'},
   {id:'onda',     k:'onda',      f:'rett', pa:-89.1,  pr:0.452, w:112, h:76, t:'onda'},
   {id:'quota',    k:'quota',     f:'rett', pa:-101.8, pr:0.452, w:140, h:80, t:'quota'},
   {id:'occhi',    k:'altezza',   f:'rett', pa:-90.2,  pr:0.376, w:112, h:76, t:'occhi'},
@@ -2122,6 +2124,7 @@ function accesoTasto(s){
     case 'dFull':  return !!stato.orizReale;
     case 'dTrans': return !stato.orizReale;
     case 'componi': return COMPONI;
+    case 'versione': return false;
   }
   const b=BUTTONS.find(x=>x.k===s.k);
   if(b&&b.azione) return !!b.on;
@@ -2265,6 +2268,7 @@ function premiTasto(s){
     case 'dTrans': if(stato.orizReale) imposta('orizReale',false);
       diag('orizzonte trasparente: il mare è un vetro scuro, il cielo di sotto si vede'); return;
     case 'componi': cambiaComponi(); return;
+    case 'versione': diag('questa è la pagina v35'); return;
     case 'dRefl':  diag('orizzonte riflesso (il mare che specchia le stelle): non c’è ancora','warn'); return;
   }
   const b=BUTTONS.find(x=>x.k===s.k);
