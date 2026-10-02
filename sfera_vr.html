@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='37';
+const VERSIONE='38';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -2225,6 +2225,7 @@ banco.add(corpo);
 
 // ---- i tasti sul banco ----
 const TASTI=[];                 // {s, m}: da ridipingere quando cambia uno stato da cui dipendono
+const DISCHI=[];                // i dischetti dell'orizzonte sull'orologio: si ridipingono come i tasti
 const _prova=document.createElement('canvas').getContext('2d');
 CONSOLLE.forEach(s=>{
   // sull'anello: il centro va all'azimut e alla distanza del tasto; la larghezza «in piano» va
@@ -2250,7 +2251,10 @@ function ridipingiTasto(t){
   if(t.m.material.map) t.m.material.map.dispose();
   t.m.material.map=disegnaTasto(t.s); t.m.material.needsUpdate=true;
 }
-function ridipingiTasti(chiavi){ TASTI.forEach(t=>{ if(t.s.dip.some(k=>chiavi.includes(k))) ridipingiTasto(t); }); }
+function ridipingiTasti(chiavi){
+  TASTI.forEach(t=>{ if(t.s.dip.some(k=>chiavi.includes(k))) ridipingiTasto(t); });
+  DISCHI.forEach(t=>{ if(t.s.dip.some(k=>chiavi.includes(k))) ridipingiTasto(t); });   // quelli dell'orologio
+}
 // premere un tasto: quasi sempre la funzione di sempre; qualcuno e' nuovo e si spiega qui
 function premiTasto(s){
   switch(s.id){
@@ -2697,6 +2701,7 @@ function tastoSottoDito(pMondo){
   const sopra=_pD.y-altezzaAnello(a,r);
   let meglio=null;
   for(const t of TASTI){
+    if(!t.m.visible) continue;   // la tastiera nascosta
     const s=t.s, u=s.w/2+(a-s.pa*DEG)*s.pr/U, v=s.h/2-(r-s.pr)/U;
     if(u<0||u>s.w||v<0||v>s.h) continue;
     if(!_prova.isPointInPath(t.sg,u,v)) continue;
@@ -2812,8 +2817,10 @@ function ammorbidisciRaggi(dt){
 }
 
 // ====================== I CORPI: la consolle fatta di cose da toccare e da spostare ======================
-// Corpi di cristallo sospesi sopra il banco: le sferette dei cerchi (e quelle di azimut e altezza), la
-// CUPOLA del moto diurno, la ROTELLA dell'elenco, i DISPLAY del luogo e del tempo. Si toccano col dito
+// Corpi di cristallo sospesi sopra il banco: le sferette dei cerchi (e quelle di azimut e altezza, e le
+// tre piccole delle griglie), la CUPOLA del moto diurno, la ROTELLA dell'elenco, l'OROLOGIO di 24 ore
+// coi display del luogo e del tempo e i dischetti dell'orizzonte, il tasto che nasconde la TASTIERA
+// (il banco). Si toccano col dito
 // (o col grilletto, standoci dentro); col tasto «componi» si prendono e si portano dove sono comodi.
 // (La prima prova — il globo dello zodiaco, la leva del moto, la manopola dell'ora — e' stata tolta il
 // 2 ottobre 2026: l'autore compone la consolle da se', nel visore.)
@@ -2858,6 +2865,10 @@ const SF_DEF=[
   // queste due hanno un posto loro, davanti, ai lati dei display
   {k:'azimut',     a:-18, r:0.46, su:0.22},
   {k:'alt',        a: 18, r:0.46, su:0.22},
+  // le tre griglie, in sferette di due terzi, davanti in fila
+  {k:'grigliaAz',  a:-14, r:0.42, su:0.10, scala:SF_SCALA*2/3},
+  {k:'grigliaEq',  a:  0, r:0.42, su:0.10, scala:SF_SCALA*2/3},
+  {k:'grigliaEcl', a: 14, r:0.42, su:0.10, scala:SF_SCALA*2/3},
 ];
 // un anello sottile di raggio r, nel piano xy del gruppo che lo contiene
 const anelloSf=(r,spess,col)=>new THREE.Mesh(new THREE.TorusGeometry(r,spess,6,64),
@@ -2876,9 +2887,10 @@ function glifoSf(gl,col){
 }
 SF_DEF.forEach(d=>{
   const a=d.a!==undefined?d.a:d.lato*(40+d.i*SF_PASSO);
-  const S={nome:'sfera-'+d.k, id:d.k, k:d.k, zona:R_SF*SF_SCALA+0.02, luce:LUCE_CORPO, dentro:[]};
+  const sc=d.scala||SF_SCALA;
+  const S={nome:'sfera-'+d.k, id:d.k, k:d.k, zona:R_SF*sc+0.02, raggio:R_SF*sc, luce:LUCE_CORPO, dentro:[]};
   const casa=new THREE.Group(); casa.position.copy(posaCorpo(a,d.r||SF_R,d.su||SF_SU));
-  casa.rotation.y=-a*DEG; casa.scale.setScalar(SF_SCALA);   // il suo +z guarda chi sta al centro
+  casa.rotation.y=-a*DEG; casa.scale.setScalar(sc);   // il suo +z guarda chi sta al centro
   CORPI_G.add(casa); S.casa=casa;
   S.mat=cristallo(COL_CRISTALLO);
   casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_SF,36,22),S.mat));
@@ -2941,6 +2953,18 @@ SF_DEF.forEach(d=>{
       new THREE.MeshBasicMaterial({color:0xffe6a8,transparent:true,opacity:.95}));
     astro.position.set(Math.cos(50*DEG)*r,Math.sin(50*DEG)*r,0); arco.add(astro);
   }
+  // le griglie: sei meridiani e cinque paralleli attorno al loro polo, nel colore della griglia del
+  // cielo. L'azimutale ha il polo allo zenit; l'equatoriale al polo celeste (a mezza latitudine,
+  // verso nord, cioe' lontano da chi guarda); l'eclittica ancora 23,4 gradi piu' in la'
+  const GRIGLIE={grigliaAz:[0x57d68f,-15,0], grigliaEq:[0x4da3ff,-45,0], grigliaEcl:[0xff5a5a,-45,23.4]};
+  if(GRIGLIE[d.k]){
+    const [col,ix,iz]=GRIGLIE[d.k], gr=new THREE.Group(); gr.rotation.set(ix*DEG,0,iz*DEG); icona.add(gr);
+    for(let m=0;m<6;m++){ const an=anelloSf(r,0.0009,col); an.rotation.y=m*30*DEG; gr.add(an); }
+    for(const lat of [-60,-30,0,30,60]){
+      const an=anelloSf(r*Math.cos(lat*DEG),lat?0.0009:0.0014,col); an.rotation.x=Math.PI/2;
+      an.position.y=r*Math.sin(lat*DEG); gr.add(an);
+    }
+  }
   if(d.k==='vis'){              // una luce tenuissima che pulsa piano
     const m=new THREE.MeshBasicMaterial({color:0xf2d08a,transparent:true,opacity:.2,
       blending:THREE.AdditiveBlending,depthWrite:false});
@@ -2967,10 +2991,12 @@ SF_DEF.forEach(d=>{
 });
 
 // ogni corpo e' un tasto: toccato fa la sua cosa; col tasto «componi» acceso invece si prende e si sposta
+// (le parti di un corpo — i display e i dischetti dell'orologio — spostano il corpo intero)
 function corpoTasto(c){
-  c.prendi=(p,mano)=>{ if(COMPONI) return prendiSfera(c,p); if(!mano) c.fai(); return false; };
-  c.trascina=p=>trascinaSfera(c,p);
-  c.lascia=()=>lasciaSfera(c);
+  const chi=()=>c.parteDi||c;
+  c.prendi=(p,mano)=>{ if(COMPONI) return prendiSfera(chi(),p); if(!mano) c.fai(); return false; };
+  c.trascina=p=>trascinaSfera(chi(),p);
+  c.lascia=()=>lasciaSfera(chi());
 }
 // quanto il dito sta fuori dal corpo (zero o meno, dentro): la sfera col suo raggio, i display con la
 // loro scatola
@@ -3052,22 +3078,89 @@ ROTELLA.fai=()=>diag('la rotella: qui dentro andrà l’elenco delle scelte (da 
 ROTELLA.aggiorna=()=>{};
 corpoTasto(ROTELLA); CORPI.push(ROTELLA);
 
-// ---- i DISPLAY del luogo e del tempo: due lastre scure con la scritta accesa ----
+// ---- l'OROLOGIO: un quadrante di 24 ore, 30 cm, coi display del luogo e del tempo dentro ----
+// Mezzogiorno in alto (il Sole al meridiano), mezzanotte in basso; la lancetta delle ore fa un giro
+// al giorno, quella dei minuti uno all'ora, quella rossa dei secondi uno al minuto. Segnano l'ora
+// del cielo (quella che l'app sta mostrando), all'ora civile del luogo: corrono col moto diurno,
+// saltano quando si sceglie un altro istante. In basso, i tre dischetti dell'orizzonte.
+// Col «componi» si sposta e si INCLINA: preso, segue la mano, e piegando il polso in su o in giu'
+// il quadrante si piega con lui.
+const R_OR=0.15;
+const OROLOGIO={nome:'orologio', id:'orologio', titolo:()=>'Orologio', zona:R_OR+0.02, raggio:R_OR,
+  luce:LUCE_CORPO, incl:-20*DEG, inclMax:80*DEG};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(0,0.70,0.36)); CORPI_G.add(casa); OROLOGIO.casa=casa;
+  const quadro=new THREE.Group(); quadro.rotation.x=OROLOGIO.incl; casa.add(quadro); OROLOGIO.quadro=quadro;
+  OROLOGIO.mat=cristallo(COL_CRISTALLO);
+  // la cassa: un bordo di cristallo e un fondo
+  quadro.add(new THREE.Mesh(new THREE.TorusGeometry(R_OR+0.004,0.006,10,96),OROLOGIO.mat));
+  const fondo=new THREE.Mesh(new THREE.CylinderGeometry(R_OR+0.004,R_OR+0.004,0.014,96,1,true),OROLOGIO.mat);
+  fondo.rotation.x=Math.PI/2; fondo.position.z=-0.007; quadro.add(fondo);
+  // il quadrante: le 24 ore e le tacche dei minuti, disegnati una volta sola
+  const cv=document.createElement('canvas'); cv.width=cv.height=1024;
+  const x=cv.getContext('2d'), C=512, k=C/R_OR;   // pixel per metro
+  x.fillStyle='rgba(6,10,20,0.94)'; x.beginPath(); x.arc(C,C,C,0,TAU); x.fill();
+  x.strokeStyle='rgba(255,230,168,0.35)'; x.lineWidth=3; x.beginPath(); x.arc(C,C,C-6,0,TAU); x.stroke();
+  for(let m=0;m<60;m++){            // i minuti: un giro intero, per la lancetta lunga
+    const f=m/60*TAU, r1=C-14, r2=C-(m%5?30:44);
+    x.strokeStyle=m%5?'rgba(201,185,143,0.55)':'rgba(255,230,168,0.9)'; x.lineWidth=m%5?3:6;
+    x.beginPath(); x.moveTo(C+Math.sin(f)*r1,C-Math.cos(f)*r1); x.lineTo(C+Math.sin(f)*r2,C-Math.cos(f)*r2); x.stroke();
+  }
+  x.textAlign='center'; x.textBaseline='middle';
+  for(let h=0;h<24;h++){            // le ore: mezzogiorno in alto
+    const f=(h-12)/24*TAU, rr=C-0.022*k-44;
+    x.fillStyle=h%6?'#c9b98f':'#ffe6a8'; x.font=(h%6?'500 ':'700 ')+(h%6?46:60)+'px "IBM Plex Mono",ui-monospace,monospace';
+    x.fillText(String(h),C+Math.sin(f)*rr,C-Math.cos(f)*rr);
+  }
+  const tex=new THREE.CanvasTexture(cv); tex.anisotropy=4;
+  const faccia=new THREE.Mesh(new THREE.CircleGeometry(R_OR,96),new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+  faccia.renderOrder=-1; quadro.add(faccia);   // prima dei display: se no, trasparente, li coprirebbe
+  // le lancette: girano attorno al centro, sopra ai display
+  const lancetta=(larg,lungo,coda,col,z)=>{
+    const g=new THREE.BoxGeometry(larg,lungo+coda,0.0015); g.translate(0,(lungo-coda)/2,0);
+    const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:col})); m.position.z=z; quadro.add(m); return m;
+  };
+  OROLOGIO.ore=lancetta(0.007,0.085,0.015,0xffe6a8,0.010);
+  OROLOGIO.min=lancetta(0.0045,0.125,0.018,0xffe6a8,0.012);
+  OROLOGIO.sec=lancetta(0.0016,0.132,0.025,0xff5a5a,0.014);
+  const perno=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.006,20),new THREE.MeshBasicMaterial({color:0xffe6a8}));
+  perno.rotation.x=Math.PI/2; perno.position.z=0.013; quadro.add(perno);
+}
+OROLOGIO.centro=out=>OROLOGIO.casa.getWorldPosition(out);
+OROLOGIO.fai=()=>{};   // toccano i display e i dischetti, non il quadrante
+// i millisecondi dell'ora civile del luogo: lo scarto dal tempo universale si ricalcola solo ogni
+// tanto, perche' Intl a ogni fotogramma costerebbe
+let _fusoT=NaN, _fusoMs=0, _fusoNome='';
+function msDelLuogo(){
+  const t=istanteCielo().getTime();
+  if(!(Math.abs(t-_fusoT)<3*3600000)||_fusoNome!==LUOGO.fuso){
+    _fusoT=t; _fusoNome=LUOGO.fuso;
+    try{ _fusoMs=dataDaPezzi(pezziLocali(new Date(t),LUOGO.fuso)).getTime()-t; }catch(e){ _fusoMs=LUOGO.lng/15*3600000; }
+  }
+  return t+_fusoMs;
+}
+OROLOGIO.aggiorna=()=>{
+  const g=((msDelLuogo()%86400000)+86400000)%86400000;
+  OROLOGIO.ore.rotation.z=-(g/3600000-12)/24*TAU;
+  OROLOGIO.min.rotation.z=-(g%3600000)/3600000*TAU;
+  OROLOGIO.sec.rotation.z=-(g%60000)/60000*TAU;
+};
+corpoTasto(OROLOGIO); CORPI.push(OROLOGIO);
+
+// ---- i DISPLAY del luogo e del tempo: due lastre scure dentro l'orologio ----
 // Il tempo si legge nell'ordine anno mese giorno, ora minuti secondi, all'ora del luogo.
 // Toccati, aprono quello che apriva il loro tasto piatto (la tastiera dei luoghi, il pannello del tempo).
-function display(id,titolo,larg,alto,aGr,r,su){
-  const D={nome:id, id, titolo:()=>titolo, zona:Math.max(larg,alto)/2+0.03, raggio:alto/2, luce:LUCE_CORPO, testo:''};
-  const casa=new THREE.Group(); casa.position.copy(posaCorpo(aGr,r,su)); casa.rotation.y=-aGr*DEG;
-  CORPI_G.add(casa); D.casa=casa;
-  const lastra=new THREE.Group(); lastra.rotation.x=-25*DEG; casa.add(lastra); D.schermo=lastra;   // la cima un po' indietro: guarda gli occhi
+function display(id,titolo,larg,alto,y){
+  const D={nome:id, id, titolo:()=>titolo, zona:alto/2+0.01, raggio:alto/2, luce:LUCE_CORPO, testo:'', parteDi:OROLOGIO};
+  const lastra=new THREE.Group(); lastra.position.set(0,y,0.003); OROLOGIO.quadro.add(lastra); D.schermo=lastra;
   D.mat=cristallo(COL_CRISTALLO);
-  lastra.add(new THREE.Mesh(new THREE.BoxGeometry(larg+0.008,alto+0.008,0.012),D.mat));
+  lastra.add(new THREE.Mesh(new THREE.BoxGeometry(larg+0.006,alto+0.006,0.003),D.mat));
   D.cv=document.createElement('canvas'); D.cv.width=1024; D.cv.height=Math.round(1024*alto/larg);
   D.tex=new THREE.CanvasTexture(D.cv); D.tex.anisotropy=4;
   const vetro=new THREE.Mesh(new THREE.PlaneGeometry(larg,alto),new THREE.MeshBasicMaterial({map:D.tex,transparent:true,depthWrite:false}));
-  vetro.position.z=0.0065; lastra.add(vetro);
-  D.scatola=[larg/2+0.004,alto/2+0.004,0.01];
-  D.centro=out=>D.casa.getWorldPosition(out);
+  vetro.position.z=0.002; lastra.add(vetro);
+  D.scatola=[larg/2+0.003,alto/2+0.003,0.004];
+  D.centro=out=>D.schermo.getWorldPosition(out);
   D.t0=0;
   corpoTasto(D); CORPI.push(D);
   return D;
@@ -3076,7 +3169,7 @@ function scriviDisplay(D,righe){
   const t=righe.join('|'); if(t===D.testo) return; D.testo=t;
   const x=D.cv.getContext('2d'), W=D.cv.width, H=D.cv.height;
   x.clearRect(0,0,W,H);
-  x.fillStyle='rgba(6,10,20,0.92)'; roundRect(x,0,0,W,H,28); x.fill();
+  x.fillStyle='rgba(14,20,34,0.96)'; roundRect(x,0,0,W,H,28); x.fill();
   x.textAlign='center'; x.textBaseline='middle';
   righe.forEach((l,i)=>{
     let fs=i===0?H*0.40:H*0.26;
@@ -3087,8 +3180,8 @@ function scriviDisplay(D,righe){
   });
   D.tex.needsUpdate=true;
 }
-const DISP_LUOGO=display('dispLuogo','Display del luogo',0.20,0.06,0,0.58,0.40);
-const DISP_TEMPO=display('dispTempo','Display del tempo',0.20,0.07,0,0.58,0.29);
+const DISP_LUOGO=display('dispLuogo','Display del luogo',0.15,0.045,0.058);
+const DISP_TEMPO=display('dispTempo','Display del tempo',0.15,0.052,-0.030);
 DISP_LUOGO.fai=()=>toggleBtn(BUTTONS.find(x=>x.k==='luogo'));
 DISP_TEMPO.fai=()=>toggleBtn(BUTTONS.find(x=>x.k==='tempo'));
 const gradi=(v,p,n)=>Math.abs(v).toFixed(2).replace('.',',')+'° '+(v>=0?p:n);
@@ -3099,6 +3192,65 @@ DISP_TEMPO.aggiorna=()=>{
   const anno=c.anno<=0?(1-c.anno)+' a.C.':String(c.anno);
   scriviDisplay(DISP_TEMPO,[anno+' · '+du(c.mese)+' · '+du(c.giorno), du(c.ora)+' : '+du(c.minuto)+' : '+du(c.secondo)]);
 };
+
+// ---- i tre DISCHETTI dell'orizzonte, in basso nell'orologio: pieno, trasparente, riflesso ----
+// Gli stessi disegni dei pallini del banco, e la stessa funzione
+// (DISCHI sta accanto a TASTI: si ridipingono insieme)
+const R_DISCO=0.012;
+['dFull','dTrans','dRefl'].forEach((idT,j)=>{
+  const s=CONSOLLE.find(x=>x.id===idT);
+  const D={nome:'disco-'+idT, id:'disco-'+idT, s, titolo:()=>idT, zona:R_DISCO+0.008, raggio:R_DISCO, luce:LUCE_CORPO, parteDi:OROLOGIO};
+  const g=new THREE.Group(); g.position.set((j-1)*0.034,-0.088,0.004); OROLOGIO.quadro.add(g); D.g=g;
+  D.mat=cristallo(COL_CRISTALLO);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(R_DISCO+0.002,R_DISCO+0.002,0.004,32),D.mat);
+  base.rotation.x=Math.PI/2; g.add(base);
+  const lato=(s.w+2*MRG)*2*R_DISCO/s.w;   // il disegno ha il suo margine attorno
+  D.m=new THREE.Mesh(new THREE.PlaneGeometry(lato,lato),new THREE.MeshBasicMaterial({map:disegnaTasto(s),transparent:true,alphaTest:0.02}));
+  D.m.position.z=0.0025; g.add(D.m);
+  D.centro=out=>D.g.getWorldPosition(out);
+  D.fai=()=>premiTasto(s);
+  D.aggiorna=()=>{};
+  corpoTasto(D); CORPI.push(D); DISCHI.push(D);
+});
+
+// ---- il tasto della TASTIERA: fa sparire e ricomparire il banco (i corpi restano) ----
+let BANCO_VISTO=true;
+function mostraBanco(on){
+  BANCO_VISTO=!!on;
+  corpo.visible=BANCO_VISTO;
+  aletta.visible=BANCO_VISTO&&alettaAperta;
+  // il «componi» e il cartellino della versione restano: senza, dal banco nascosto non si torna a comporre
+  TASTI.forEach(t=>{ const resta=t.s.id==='componi'||t.s.id==='versione';
+    t.m.visible=BANCO_VISTO||resta; t.m.userData.halo.visible=BANCO_VISTO||resta; });
+  TASTIERA_T.testo='';
+  diag(BANCO_VISTO?'tastiera di nuovo al suo posto':'tastiera nascosta (restano i corpi, e il tasto «componi»)');
+}
+const TASTIERA_T={nome:'tasto-tastiera', id:'tastoTastiera', titolo:()=>'Tasto della tastiera', zona:0.05,
+  raggio:0.022, luce:LUCE_CORPO, testo:''};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(-44,0.38,0.10)); casa.rotation.y=44*DEG;
+  CORPI_G.add(casa); TASTIERA_T.casa=casa;
+  TASTIERA_T.mat=cristallo(COL_CRISTALLO);
+  const lastra=new THREE.Group(); lastra.rotation.x=-35*DEG; casa.add(lastra); TASTIERA_T.schermo=lastra;
+  lastra.add(new THREE.Mesh(new THREE.BoxGeometry(0.07,0.032,0.012),TASTIERA_T.mat));
+  TASTIERA_T.cv=document.createElement('canvas'); TASTIERA_T.cv.width=512; TASTIERA_T.cv.height=232;
+  TASTIERA_T.tex=new THREE.CanvasTexture(TASTIERA_T.cv); TASTIERA_T.tex.anisotropy=4;
+  const vetro=new THREE.Mesh(new THREE.PlaneGeometry(0.066,0.03),new THREE.MeshBasicMaterial({map:TASTIERA_T.tex,transparent:true,depthWrite:false}));
+  vetro.position.z=0.0065; lastra.add(vetro);
+  TASTIERA_T.scatola=[0.037,0.018,0.008];
+}
+TASTIERA_T.centro=out=>TASTIERA_T.casa.getWorldPosition(out);
+TASTIERA_T.fai=()=>mostraBanco(!BANCO_VISTO);
+TASTIERA_T.aggiorna=()=>{
+  const t=BANCO_VISTO?'nascondi|tastiera':'mostra|tastiera'; if(t===TASTIERA_T.testo) return; TASTIERA_T.testo=t;
+  const x=TASTIERA_T.cv.getContext('2d'); x.clearRect(0,0,512,232);
+  x.fillStyle=BANCO_VISTO?'rgba(14,20,34,0.92)':'rgba(142,107,216,0.92)'; roundRect(x,0,0,512,232,30); x.fill();
+  x.textAlign='center'; x.textBaseline='middle'; x.fillStyle='#ffe6a8';
+  x.font='500 64px "IBM Plex Sans",system-ui,sans-serif'; x.fillText(t.split('|')[0],256,78);
+  x.font='600 72px "IBM Plex Sans",system-ui,sans-serif'; x.fillText('tastiera',256,160);
+  TASTIERA_T.tex.needsUpdate=true;
+};
+corpoTasto(TASTIERA_T); CORPI.push(TASTIERA_T);
 
 // ---- COMPORRE: i corpi si spostano con la mano ----
 // Col tasto «componi» del banco i corpi smettono di essere tasti e diventano oggetti: si
@@ -3114,13 +3266,16 @@ function polareSfera(S){
 }
 function posaSfera(S,aGr,r,su){ S.casa.position.copy(posaCorpo(aGr,r,su)); S.casa.rotation.y=-aGr*DEG; }
 function salvaSfere(){
-  const o={}; CORPI.forEach(S=>{ const q=polareSfera(S);
-    o[S.id]=[Math.round(q.a*10)/10, Math.round(q.r*1000)/1000, Math.round(q.su*1000)/1000]; });
+  const o={}; CORPI.forEach(S=>{ if(S.parteDi) return; const q=polareSfera(S);
+    o[S.id]=[Math.round(q.a*10)/10, Math.round(q.r*1000)/1000, Math.round(q.su*1000)/1000];
+    if(S.quadro) o[S.id].push(Math.round(S.incl/DEG)); });
   try{ localStorage.setItem(CHIAVE_SFERE,JSON.stringify(o)); }catch(e){}
 }
 try{
   const o=JSON.parse(localStorage.getItem(CHIAVE_SFERE)||'null');
-  if(o) CORPI.forEach(S=>{ const v=o[S.id]; if(Array.isArray(v)&&v.every(Number.isFinite)) posaSfera(S,v[0],v[1],v[2]); });
+  if(o) CORPI.forEach(S=>{ const v=o[S.id]; if(S.parteDi||!Array.isArray(v)||!v.every(Number.isFinite)) return;
+    posaSfera(S,v[0],v[1],v[2]);
+    if(S.quadro&&v.length>3){ S.incl=Math.max(-S.inclMax,Math.min(S.inclMax,v[3]*DEG)); S.quadro.rotation.x=S.incl; } });
 }catch(e){}
 // la guida: griglia, filo e scritta, visibile solo mentre una sferetta e' in mano
 const GUIDA={g:new THREE.Group(), testo:''};
@@ -3153,7 +3308,8 @@ function aggiornaGuida(S){
   GUIDA.croce.position.set(p.x,y0+0.001,p.z);
   GUIDA.filo.position.set(p.x,y0,p.z); GUIDA.filo.scale.y=Math.max(0.001,q.su-S.raggio);
   GUIDA.scritta.position.set(p.x,p.y+S.raggio+0.035,p.z); GUIDA.scritta.rotation.y=-q.a*DEG;
-  const t='angolo '+Math.round(q.a)+'°  ·  dist '+Math.round(q.r*100)+' cm  ·  alt '+Math.round(q.su*100)+' cm';
+  const t='angolo '+Math.round(q.a)+'°  ·  dist '+Math.round(q.r*100)+' cm  ·  alt '+Math.round(q.su*100)+' cm'
+    +(S.quadro?'  ·  incl '+Math.round(-S.incl/DEG)+'°':'');
   if(t!==GUIDA.testo){
     GUIDA.testo=t; const x=GUIDA.cv.getContext('2d');
     x.clearRect(0,0,768,128); x.fillStyle='rgba(10,16,28,0.72)'; roundRect(x,4,24,760,80,20); x.fill();
@@ -3163,20 +3319,36 @@ function aggiornaGuida(S){
     GUIDA.tex.needsUpdate=true;
   }
 }
+// l'inclinazione: il polso che si piega in su o in giu' (o il controller) piega il quadrante con se'
+let BECCHEGGIO=null;   // quello della mano che tiene, in radianti; null se non si sa
+const _qM=new THREE.Quaternion(), _dM=new THREE.Vector3();
+function beccheggioMano(i){
+  const M=MANI[i], j=M&&M.h.visible&&M.h.joints, w=j&&j['wrist'];
+  let o=null;
+  if(w&&w.visible!==false) o=w; else { const c=[c0,c1][i]; if(c&&c.visible) o=c; }
+  if(!o) return null;
+  o.getWorldQuaternion(_qM); _dM.set(0,0,-1).applyQuaternion(_qM);
+  return Math.asin(Math.max(-1,Math.min(1,_dM.y)));
+}
 function prendiSfera(S,p){
   CORPI_G.worldToLocal(_pl.copy(p)); S.off=S.casa.position.clone().sub(_pl);
+  S.becc0=BECCHEGGIO; S.incl0=S.incl;
   GUIDA.g.visible=true; aggiornaGuida(S); return true;
 }
 function trascinaSfera(S,p){
   CORPI_G.worldToLocal(_pl.copy(p)).add(S.off);
   const a=Math.atan2(_pl.x,-_pl.z);
   S.casa.position.copy(_pl); S.casa.rotation.y=-a;   // il suo davanti resta rivolto a chi sta al centro
+  if(S.quadro&&S.becc0!=null&&BECCHEGGIO!=null){
+    S.incl=Math.max(-S.inclMax,Math.min(S.inclMax,S.incl0+BECCHEGGIO-S.becc0)); S.quadro.rotation.x=S.incl;
+  }
   aggiornaGuida(S);
 }
 function lasciaSfera(S){
   GUIDA.g.visible=false; salvaSfere();
   const q=polareSfera(S);
-  diag(S.titolo()+' posato: angolo '+Math.round(q.a)+'°, distanza '+Math.round(q.r*100)+' cm, altezza '+Math.round(q.su*100)+' cm');
+  diag(S.titolo()+' posato: angolo '+Math.round(q.a)+'°, distanza '+Math.round(q.r*100)+' cm, altezza '+Math.round(q.su*100)+' cm'
+    +(S.quadro?', inclinato '+Math.round(-S.incl/DEG)+'°':''));
 }
 function cambiaComponi(){
   COMPONI=!COMPONI;
@@ -3184,7 +3356,6 @@ function cambiaComponi(){
   ridipingiTasti(['componi']);
   diag(COMPONI?'COMPONI: prendi un corpo col pizzico e portalo dove ti è comodo':'componi finito: i corpi sono di nuovo tasti');
 }
-SFERETTE.forEach(S=>S.raggio=R_SF*SF_SCALA);
 // quelli che si toccano col dito: tutti
 const TOCCABILI=CORPI;
 inPrimoPiano(CORPI_G);
@@ -3215,6 +3386,7 @@ function prendiCorpo(i){
   if(!inVista(CORPI_G)) return false;
   const q=puntoPresa(i,_pp); if(!q) return false;
   const c=corpoVicino(q.p); if(!c) return false;
+  BECCHEGGIO=beccheggioMano(i);
   if(c.prendi(q.p,q.mano)) PRESE[i]=c;
   vibra([c0,c1][i],0.4,25);
   return true;
@@ -3225,7 +3397,7 @@ function aggiornaCorpi(dt){
   if(inVista(CORPI_G)){
     for(let i=0;i<2;i++){
       const q=puntoPresa(i,_pp);
-      if(PRESE[i]){ if(q) PRESE[i].trascina(q.p); PRESE[i].luce=LUCE_PRESO; continue; }
+      if(PRESE[i]){ if(q){ BECCHEGGIO=beccheggioMano(i); PRESE[i].trascina(q.p); } PRESE[i].luce=LUCE_PRESO; continue; }
       const c=q&&corpoVicino(q.p); if(c) c.luce=Math.max(c.luce,LUCE_VICINO);
     }
     // il dito dentro il globo (o una sferetta) lo preme; per ripremerlo deve uscirne di un paio di centimetri
