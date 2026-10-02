@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='39';
+const VERSIONE='40';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -2820,7 +2820,8 @@ function ammorbidisciRaggi(dt){
 // ====================== I CORPI: la consolle fatta di cose da toccare e da spostare ======================
 // Corpi di cristallo sospesi sopra il banco: le sferette dei cerchi (e quelle di azimut e altezza, e le
 // tre piccole delle griglie, e le tre piccolissime dell'orizzonte), le tre CUPOLE del tempo, la ROTELLA
-// dell'elenco, l'OROLOGIO di 24 ore coi display del luogo e del tempo, il tasto che nasconde la TASTIERA
+// dell'elenco, la RUOTA DEL CIELO, l'OROLOGIO di 24 ore coi display del luogo e del tempo, il tasto
+// che nasconde la TASTIERA
 // (il banco). Si toccano col dito
 // (o col grilletto, standoci dentro); col tasto «componi» si prendono e si portano dove sono comodi.
 // (La prima prova — il globo dello zodiaco, la leva del moto, la manopola dell'ora — e' stata tolta il
@@ -3327,6 +3328,83 @@ TASTIERA_T.aggiorna=()=>{
   TASTIERA_T.tex.needsUpdate=true;
 };
 corpoTasto(TASTIERA_T); CORPI.push(TASTIERA_T);
+
+// ---- la RUOTA DEL CIELO: una sfera stellata da far girare con la mano aperta, come un mappamondo ----
+// Si appoggia la mano APERTA e piatta (le quattro dita distese: non un pizzico, non un pugno) e la si
+// fa scivolare di lato: la sfera gira sotto il palmo e il cielo gira con lei, sull'azimut. Un giro di
+// sfera, un giro di cielo; il cielo va dove va la mano (la destra verso sinistra, il cielo a sinistra).
+// Alzata la mano, o chiusa, si ferma subito: nessuna inerzia.
+const R_RUOTA=0.075;
+const RUOTA_ESTESO=0.095, RUOTA_ESTESO_MIG=0.075;   // metri fra punta e nocca: sopra, il dito e' disteso
+const RUOTA_TIENE=0.085, RUOTA_TIENE_MIG=0.065;     // ...e mentre gira basta meno (l'isteresi)
+const RUOTA={nome:'ruota', id:'ruota', titolo:()=>'Ruota del cielo', zona:R_RUOTA+0.02, raggio:R_RUOTA, luce:LUCE_CORPO};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(50,0.50,0.22)); casa.rotation.y=-50*DEG;
+  CORPI_G.add(casa); RUOTA.casa=casa;
+  RUOTA.mat=cristallo(0x9fc4ff);
+  casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_RUOTA,48,28),RUOTA.mat));
+  // dentro, le stelle: girano con la sfera
+  const stelle=new THREE.Group(); casa.add(stelle); RUOTA.stelle=stelle;
+  let seme=11; const caso=()=>{ seme=(seme*16807)%2147483647; return seme/2147483647; };
+  const pt=[];
+  for(let k=0;k<90;k++){ const z=caso()*1.6-0.8, f=caso()*TAU, rr=Math.sqrt(1-z*z)*R_RUOTA*0.92;
+    pt.push(new THREE.Vector3(Math.cos(f)*rr,z*R_RUOTA*0.92,Math.sin(f)*rr)); }
+  stelle.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(pt),
+    new THREE.PointsMaterial({color:0xfff1c4,size:0.0035,transparent:true,opacity:.9,depthWrite:false})));
+  // un meridiano, perche' si veda girare anche dove le stelle sono poche
+  const mer=new THREE.Mesh(new THREE.TorusGeometry(R_RUOTA*0.93,0.0012,6,64),
+    new THREE.MeshBasicMaterial({color:0x9fc4ff,transparent:true,opacity:.5}));
+  stelle.add(mer);
+  // l'orizzonte, fermo
+  const oriz=new THREE.Mesh(new THREE.TorusGeometry(R_RUOTA*1.02,0.0016,6,96),
+    new THREE.MeshBasicMaterial({color:0x57d68f,transparent:true,opacity:.8}));
+  oriz.rotation.x=Math.PI/2; casa.add(oriz);
+  const e=etichetta('cielo'); e.position.set(0,R_RUOTA+0.018,0); casa.add(e);
+}
+RUOTA.centro=out=>RUOTA.casa.getWorldPosition(out);
+RUOTA.fai=()=>{};   // non si preme: si fa girare
+// la mano e' aperta? Le quattro dita distese (piu' larghe se la mano sta gia' girando la sfera)
+function manoAperta(M,gia){
+  const j=M.h.visible&&M.h.joints; if(!j) return false;
+  for(const d of DITA4){
+    const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
+    if(!t||!n||t.visible===false||n.visible===false) return false;
+    const min=d==='pinky'?(gia?RUOTA_TIENE_MIG:RUOTA_ESTESO_MIG):(gia?RUOTA_TIENE:RUOTA_ESTESO);
+    if(t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2))<min) return false;
+  }
+  return true;
+}
+// il centro del palmo: a meta' fra la nocca e la prima falange del medio, nel sistema della sfera
+const _palmo=new THREE.Vector3(), _palmo2=new THREE.Vector3();
+function palmoInRuota(M,out){
+  const j=M.h.joints, a=j['middle-finger-metacarpal'], b=j['middle-finger-phalanx-proximal'];
+  if(!a||!b) return null;
+  a.getWorldPosition(out).add(b.getWorldPosition(_palmo2)).multiplyScalar(0.5);
+  return RUOTA.casa.worldToLocal(out);
+}
+RUOTA.mano=null;   // quale mano la sta girando, e dov'era il palmo
+RUOTA.aggiorna=()=>{
+  if(COMPONI||!inVista(CORPI_G)){ RUOTA.mano=null; return; }
+  if(RUOTA.mano){
+    const M=RUOTA.mano.M, p=manoAperta(M,true)&&palmoInRuota(M,_palmo);
+    if(!p||p.length()>R_RUOTA+0.06){ RUOTA.mano=null; diag('cielo fermo (ruota)'); return; }
+    // lo scivolare di lato: l'angolo del palmo attorno all'asse della sfera (sopra la cima, dove
+    // l'angolo non si sa, si aspetta)
+    if(Math.hypot(p.x,p.z)<R_RUOTA*0.3){ RUOTA.luce=LUCE_PRESO; return; }
+    const f=Math.atan2(p.x,p.z); let d=f-RUOTA.mano.f; d-=TAU*Math.round(d/TAU); RUOTA.mano.f=f;
+    RUOTA.stelle.rotation.y+=d;                              // la sfera gira sotto il palmo
+    ORIENT.yaw-=d; applicaOrientamento();                    // e il cielo va dove va la mano
+    RUOTA.luce=LUCE_PRESO;
+    return;
+  }
+  for(const M of MANI){
+    if(!M.h.visible||!manoAperta(M,false)) continue;
+    const p=palmoInRuota(M,_palmo); if(!p) continue;
+    if(p.length()<R_RUOTA+0.035&&Math.hypot(p.x,p.z)>=R_RUOTA*0.3){ RUOTA.mano={M, f:Math.atan2(p.x,p.z)}; RUOTA.luce=LUCE_PRESO; break; }
+    if(p.length()<R_RUOTA+0.08) RUOTA.luce=Math.max(RUOTA.luce,LUCE_VICINO);
+  }
+};
+corpoTasto(RUOTA); CORPI.push(RUOTA);
 
 // ---- COMPORRE: i corpi si spostano con la mano ----
 // Col tasto «componi» del banco i corpi smettono di essere tasti e diventano oggetti: si
