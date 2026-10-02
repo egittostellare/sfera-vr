@@ -304,6 +304,9 @@
 // ====================== diario di bordo ======================
 // Va scritto prima di ogni altra cosa: se qualcosa si rompe durante l'avvio,
 // il riquadro lo dice invece di lasciare una pagina muta.
+// la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?36). Si legge
+// sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
+const VERSIONE='36';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -2020,7 +2023,7 @@ const CONSOLLE=[
   {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-65, pr:0.468, d:64, col:'equat', icona:'Grid'},
   {id:'componi',  k:'componi',   f:'rett', pa:-50, pr:0.335, w:170, h:60, col:'comp', t:'componi'},
   // il cartellino della versione: dice nel visore quale pagina si sta guardando (cresce a ogni giro)
-  {id:'versione',                f:'rett', pa:-66, pr:0.36,  w:64,  h:30, t:'v35'},
+  {id:'versione',                f:'rett', pa:-66, pr:0.36,  w:64,  h:30, t:'v'+VERSIONE},
   {id:'onda',     k:'onda',      f:'rett', pa:-89.1,  pr:0.452, w:112, h:76, t:'onda'},
   {id:'quota',    k:'quota',     f:'rett', pa:-101.8, pr:0.452, w:140, h:80, t:'quota'},
   {id:'occhi',    k:'altezza',   f:'rett', pa:-90.2,  pr:0.376, w:112, h:76, t:'occhi'},
@@ -2268,7 +2271,7 @@ function premiTasto(s){
     case 'dTrans': if(stato.orizReale) imposta('orizReale',false);
       diag('orizzonte trasparente: il mare è un vetro scuro, il cielo di sotto si vede'); return;
     case 'componi': cambiaComponi(); return;
-    case 'versione': diag('questa è la pagina v35'); return;
+    case 'versione': diag('questa è la pagina v'+VERSIONE); return;
     case 'dRefl':  diag('orizzonte riflesso (il mare che specchia le stelle): non c’è ancora','warn'); return;
   }
   const b=BUTTONS.find(x=>x.k===s.k);
@@ -4002,7 +4005,7 @@ let xrSession=null, calibrato=false, eyeY=0, rifTipo=null, modoAltezza='occhi';
 
 if(navigator.xr && navigator.xr.isSessionSupported){
   navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
-    if(ok) diag('il visore risponde: immersive-vr disponibile','ok');
+    if(ok){ enter.textContent='◉ Entra in VR · v'+VERSIONE; diag('il visore risponde: immersive-vr disponibile','ok'); }
     else { enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; enter.classList.add('small');
            diag('immersive-vr non disponibile su questo dispositivo','warn'); }
   }).catch(e=>{ enter.textContent='VR non disponibile qui'; enter.style.opacity=.6; enter.classList.add('small');
@@ -4064,7 +4067,7 @@ function sessioneFinita(){
   xrSession=null; calibrato=false; azzeraZoom();   // fuori dal visore la sfera si guarda da fuori: niente zoom
   MARE.att=false; GRAND.att=false; GRAND.eff=1; impostaGrand(1);   // niente grandangolo
   applicaMare(false);                                 // e niente mare: la volta torna a 32 metri
-  enter.classList.remove('small'); enter.textContent='◉ Entra in VR';
+  enter.classList.remove('small'); enter.textContent='◉ Entra in VR · v'+VERSIONE;
   diag('sessione terminata');
 }
 enter.addEventListener('click',()=>{
@@ -4616,7 +4619,7 @@ if(A) diag('cielo di '+LUOGO.nome+', '+quandoTesto(ISTANTE,true)+' — '+quanteS
 // di partenza l'orizzonte e' REALE: il mare e' acqua e nasconde quello che non e' sorto. Si accende
 // qui, a scena finita, perche' il taglio valga per tutto quello che sta nel cielo (pianeti compresi)
 imposta('orizReale',true); ridipingiTasti(['orizReale']);
-diag('scena pronta — premi «Entra in VR»','ok');
+diag('scena pronta (v'+VERSIONE+') — premi «Entra in VR»','ok');
 </script>
 </body>
 </html>
