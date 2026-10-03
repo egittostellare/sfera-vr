@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='40';
+const VERSIONE='41';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -2735,29 +2735,33 @@ function aggiornaMani(){
 }
 const _occhio2=new THREE.Vector3();
 
-// ---- IL PUGNO DESTRO gira il planetario sull'azimut ----
-// Si chiude il pugno della mano destra e lo si porta a destra o a sinistra: il planetario lo segue,
-// come se si fosse afferrato il cielo (l'angolo di cui il pugno gira attorno a chi guarda e' l'angolo
-// di cui gira il cielo). Aprendo la mano resta dov'e'. E' lo stesso gesto del tasto laterale destro
-// del controller, ma senza raggio: il raggio di una mano trema, il pugno no.
-// Il pugno si riconosce dalle giunture: le punte di indice, medio, anulare e mignolo vicine alle
-// nocche. Per non tremare sul confine, si chiude sotto una distanza e si riapre sopra una piu' larga.
+// ---- LA MANO APERTA E PIATTA gira il planetario sull'azimut ----
+// Si distende la mano, destra o sinistra, e la si tiene piatta (il palmo verso terra o verso il
+// cielo, non di taglio), poi la si porta di lato: il planetario la segue, come se si spingesse il
+// cielo (l'angolo di cui la mano gira attorno a chi guarda e' l'angolo di cui gira il cielo; la mano
+// verso sinistra, il cielo a sinistra). Chiudendo o girando la mano resta dov'e'.
+// Prima lo faceva il pugno destro: all'autore il gesto non piaceva (3 ottobre 2026).
+// Distesa e piatta e' una posa voluta: la mano a riposo e' un po' chiusa, quella che preme ha
+// l'indice solo, quella che pizzica tocca il pollice. Per non tremare sul confine, ci si entra con
+// le soglie strette e si resta con quelle larghe.
 const DITA4=['index','middle','ring','pinky'];
-const PUGNO_CHIUDE=0.050, PUGNO_APRE=0.070;   // metri fra la punta e la nocca di ogni dito
-function piegaDita(M){   // quante delle quattro dita sono piegate (e la distanza piu' larga), o null
-  const j=M.h.visible&&M.h.joints; if(!j) return null;
-  let peggio=0;
+const PIATTA_DISTESO=0.095, PIATTA_DISTESO_MIG=0.075;   // metri fra punta e nocca: dito disteso
+const PIATTA_RESTA=0.080, PIATTA_RESTA_MIG=0.060;       // ...e mentre si gira il cielo basta meno
+const PIATTA_ENTRA=Math.cos(35*DEG), PIATTA_ESCE=Math.cos(55*DEG);   // quanto il dorso guarda in su o in giu'
+const _pD2=new THREE.Vector3(), _pN2=new THREE.Vector3(), _qP=new THREE.Quaternion(), _suP=new THREE.Vector3();
+function manoPiatta(M){
+  const j=M.h.visible&&M.h.joints; if(!j) return false;
+  const gia=!!M.piatta;
   for(const d of DITA4){
     const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
-    if(!t||!n||t.visible===false||n.visible===false) return null;
-    peggio=Math.max(peggio,t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2)));
+    if(!t||!n||t.visible===false||n.visible===false) return false;
+    const min=d==='pinky'?(gia?PIATTA_RESTA_MIG:PIATTA_DISTESO_MIG):(gia?PIATTA_RESTA:PIATTA_DISTESO);
+    if(t.getWorldPosition(_pD2).distanceTo(n.getWorldPosition(_pN2))<min) return false;
   }
-  return peggio;
-}
-// il pugno e' chiuso? (con l'isteresi: la mano che era chiusa resta chiusa fino a PUGNO_APRE)
-function manoChiusa(M){
-  const d=piegaDita(M); if(d==null) return false;
-  return M.pugno?d<PUGNO_APRE:d<PUGNO_CHIUDE;
+  // piatta: la normale del dorso (l'asse y della giuntura del medio) quasi verticale, in su o in giu'
+  const m=j['middle-finger-metacarpal'];
+  m.getWorldQuaternion(_qP); _suP.set(0,1,0).applyQuaternion(_qP);
+  return Math.abs(_suP.y)>(gia?PIATTA_ESCE:PIATTA_ENTRA);
 }
 // le tre dita lunghe piegate: un pizzico fatto a pugno non e' un pizzico, e non preme nulla
 function ditaPiegate(i){
@@ -2766,31 +2770,32 @@ function ditaPiegate(i){
   for(const d of ['middle','ring','pinky']){
     const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
     if(!t||!n||t.visible===false) return false;
-    if(t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2))>PUGNO_APRE) return false;
+    if(t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2))>0.070) return false;
   }
   return true;
 }
-const _pugnoP=new THREE.Vector3(), _testaP=new THREE.Vector3();
-const azimutPugno=(M,testa)=>{ M.h.joints['middle-finger-metacarpal'].getWorldPosition(_pugnoP).sub(testa);
-  return Math.hypot(_pugnoP.x,_pugnoP.z)<0.08?null:Math.atan2(_pugnoP.x,_pugnoP.z); };
-function aggiornaPugno(testa){
+const _manoP=new THREE.Vector3();
+const azimutMano=(M,testa)=>{ M.h.joints['middle-finger-metacarpal'].getWorldPosition(_manoP).sub(testa);
+  return Math.hypot(_manoP.x,_manoP.z)<0.08?null:Math.atan2(_manoP.x,_manoP.z); };
+function aggiornaManoPiatta(testa){
+  let chi=MANI.findIndex(M=>M.piatta);   // una mano alla volta: quella che ha cominciato
   MANI.forEach((M,i)=>{
-    const c=[c0,c1][i], lato=c&&c.userData.src&&c.userData.src.handedness;
-    const chiusa=lato==='right'&&!PRESE[i]&&manoChiusa(M);
-    if(chiusa&&!M.pugno){
-      const a=azimutPugno(M,testa);
-      if(a==null) return;
-      M.pugno={psi0:a, yaw0:ORIENT.yaw};
+    if(chi>=0&&chi!==i) return;
+    const c=[c0,c1][i];
+    const piatta=!PRESE[i]&&!COMPONI&&manoPiatta(M);
+    if(piatta&&!M.piatta){
+      const a=azimutMano(M,testa); if(a==null) return;
+      M.piatta={psi0:a, yaw0:ORIENT.yaw}; chi=i;
       if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xe3c169); c.userData.ray.material.opacity=.8; }
-    } else if(!chiusa&&M.pugno){
-      M.pugno=null;
+    } else if(!piatta&&M.piatta){
+      M.piatta=null; chi=-1;
       if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xffffff); c.userData.ray.material.opacity=.4; }
-      diag('orientamento fissato (pugno)');
+      diag('orientamento fissato (mano piatta)');
     }
-    if(M.pugno){
-      const a=azimutPugno(M,testa); if(a==null) return;
-      let d=a-M.pugno.psi0; d-=TAU*Math.round(d/TAU);
-      ORIENT.yaw=M.pugno.yaw0+d; applicaOrientamento();
+    if(M.piatta){
+      const a=azimutMano(M,testa); if(a==null) return;
+      let d=a-M.piatta.psi0; d-=TAU*Math.round(d/TAU);
+      ORIENT.yaw=M.piatta.yaw0+d; applicaOrientamento();
     }
   });
 }
@@ -2820,8 +2825,7 @@ function ammorbidisciRaggi(dt){
 // ====================== I CORPI: la consolle fatta di cose da toccare e da spostare ======================
 // Corpi di cristallo sospesi sopra il banco: le sferette dei cerchi (e quelle di azimut e altezza, e le
 // tre piccole delle griglie, e le tre piccolissime dell'orizzonte), le tre CUPOLE del tempo, la ROTELLA
-// dell'elenco, la RUOTA DEL CIELO, l'OROLOGIO di 24 ore coi display del luogo e del tempo, il tasto
-// che nasconde la TASTIERA
+// dell'elenco, l'OROLOGIO di 24 ore coi display del luogo e del tempo, il tasto che nasconde la TASTIERA
 // (il banco). Si toccano col dito
 // (o col grilletto, standoci dentro); col tasto «componi» si prendono e si portano dove sono comodi.
 // (La prima prova — il globo dello zodiaco, la leva del moto, la manopola dell'ora — e' stata tolta il
@@ -3138,7 +3142,8 @@ ROTELLA.fai=()=>diag('la rotella: qui dentro andrà l’elenco delle scelte (da 
 ROTELLA.aggiorna=()=>{};
 corpoTasto(ROTELLA); CORPI.push(ROTELLA);
 
-// ---- l'OROLOGIO: un quadrante di 24 ore, 30 cm, coi display del luogo e del tempo dentro ----
+// ---- l'OROLOGIO: un quadrante di 24 ore, 37,5 cm, coi display del luogo e del tempo dentro ----
+// (disegnato a 30 cm e ingrandito tutto insieme di OR_SCALA: un quarto in piu', 3 ottobre)
 // Di vetro scuro e luce fredda, come uno strumento di bordo: un anello luminoso, le 24 ore, i 60
 // minuti a puntini, un'orbita tratteggiata che gira piano, e il punto ambra dei secondi che la percorre.
 // Mezzogiorno in alto (il Sole al meridiano), mezzanotte in basso; la lancetta delle ore fa un giro
@@ -3147,12 +3152,12 @@ corpoTasto(ROTELLA); CORPI.push(ROTELLA);
 // quando si sceglie un altro istante.
 // Col «componi» si sposta e si INCLINA: preso, segue la mano, e piegando il polso in su o in giu'
 // il quadrante si piega con lui.
-const R_OR=0.15, OR_CIANO=0x7fe8ff, OR_GHIACCIO=0xd8f6ff, OR_AMBRA=0xffc46a;
-const OROLOGIO={nome:'orologio', id:'orologio', titolo:()=>'Orologio', zona:R_OR+0.02, raggio:R_OR,
+const R_OR=0.15, OR_SCALA=1.25, OR_CIANO=0x7fe8ff, OR_GHIACCIO=0xd8f6ff, OR_AMBRA=0xffc46a;
+const OROLOGIO={nome:'orologio', id:'orologio', titolo:()=>'Orologio', zona:R_OR*OR_SCALA+0.02, raggio:R_OR*OR_SCALA,
   luce:LUCE_CORPO, incl:-20*DEG, inclMax:80*DEG};
 {
-  const casa=new THREE.Group(); casa.position.copy(posaCorpo(0,0.70,0.36)); CORPI_G.add(casa); OROLOGIO.casa=casa;
-  const quadro=new THREE.Group(); quadro.rotation.x=OROLOGIO.incl; casa.add(quadro); OROLOGIO.quadro=quadro;
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(0,0.70,0.40)); CORPI_G.add(casa); OROLOGIO.casa=casa;
+  const quadro=new THREE.Group(); quadro.rotation.x=OROLOGIO.incl; quadro.scale.setScalar(OR_SCALA); casa.add(quadro); OROLOGIO.quadro=quadro;
   OROLOGIO.mat=cristallo(COL_CRISTALLO);   // un velo di cristallo dietro al vetro: la luce del corpo vicino alla mano
   const velo=new THREE.Mesh(new THREE.CircleGeometry(R_OR+0.006,96),OROLOGIO.mat); velo.position.z=-0.003; quadro.add(velo);
   // l'anello di luce, e fuori l'orbita tratteggiata
@@ -3245,7 +3250,7 @@ corpoTasto(OROLOGIO); CORPI.push(OROLOGIO);
 // Toccati, aprono quello che apriva il loro tasto piatto (la tastiera dei luoghi, il pannello del tempo).
 // Stanno SOPRA alle lancette: le coprono quando ci passano dietro.
 function display(id,titolo,larg,alto,y){
-  const D={nome:id, id, titolo:()=>titolo, zona:alto/2+0.01, raggio:alto/2, luce:LUCE_CORPO, testo:'', parteDi:OROLOGIO};
+  const D={nome:id, id, titolo:()=>titolo, zona:(alto/2+0.01)*OR_SCALA, raggio:alto/2*OR_SCALA, luce:LUCE_CORPO, testo:'', parteDi:OROLOGIO};
   const lastra=new THREE.Group(); lastra.position.set(0,y,0.004); OROLOGIO.quadro.add(lastra); D.schermo=lastra;
   D.mat=cristallo(COL_CRISTALLO);
   lastra.add(new THREE.Mesh(new THREE.BoxGeometry(larg+0.004,alto+0.004,0.002),D.mat));
@@ -3328,83 +3333,6 @@ TASTIERA_T.aggiorna=()=>{
   TASTIERA_T.tex.needsUpdate=true;
 };
 corpoTasto(TASTIERA_T); CORPI.push(TASTIERA_T);
-
-// ---- la RUOTA DEL CIELO: una sfera stellata da far girare con la mano aperta, come un mappamondo ----
-// Si appoggia la mano APERTA e piatta (le quattro dita distese: non un pizzico, non un pugno) e la si
-// fa scivolare di lato: la sfera gira sotto il palmo e il cielo gira con lei, sull'azimut. Un giro di
-// sfera, un giro di cielo; il cielo va dove va la mano (la destra verso sinistra, il cielo a sinistra).
-// Alzata la mano, o chiusa, si ferma subito: nessuna inerzia.
-const R_RUOTA=0.075;
-const RUOTA_ESTESO=0.095, RUOTA_ESTESO_MIG=0.075;   // metri fra punta e nocca: sopra, il dito e' disteso
-const RUOTA_TIENE=0.085, RUOTA_TIENE_MIG=0.065;     // ...e mentre gira basta meno (l'isteresi)
-const RUOTA={nome:'ruota', id:'ruota', titolo:()=>'Ruota del cielo', zona:R_RUOTA+0.02, raggio:R_RUOTA, luce:LUCE_CORPO};
-{
-  const casa=new THREE.Group(); casa.position.copy(posaCorpo(50,0.50,0.22)); casa.rotation.y=-50*DEG;
-  CORPI_G.add(casa); RUOTA.casa=casa;
-  RUOTA.mat=cristallo(0x9fc4ff);
-  casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_RUOTA,48,28),RUOTA.mat));
-  // dentro, le stelle: girano con la sfera
-  const stelle=new THREE.Group(); casa.add(stelle); RUOTA.stelle=stelle;
-  let seme=11; const caso=()=>{ seme=(seme*16807)%2147483647; return seme/2147483647; };
-  const pt=[];
-  for(let k=0;k<90;k++){ const z=caso()*1.6-0.8, f=caso()*TAU, rr=Math.sqrt(1-z*z)*R_RUOTA*0.92;
-    pt.push(new THREE.Vector3(Math.cos(f)*rr,z*R_RUOTA*0.92,Math.sin(f)*rr)); }
-  stelle.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(pt),
-    new THREE.PointsMaterial({color:0xfff1c4,size:0.0035,transparent:true,opacity:.9,depthWrite:false})));
-  // un meridiano, perche' si veda girare anche dove le stelle sono poche
-  const mer=new THREE.Mesh(new THREE.TorusGeometry(R_RUOTA*0.93,0.0012,6,64),
-    new THREE.MeshBasicMaterial({color:0x9fc4ff,transparent:true,opacity:.5}));
-  stelle.add(mer);
-  // l'orizzonte, fermo
-  const oriz=new THREE.Mesh(new THREE.TorusGeometry(R_RUOTA*1.02,0.0016,6,96),
-    new THREE.MeshBasicMaterial({color:0x57d68f,transparent:true,opacity:.8}));
-  oriz.rotation.x=Math.PI/2; casa.add(oriz);
-  const e=etichetta('cielo'); e.position.set(0,R_RUOTA+0.018,0); casa.add(e);
-}
-RUOTA.centro=out=>RUOTA.casa.getWorldPosition(out);
-RUOTA.fai=()=>{};   // non si preme: si fa girare
-// la mano e' aperta? Le quattro dita distese (piu' larghe se la mano sta gia' girando la sfera)
-function manoAperta(M,gia){
-  const j=M.h.visible&&M.h.joints; if(!j) return false;
-  for(const d of DITA4){
-    const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
-    if(!t||!n||t.visible===false||n.visible===false) return false;
-    const min=d==='pinky'?(gia?RUOTA_TIENE_MIG:RUOTA_ESTESO_MIG):(gia?RUOTA_TIENE:RUOTA_ESTESO);
-    if(t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2))<min) return false;
-  }
-  return true;
-}
-// il centro del palmo: a meta' fra la nocca e la prima falange del medio, nel sistema della sfera
-const _palmo=new THREE.Vector3(), _palmo2=new THREE.Vector3();
-function palmoInRuota(M,out){
-  const j=M.h.joints, a=j['middle-finger-metacarpal'], b=j['middle-finger-phalanx-proximal'];
-  if(!a||!b) return null;
-  a.getWorldPosition(out).add(b.getWorldPosition(_palmo2)).multiplyScalar(0.5);
-  return RUOTA.casa.worldToLocal(out);
-}
-RUOTA.mano=null;   // quale mano la sta girando, e dov'era il palmo
-RUOTA.aggiorna=()=>{
-  if(COMPONI||!inVista(CORPI_G)){ RUOTA.mano=null; return; }
-  if(RUOTA.mano){
-    const M=RUOTA.mano.M, p=manoAperta(M,true)&&palmoInRuota(M,_palmo);
-    if(!p||p.length()>R_RUOTA+0.06){ RUOTA.mano=null; diag('cielo fermo (ruota)'); return; }
-    // lo scivolare di lato: l'angolo del palmo attorno all'asse della sfera (sopra la cima, dove
-    // l'angolo non si sa, si aspetta)
-    if(Math.hypot(p.x,p.z)<R_RUOTA*0.3){ RUOTA.luce=LUCE_PRESO; return; }
-    const f=Math.atan2(p.x,p.z); let d=f-RUOTA.mano.f; d-=TAU*Math.round(d/TAU); RUOTA.mano.f=f;
-    RUOTA.stelle.rotation.y+=d;                              // la sfera gira sotto il palmo
-    ORIENT.yaw-=d; applicaOrientamento();                    // e il cielo va dove va la mano
-    RUOTA.luce=LUCE_PRESO;
-    return;
-  }
-  for(const M of MANI){
-    if(!M.h.visible||!manoAperta(M,false)) continue;
-    const p=palmoInRuota(M,_palmo); if(!p) continue;
-    if(p.length()<R_RUOTA+0.035&&Math.hypot(p.x,p.z)>=R_RUOTA*0.3){ RUOTA.mano={M, f:Math.atan2(p.x,p.z)}; RUOTA.luce=LUCE_PRESO; break; }
-    if(p.length()<R_RUOTA+0.08) RUOTA.luce=Math.max(RUOTA.luce,LUCE_VICINO);
-  }
-};
-corpoTasto(RUOTA); CORPI.push(RUOTA);
 
 // ---- COMPORRE: i corpi si spostano con la mano ----
 // Col tasto «componi» del banco i corpi smettono di essere tasti e diventano oggetti: si
@@ -4610,7 +4538,7 @@ renderer.setAnimationLoop((time,frame)=>{
       ammorbidisciRaggi(dt);
       indica(aggiornaRaggi());
       aggiornaMani();
-      aggiornaPugno(_testa);
+      aggiornaManoPiatta(_testa);
       aggiornaCorpi(dt);
       if(logSporco) disegnaLog();
     } else {
