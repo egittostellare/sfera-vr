@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='42';
+const VERSIONE='43';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -2744,25 +2744,37 @@ const _occhio2=new THREE.Vector3();
 // Prima lo faceva il pugno destro: all'autore il gesto non piaceva (3 ottobre 2026).
 // Distesa e piatta e' una posa voluta: la mano a riposo e' un po' chiusa, quella che preme ha
 // l'indice solo, quella che pizzica tocca il pollice. Per non tremare sul confine, ci si entra con
-// le soglie strette e si resta con quelle larghe.
+// le soglie strette e si resta con quelle larghe; e se il visore perde la posa per un attimo (la mano
+// che corre di lato, un dito che sfugge) la presa TIENE per PIATTA_GRAZIA: prima la lasciava e la
+// riprendeva da capo, e del movimento restavano solo briciole («micromovimenti», 3 ottobre).
 const DITA4=['index','middle','ring','pinky'];
-const PIATTA_DISTESO=0.095, PIATTA_DISTESO_MIG=0.075;   // metri fra punta e nocca: dito disteso
-const PIATTA_RESTA=0.080, PIATTA_RESTA_MIG=0.060;       // ...e mentre si gira il cielo basta meno
-const PIATTA_ENTRA=Math.cos(35*DEG), PIATTA_ESCE=Math.cos(55*DEG);   // quanto il dorso guarda in su o in giu'
+const PIATTA_DISTESO=0.085, PIATTA_DISTESO_MIG=0.065;   // metri fra punta e nocca: dito disteso
+const PIATTA_RESTA=0.070, PIATTA_RESTA_MIG=0.055;       // ...e mentre si gira il cielo basta meno
+const PIATTA_ENTRA=Math.cos(45*DEG), PIATTA_ESCE=Math.cos(65*DEG);   // quanto il dorso guarda in su o in giu'
+const PIATTA_GRAZIA=300;                                // millisecondi di posa persa che non mollano il cielo
 const _pD2=new THREE.Vector3(), _pN2=new THREE.Vector3(), _qP=new THREE.Quaternion(), _suP=new THREE.Vector3();
-function manoPiatta(M){
-  const j=M.h.visible&&M.h.joints; if(!j) return false;
-  const gia=!!M.piatta;
+// le misure della mano: quanto e' distesa ogni dito (cm) e quanto il dorso e' verticale (0..1);
+// null se il visore non la vede
+function misuraMano(M){
+  const j=M.h.visible&&M.h.joints; if(!j) return null;
+  const dita=[];
   for(const d of DITA4){
     const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
-    if(!t||!n||t.visible===false||n.visible===false) return false;
-    const min=d==='pinky'?(gia?PIATTA_RESTA_MIG:PIATTA_DISTESO_MIG):(gia?PIATTA_RESTA:PIATTA_DISTESO);
-    if(t.getWorldPosition(_pD2).distanceTo(n.getWorldPosition(_pN2))<min) return false;
+    if(!t||!n||t.visible===false||n.visible===false) return null;
+    dita.push(t.getWorldPosition(_pD2).distanceTo(n.getWorldPosition(_pN2)));
   }
-  // piatta: la normale del dorso (l'asse y della giuntura del medio) quasi verticale, in su o in giu'
   const m=j['middle-finger-metacarpal'];
   m.getWorldQuaternion(_qP); _suP.set(0,1,0).applyQuaternion(_qP);
-  return Math.abs(_suP.y)>(gia?PIATTA_ESCE:PIATTA_ENTRA);
+  return {dita, dorso:Math.abs(_suP.y)};
+}
+function manoPiatta(M,mis){
+  if(!mis) return false;
+  const gia=!!M.piatta;
+  for(let k=0;k<4;k++){
+    const min=k===3?(gia?PIATTA_RESTA_MIG:PIATTA_DISTESO_MIG):(gia?PIATTA_RESTA:PIATTA_DISTESO);
+    if(mis.dita[k]<min) return false;
+  }
+  return mis.dorso>(gia?PIATTA_ESCE:PIATTA_ENTRA);
 }
 // le tre dita lunghe piegate: un pizzico fatto a pugno non e' un pizzico, e non preme nulla
 function ditaPiegate(i){
@@ -2776,29 +2788,64 @@ function ditaPiegate(i){
   return true;
 }
 const _manoP=new THREE.Vector3();
-const azimutMano=(M,testa)=>{ M.h.joints['middle-finger-metacarpal'].getWorldPosition(_manoP).sub(testa);
+const azimutMano=(M,testa)=>{ const n=M.h.joints&&M.h.joints['middle-finger-metacarpal']; if(!n||n.visible===false) return null;
+  n.getWorldPosition(_manoP).sub(testa);
   return Math.hypot(_manoP.x,_manoP.z)<0.08?null:Math.atan2(_manoP.x,_manoP.z); };
 function aggiornaManoPiatta(testa){
+  const ora=performance.now();
   let chi=MANI.findIndex(M=>M.piatta);   // una mano alla volta: quella che ha cominciato
   MANI.forEach((M,i)=>{
+    const mis=misuraMano(M); M.misura=mis;   // per la scritta di diagnosi
     if(chi>=0&&chi!==i) return;
     const c=[c0,c1][i];
-    const piatta=!PRESE[i]&&!COMPONI&&manoPiatta(M);
+    const piatta=!PRESE[i]&&!COMPONI&&manoPiatta(M,mis);
     if(piatta&&!M.piatta){
       const a=azimutMano(M,testa); if(a==null) return;
-      M.piatta={psi0:a, yaw0:ORIENT.yaw}; chi=i;
+      M.piatta={psi0:a, yaw0:ORIENT.yaw, vista:ora}; chi=i;
       if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xe3c169); c.userData.ray.material.opacity=.8; }
     } else if(!piatta&&M.piatta){
+      if(ora-M.piatta.vista<PIATTA_GRAZIA&&!PRESE[i]&&!COMPONI) return;   // un attimo di posa persa: tiene
       M.piatta=null; chi=-1;
       if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xffffff); c.userData.ray.material.opacity=.4; }
       diag('orientamento fissato (mano piatta)');
     }
-    if(M.piatta){
+    if(M.piatta&&piatta){
       const a=azimutMano(M,testa); if(a==null) return;
+      M.piatta.vista=ora;
       let d=a-M.piatta.psi0; d-=TAU*Math.round(d/TAU);
       ORIENT.yaw=M.piatta.yaw0+d; applicaOrientamento();
     }
   });
+  scriviDiagnosiMani(ora);
+}
+// LA SCRITTA DI DIAGNOSI DELLE MANI (provvisoria): in basso nella vista, per ogni mano che il visore
+// vede, quanto e' distesa ogni dito (cm: indice medio anulare mignolo; serve sopra 8,5 e 6,5 il
+// mignolo), quanto il dorso e' orizzontale (serve sopra 0,71) e se il cielo e' preso. Serve a capire
+// nel visore dove il gesto s'inceppa; quando funziona, si toglie.
+const DIAGNOSI_MANI=true;
+const DM={cv:document.createElement('canvas'), t0:0, testo:''};
+DM.cv.width=1024; DM.cv.height=160;
+DM.tex=new THREE.CanvasTexture(DM.cv);
+DM.mesh=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.053),
+  new THREE.MeshBasicMaterial({map:DM.tex,transparent:true,depthTest:false,depthWrite:false}));
+DM.mesh.position.set(0,-0.17,-0.45); DM.mesh.renderOrder=9000; DM.mesh.visible=false; camera.add(DM.mesh);
+function scriviDiagnosiMani(ora){
+  if(!DIAGNOSI_MANI||ora-DM.t0<100) return; DM.t0=ora;
+  const righe=[];
+  MANI.forEach((M,i)=>{
+    const c=[c0,c1][i], lato=c&&c.userData.src&&c.userData.src.handedness, n=lato==='left'?'SX':lato==='right'?'DX':'M'+i;
+    const m=M.misura;
+    if(!m){ if(M.h.visible) righe.push(n+': il visore non vede tutte le dita'); return; }
+    righe.push(n+': dita '+m.dita.map(x=>(x*100).toFixed(1)).join(' ')+'  ·  dorso '+m.dorso.toFixed(2)+(M.piatta?'  ·  CIELO PRESO':''));
+  });
+  const t=righe.join('|'); DM.mesh.visible=righe.length>0; if(t===DM.testo) return; DM.testo=t;
+  const x=DM.cv.getContext('2d'); x.clearRect(0,0,1024,160);
+  if(!righe.length){ DM.tex.needsUpdate=true; return; }
+  x.fillStyle='rgba(6,10,20,0.95)'; roundRect(x,0,0,1024,160,24); x.fill();
+  x.strokeStyle='#ffe6a8'; x.lineWidth=4; roundRect(x,3,3,1018,154,22); x.stroke();
+  x.font='600 42px "IBM Plex Mono",ui-monospace,monospace'; x.textBaseline='middle';
+  righe.forEach((l,k)=>{ x.fillStyle=/PRESO/.test(l)?'#ffe6a8':'#d8f6ff'; x.fillText(l,24,48+k*64); });
+  DM.tex.needsUpdate=true;
 }
 
 // ---- I RAGGI DELLE MANI, AMMORBIDITI ----
