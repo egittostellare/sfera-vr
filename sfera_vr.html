@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='43';
+const VERSIONE='44';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -2736,47 +2736,8 @@ function aggiornaMani(){
 }
 const _occhio2=new THREE.Vector3();
 
-// ---- LA MANO APERTA E PIATTA gira il planetario sull'azimut ----
-// Si distende la mano, destra o sinistra, e la si tiene piatta (il palmo verso terra o verso il
-// cielo, non di taglio), poi la si porta di lato: il planetario la segue, come se si spingesse il
-// cielo (l'angolo di cui la mano gira attorno a chi guarda e' l'angolo di cui gira il cielo; la mano
-// verso sinistra, il cielo a sinistra). Chiudendo o girando la mano resta dov'e'.
-// Prima lo faceva il pugno destro: all'autore il gesto non piaceva (3 ottobre 2026).
-// Distesa e piatta e' una posa voluta: la mano a riposo e' un po' chiusa, quella che preme ha
-// l'indice solo, quella che pizzica tocca il pollice. Per non tremare sul confine, ci si entra con
-// le soglie strette e si resta con quelle larghe; e se il visore perde la posa per un attimo (la mano
-// che corre di lato, un dito che sfugge) la presa TIENE per PIATTA_GRAZIA: prima la lasciava e la
-// riprendeva da capo, e del movimento restavano solo briciole («micromovimenti», 3 ottobre).
-const DITA4=['index','middle','ring','pinky'];
-const PIATTA_DISTESO=0.085, PIATTA_DISTESO_MIG=0.065;   // metri fra punta e nocca: dito disteso
-const PIATTA_RESTA=0.070, PIATTA_RESTA_MIG=0.055;       // ...e mentre si gira il cielo basta meno
-const PIATTA_ENTRA=Math.cos(45*DEG), PIATTA_ESCE=Math.cos(65*DEG);   // quanto il dorso guarda in su o in giu'
-const PIATTA_GRAZIA=300;                                // millisecondi di posa persa che non mollano il cielo
-const _pD2=new THREE.Vector3(), _pN2=new THREE.Vector3(), _qP=new THREE.Quaternion(), _suP=new THREE.Vector3();
-// le misure della mano: quanto e' distesa ogni dito (cm) e quanto il dorso e' verticale (0..1);
-// null se il visore non la vede
-function misuraMano(M){
-  const j=M.h.visible&&M.h.joints; if(!j) return null;
-  const dita=[];
-  for(const d of DITA4){
-    const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
-    if(!t||!n||t.visible===false||n.visible===false) return null;
-    dita.push(t.getWorldPosition(_pD2).distanceTo(n.getWorldPosition(_pN2)));
-  }
-  const m=j['middle-finger-metacarpal'];
-  m.getWorldQuaternion(_qP); _suP.set(0,1,0).applyQuaternion(_qP);
-  return {dita, dorso:Math.abs(_suP.y)};
-}
-function manoPiatta(M,mis){
-  if(!mis) return false;
-  const gia=!!M.piatta;
-  for(let k=0;k<4;k++){
-    const min=k===3?(gia?PIATTA_RESTA_MIG:PIATTA_DISTESO_MIG):(gia?PIATTA_RESTA:PIATTA_DISTESO);
-    if(mis.dita[k]<min) return false;
-  }
-  return mis.dorso>(gia?PIATTA_ESCE:PIATTA_ENTRA);
-}
 // le tre dita lunghe piegate: un pizzico fatto a pugno non e' un pizzico, e non preme nulla
+// (il cielo, prima col pugno e poi con la mano piatta, ora lo gira la SFERA DEL CIELO, fra i corpi)
 function ditaPiegate(i){
   const M=MANI[i]; if(!M) return false;
   const j=M.h.visible&&M.h.joints; if(!j) return false;
@@ -2786,66 +2747,6 @@ function ditaPiegate(i){
     if(t.getWorldPosition(_pD).distanceTo(n.getWorldPosition(_occhio2))>0.070) return false;
   }
   return true;
-}
-const _manoP=new THREE.Vector3();
-const azimutMano=(M,testa)=>{ const n=M.h.joints&&M.h.joints['middle-finger-metacarpal']; if(!n||n.visible===false) return null;
-  n.getWorldPosition(_manoP).sub(testa);
-  return Math.hypot(_manoP.x,_manoP.z)<0.08?null:Math.atan2(_manoP.x,_manoP.z); };
-function aggiornaManoPiatta(testa){
-  const ora=performance.now();
-  let chi=MANI.findIndex(M=>M.piatta);   // una mano alla volta: quella che ha cominciato
-  MANI.forEach((M,i)=>{
-    const mis=misuraMano(M); M.misura=mis;   // per la scritta di diagnosi
-    if(chi>=0&&chi!==i) return;
-    const c=[c0,c1][i];
-    const piatta=!PRESE[i]&&!COMPONI&&manoPiatta(M,mis);
-    if(piatta&&!M.piatta){
-      const a=azimutMano(M,testa); if(a==null) return;
-      M.piatta={psi0:a, yaw0:ORIENT.yaw, vista:ora}; chi=i;
-      if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xe3c169); c.userData.ray.material.opacity=.8; }
-    } else if(!piatta&&M.piatta){
-      if(ora-M.piatta.vista<PIATTA_GRAZIA&&!PRESE[i]&&!COMPONI) return;   // un attimo di posa persa: tiene
-      M.piatta=null; chi=-1;
-      if(c&&c.userData.ray){ c.userData.ray.material.color.set(0xffffff); c.userData.ray.material.opacity=.4; }
-      diag('orientamento fissato (mano piatta)');
-    }
-    if(M.piatta&&piatta){
-      const a=azimutMano(M,testa); if(a==null) return;
-      M.piatta.vista=ora;
-      let d=a-M.piatta.psi0; d-=TAU*Math.round(d/TAU);
-      ORIENT.yaw=M.piatta.yaw0+d; applicaOrientamento();
-    }
-  });
-  scriviDiagnosiMani(ora);
-}
-// LA SCRITTA DI DIAGNOSI DELLE MANI (provvisoria): in basso nella vista, per ogni mano che il visore
-// vede, quanto e' distesa ogni dito (cm: indice medio anulare mignolo; serve sopra 8,5 e 6,5 il
-// mignolo), quanto il dorso e' orizzontale (serve sopra 0,71) e se il cielo e' preso. Serve a capire
-// nel visore dove il gesto s'inceppa; quando funziona, si toglie.
-const DIAGNOSI_MANI=true;
-const DM={cv:document.createElement('canvas'), t0:0, testo:''};
-DM.cv.width=1024; DM.cv.height=160;
-DM.tex=new THREE.CanvasTexture(DM.cv);
-DM.mesh=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.053),
-  new THREE.MeshBasicMaterial({map:DM.tex,transparent:true,depthTest:false,depthWrite:false}));
-DM.mesh.position.set(0,-0.17,-0.45); DM.mesh.renderOrder=9000; DM.mesh.visible=false; camera.add(DM.mesh);
-function scriviDiagnosiMani(ora){
-  if(!DIAGNOSI_MANI||ora-DM.t0<100) return; DM.t0=ora;
-  const righe=[];
-  MANI.forEach((M,i)=>{
-    const c=[c0,c1][i], lato=c&&c.userData.src&&c.userData.src.handedness, n=lato==='left'?'SX':lato==='right'?'DX':'M'+i;
-    const m=M.misura;
-    if(!m){ if(M.h.visible) righe.push(n+': il visore non vede tutte le dita'); return; }
-    righe.push(n+': dita '+m.dita.map(x=>(x*100).toFixed(1)).join(' ')+'  ·  dorso '+m.dorso.toFixed(2)+(M.piatta?'  ·  CIELO PRESO':''));
-  });
-  const t=righe.join('|'); DM.mesh.visible=righe.length>0; if(t===DM.testo) return; DM.testo=t;
-  const x=DM.cv.getContext('2d'); x.clearRect(0,0,1024,160);
-  if(!righe.length){ DM.tex.needsUpdate=true; return; }
-  x.fillStyle='rgba(6,10,20,0.95)'; roundRect(x,0,0,1024,160,24); x.fill();
-  x.strokeStyle='#ffe6a8'; x.lineWidth=4; roundRect(x,3,3,1018,154,22); x.stroke();
-  x.font='600 42px "IBM Plex Mono",ui-monospace,monospace'; x.textBaseline='middle';
-  righe.forEach((l,k)=>{ x.fillStyle=/PRESO/.test(l)?'#ffe6a8':'#d8f6ff'; x.fillText(l,24,48+k*64); });
-  DM.tex.needsUpdate=true;
 }
 
 // ---- I RAGGI DELLE MANI, AMMORBIDITI ----
@@ -2873,7 +2774,8 @@ function ammorbidisciRaggi(dt){
 // ====================== I CORPI: la consolle fatta di cose da toccare e da spostare ======================
 // Corpi di cristallo sospesi sopra il banco: le sferette dei cerchi (e quelle di azimut e altezza, e le
 // tre piccole delle griglie, e le tre piccolissime dell'orizzonte), le tre CUPOLE del tempo, la ROTELLA
-// dell'elenco, l'OROLOGIO di 24 ore coi display del luogo e del tempo, il tasto che nasconde la TASTIERA
+// dell'elenco, la SFERA DEL CIELO, l'OROLOGIO di 24 ore coi display del luogo e del tempo, il tasto che
+// nasconde la TASTIERA
 // (il banco). Si toccano col dito
 // (o col grilletto, standoci dentro); col tasto «componi» si prendono e si portano dove sono comodi.
 // (La prima prova — il globo dello zodiaco, la leva del moto, la manopola dell'ora — e' stata tolta il
@@ -3381,6 +3283,78 @@ TASTIERA_T.aggiorna=()=>{
   TASTIERA_T.tex.needsUpdate=true;
 };
 corpoTasto(TASTIERA_T); CORPI.push(TASTIERA_T);
+
+// ---- la SFERA DEL CIELO: tre strati d'atmosfera, e la mano che ci entra spinge il cielo ----
+// Una leva senza leva: la mano (qualunque, in qualunque forma) che entra nella sfera DA DESTRA spinge
+// il cielo verso sinistra, DA SINISTRA verso destra; piu' affonda, piu' corre — il velo di fuori
+// piano, lo strato di mezzo di piu', il nucleo veloce. Lo strato in cui si sta si accende. Uscita la
+// mano, il cielo si ferma subito. Conta il punto della mano piu' affondato (punte, nocche, polso).
+// (Prima: il pugno, la ruota da far girare col palmo, la mano aperta e piatta: troppo complessi.)
+const R_ATM=0.09;
+const ATM_STRATI=[{r:1.00, vel:8,  col:0x9fd8ff, op:0.10},     // gradi di cielo al secondo
+                  {r:0.66, vel:25, col:0x4f8cff, op:0.16},
+                  {r:0.33, vel:60, col:0xb06cff, op:0.30}];
+const ATM_MORTA=0.012;   // metri: con la mano quasi sull'asse il verso non si sa, e non si spinge
+const ATMOSFERA={nome:'atmosfera', id:'atmosfera', titolo:()=>'Sfera del cielo', zona:R_ATM+0.02, raggio:R_ATM,
+  luce:LUCE_CORPO, strato:-1};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(50,0.50,0.22)); casa.rotation.y=-50*DEG;
+  CORPI_G.add(casa); ATMOSFERA.casa=casa;
+  ATMOSFERA.mat=cristallo(0x9fd8ff);
+  casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_ATM,48,28),ATMOSFERA.mat));
+  ATMOSFERA.veli=ATM_STRATI.map(s=>{
+    const m=new THREE.MeshBasicMaterial({color:s.col,transparent:true,opacity:s.op,depthWrite:false,
+      blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+    const v=new THREE.Mesh(new THREE.SphereGeometry(R_ATM*s.r*0.98,40,24),m); casa.add(v); return m;
+  });
+  // due frecce sottili ai lati: da dove si spinge, e verso dove va il cielo
+  const freccia=lato=>{ const g=new THREE.Group(), m=new THREE.MeshBasicMaterial({color:0xd8f6ff,transparent:true,opacity:.6});
+    const asta=new THREE.Mesh(new THREE.CylinderGeometry(0.0012,0.0012,0.03,8),m); asta.rotation.z=Math.PI/2; g.add(asta);
+    const punta=new THREE.Mesh(new THREE.ConeGeometry(0.004,0.009,12),m); punta.rotation.z=Math.PI/2; punta.position.x=-0.019; g.add(punta);
+    g.position.set(lato*(R_ATM+0.022),0,0); if(lato<0) g.rotation.y=Math.PI; casa.add(g); };
+  freccia(1); freccia(-1);
+  const e=etichetta('cielo'); e.position.set(0,R_ATM+0.018,0); casa.add(e);
+}
+ATMOSFERA.centro=out=>ATMOSFERA.casa.getWorldPosition(out);
+ATMOSFERA.fai=()=>{};   // non si preme: ci si entra
+const ATM_GIUNTURE=['index-finger-tip','middle-finger-tip','ring-finger-tip','pinky-finger-tip','thumb-tip',
+  'index-finger-metacarpal','middle-finger-metacarpal','pinky-finger-metacarpal','wrist'];
+const _pA=new THREE.Vector3(), _pAm=new THREE.Vector3();
+// il punto della mano piu' dentro la sfera (nel sistema della sfera), o null se la mano e' fuori
+function puntoInAtmosfera(M,out){
+  const j=M.h.visible&&M.h.joints; if(!j) return null;
+  let meglio=Infinity;
+  for(const n of ATM_GIUNTURE){
+    const g=j[n]; if(!g||g.visible===false) continue;
+    ATMOSFERA.casa.worldToLocal(g.getWorldPosition(_pA));
+    const d=_pA.length(); if(d<meglio&&d<R_ATM){ meglio=d; out.copy(_pA); }
+  }
+  return meglio<Infinity?out:null;
+}
+ATMOSFERA.aggiorna=dt=>{
+  let strato=-1, verso=0;
+  if(!COMPONI&&inVista(CORPI_G)){
+    let fondo=Infinity;
+    MANI.forEach((M,i)=>{
+      if(PRESE[i]) return;
+      const p=puntoInAtmosfera(M,_pAm); if(!p) return;
+      const d=p.length(); if(d>=fondo) return;
+      fondo=d; verso=Math.abs(p.x)<ATM_MORTA?0:(p.x>0?1:-1);
+      strato=d<R_ATM*ATM_STRATI[2].r?2:d<R_ATM*ATM_STRATI[1].r?1:0;
+    });
+  }
+  if(strato>=0&&verso){
+    // da destra (x positiva, nel sistema della sfera) il cielo va a sinistra: l'azimut cresce
+    ORIENT.yaw+=verso*ATM_STRATI[strato].vel*DEG*Math.min(dt||16,100)/1000; applicaOrientamento();
+  }
+  if(strato!==ATMOSFERA.strato){
+    if(ATMOSFERA.strato>=0&&strato<0) diag('cielo fermo (sfera del cielo)');
+    ATMOSFERA.strato=strato;
+  }
+  ATMOSFERA.veli.forEach((m,k)=>{ m.opacity=ATM_STRATI[k].op*(k===strato&&verso?3:1); });
+  if(strato>=0) ATMOSFERA.luce=LUCE_PRESO;
+};
+corpoTasto(ATMOSFERA); CORPI.push(ATMOSFERA);
 
 // ---- COMPORRE: i corpi si spostano con la mano ----
 // Col tasto «componi» del banco i corpi smettono di essere tasti e diventano oggetti: si
@@ -4600,7 +4574,6 @@ renderer.setAnimationLoop((time,frame)=>{
       ammorbidisciRaggi(dt);
       indica(aggiornaRaggi());
       aggiornaMani();
-      aggiornaManoPiatta(_testa);
       aggiornaCorpi(dt);
       if(logSporco) disegnaLog();
     } else {
