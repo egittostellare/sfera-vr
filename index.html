@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='41';
+const VERSIONE='42';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -1908,6 +1908,7 @@ const CONS_Y0=-0.58;                         // il bordo vicino: 58 cm sotto gli
 const INCL=10*DEG;                           // quanto il tavolo sale allontanandosi
 const CONCA=0.065;                           // quanto sale in piu', di fronte, il bordo lontano
 let COMPONI=false;                            // il modo «componi»: le sferette si spostano (vedi COMPORRE)
+let SPECCHIO=false;                           // lo specchio vivo del componi (vedi LO SPECCHIO VIVO)
 const FILI=[-82,-38,38,82];                  // i fili che separano i gruppi, in gradi
 const CR_W=GIRO_BANCO*DEG*R_MID, CR_H=R_OUT-R_IN, CX_CORPO=0, LARG_T=CR_W;
 const CONS_R0=R_MID;                         // per l'ala degli elementi: gli angoli si contano qui
@@ -2022,7 +2023,7 @@ const CONSOLLE=[
   // (equatore, meridiano, primo verticale, asse) sono diventati SFERETTE, sospese sopra il banco
   {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-65, pr:0.468, d:64, col:'equat', icona:'Grid'},
   {id:'componi',  k:'componi',   f:'rett', pa:-50, pr:0.335, w:170, h:60, col:'comp', t:'componi'},
-  {id:'specchia',                f:'rett', pa:-50, pr:0.40,  w:170, h:44, col:'comp', t:'specchia dx → sx'},
+  {id:'specchia', k:'specchia',  f:'rett', pa:-50, pr:0.40,  w:170, h:44, col:'comp', t:'specchio'},
   // il cartellino della versione: dice nel visore quale pagina si sta guardando (cresce a ogni giro)
   {id:'versione',                f:'rett', pa:-66, pr:0.36,  w:64,  h:30, t:'v'+VERSIONE},
   {id:'onda',     k:'onda',      f:'rett', pa:-89.1,  pr:0.452, w:112, h:76, t:'onda'},
@@ -2128,7 +2129,7 @@ function accesoTasto(s){
     case 'dFull':  return !!stato.orizReale;
     case 'dTrans': return !stato.orizReale;
     case 'componi': return COMPONI;
-    case 'specchia': return false;
+    case 'specchia': return SPECCHIO;
     case 'versione': return false;
   }
   const b=BUTTONS.find(x=>x.k===s.k);
@@ -2275,7 +2276,7 @@ function premiTasto(s){
     case 'dTrans': if(stato.orizReale) imposta('orizReale',false);
       diag('orizzonte trasparente: il mare è un vetro scuro, il cielo di sotto si vede'); return;
     case 'componi': cambiaComponi(); return;
-    case 'specchia': specchia(); return;
+    case 'specchia': cambiaSpecchio(); return;
     case 'versione': diag('questa è la pagina v'+VERSIONE); return;
     case 'dRefl':  diag('orizzonte riflesso (il mare che specchia le stelle): non c’è ancora','warn'); return;
   }
@@ -3381,6 +3382,9 @@ const GUIDA={g:new THREE.Group(), testo:''};
   GUIDA.scritta=new THREE.Mesh(new THREE.PlaneGeometry(0.24,0.04),
     new THREE.MeshBasicMaterial({map:GUIDA.tex,transparent:true,depthWrite:false,side:THREE.DoubleSide}));
   G.add(GUIDA.scritta);
+  GUIDA.filo2=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
+    new THREE.LineBasicMaterial({color:0xd2c2ff,transparent:true,opacity:.95,depthWrite:false}));
+  GUIDA.filo2.visible=false; GUIDA.filo2.frustumCulled=false; CORPI_G.add(GUIDA.filo2);
 }
 function aggiornaGuida(S){
   const q=polareSfera(S), p=S.casa.position, y0=p.y-q.su;
@@ -3424,29 +3428,40 @@ function trascinaSfera(S,p){
   if(S.quadro&&S.becc0!=null&&BECCHEGGIO!=null){
     S.incl=Math.max(-S.inclMax,Math.min(S.inclMax,S.incl0+BECCHEGGIO-S.becc0)); S.quadro.rotation.x=S.incl;
   }
-  aggiornaGuida(S);
+  aggiornaGuida(S); specchiaGemello(S);
 }
 function lasciaSfera(S){
-  GUIDA.g.visible=false; salvaSfere();
+  GUIDA.g.visible=false; GUIDA.filo2.visible=false; salvaSfere();
   const q=polareSfera(S);
   diag(S.titolo()+' posato: angolo '+Math.round(q.a)+'°, distanza '+Math.round(q.r*100)+' cm, altezza '+Math.round(q.su*100)+' cm'
     +(S.quadro?', inclinato '+Math.round(-S.incl/DEG)+'°':''));
 }
-// SPECCHIARE: ogni coppia (sinistra, destra) prende la posizione di quello che sta piu' a destra e
-// la ricopia, rovesciata, sull'altro: stesso raggio, stessa altezza, angolo col segno cambiato.
-// Mettere due corpi simmetrici a mano, nello spazio, e' quasi impossibile.
+// LO SPECCHIO VIVO: acceso (tasto «specchio» del banco), mentre col componi si sposta un corpo il suo
+// gemello si muove insieme a lui, rovesciato: stesso raggio, stessa altezza, angolo col segno
+// cambiato; un filo li lega, perche' si veda chi e' il gemello. Comanda quello che si tiene in mano,
+// da qualunque lato stia. Mettere due corpi simmetrici a mano, nello spazio, e' quasi impossibile.
+// (Il 3 ottobre era un tasto che specchiava tutto in un colpo: l'autore non vedeva che cosa andava
+// dove, e il risultato pareva un pasticcio.)
 const COPPIE=[['equator','ecliptic'],['meridiano','zodiaco'],['primovert','latitudini'],['axis','vis'],
-  ['azimut','alt'],['grigliaAz','grigliaEcl'],['moto','rotella'],['dFull','dRefl']];
-function specchia(){
-  const fatti=[];
-  for(const [a,b] of COPPIE){
-    const A=CORPI.find(c=>c.id===a), B=CORPI.find(c=>c.id===b); if(!A||!B) continue;
-    const qa=polareSfera(A), qb=polareSfera(B);
-    const [da,su]=qb.a>=qa.a?[qb,A]:[qa,B];   // da: la posizione di destra; su: chi la riceve
-    posaSfera(su,-da.a,da.r,da.su); fatti.push(su.titolo());
-  }
-  salvaSfere();
-  diag('specchiati da destra a sinistra: '+fatti.join(', '));
+  ['azimut','alt'],['grigliaAz','grigliaEcl']];
+function gemello(S){
+  for(const [a,b] of COPPIE){ const o=S.id===a?b:S.id===b?a:null; if(o) return CORPI.find(c=>c.id===o)||null; }
+  return null;
+}
+function specchiaGemello(S){
+  const G=SPECCHIO&&gemello(S);
+  GUIDA.filo2.visible=!!G;
+  if(!G) return;
+  const q=polareSfera(S); posaSfera(G,-q.a,q.r,q.su);
+  G.luce=Math.max(G.luce,LUCE_VICINO);
+  const v=GUIDA.filo2.geometry.attributes.position;
+  v.setXYZ(0,S.casa.position.x,S.casa.position.y,S.casa.position.z);
+  v.setXYZ(1,G.casa.position.x,G.casa.position.y,G.casa.position.z); v.needsUpdate=true;
+  GUIDA.filo2.geometry.computeBoundingSphere();
+}
+function cambiaSpecchio(){
+  SPECCHIO=!SPECCHIO; ridipingiTasti(['specchia']);
+  diag(SPECCHIO?'specchio vivo: spostando un corpo, il suo gemello lo segue dall’altra parte':'specchio spento');
 }
 function cambiaComponi(){
   COMPONI=!COMPONI;
