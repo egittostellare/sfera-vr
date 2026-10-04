@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='45';
+const VERSIONE='46';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -1265,7 +1265,6 @@ const cieloDelMare=()=>Math.max(6000,Math.round(1.35*MARE.max));   // la volta s
 const ONDE=[[1,.3,3.1,.05],[-.4,1,1.9,.045],[.8,-.9,1.1,.04],[-1,-.2,.65,.035],[.2,1,5.3,.04],
             [.9,.2,28,.022],[-.3,1,60,.030],[.6,-.8,110,.025]].map(([x,z,l,a])=>{
   const n=Math.hypot(x,z), k=TAU/l; return {x:x/n, z:z/n, k, a, w:Math.sqrt(9.81*k)*0.5}; });
-const ONDE_CORTE=5;   // le prime cinque; le altre sono l'onda lunga, che ha il suo tasto
 // il chiarore basso del cielo: di notte, verso l'orizzonte, il cielo e' un poco piu' chiaro che in
 // alto; il mare lo riflette a sguardo radente, e cosi' la linea dell'orizzonte si vede. Una fascia
 // sulla volta (acceso il mare), che cala d'intensita' di e volte ogni 8 gradi d'altezza.
@@ -1460,13 +1459,6 @@ function vaiAlTempo(d,zitto){
   }
   return true;
 }
-// un passo: 'anno' 'mese' 'giorno' 'ora' 'minuto' 'secondo', avanti o indietro
-const PASSI={anno:'FullYear', mese:'Month', giorno:'Date', ora:'Hours', minuto:'Minutes', secondo:'Seconds'};
-function passoTempo(campo,quanti){
-  const d=new Date(istanteCielo().getTime());
-  d['setUTC'+PASSI[campo]](d['getUTC'+PASSI[campo]]()+quanti);
-  return vaiAlTempo(d);
-}
 
 // ====================== l'orizzonte reale ======================
 // Acceso, quello che non e' ancora sorto non si vede: un piano di taglio sull'orizzonte per linee,
@@ -1502,7 +1494,7 @@ function visibile(b){
   if(b.tipo==='pianeta') return stato[b.gruppo] && (!b.sotto||stato[b.sotto]!==false);
   return (b.nostra&&stato.stelle)||(b.fig&&stato.costellazioni);
 }
-const _o=new THREE.Vector3(), _d=new THREE.Vector3(), _v=new THREE.Vector3(), _inv=new THREE.Matrix4();
+const _v=new THREE.Vector3(), _inv=new THREE.Matrix4();
 // Si confronta il raggio con dove l'astro SI VEDE (con lo zoom non e' dove sta); l'orizzonte reale
 // invece si giudica sul posto vero.
 function puntatoDaRaggio(origine,direzione){
@@ -1911,7 +1903,6 @@ let COMPONI=false;                            // il modo «componi»: le sferett
 let SPECCHIO=false;                           // lo specchio vivo del componi (vedi LO SPECCHIO VIVO)
 const FILI=[-82,-38,38,82];                  // i fili che separano i gruppi, in gradi
 const CR_W=GIRO_BANCO*DEG*R_MID, CR_H=R_OUT-R_IN, CX_CORPO=0, LARG_T=CR_W;
-const CONS_R0=R_MID;                         // per l'ala degli elementi: gli angoli si contano qui
 const DW=1460, DH=990;
 const dX=xd=>(xd-DW/2)*U, dY=yd=>(DH/2-yd)*U;   // (resta per il quadro, che per ora non si monta)
 const PPU_K=2.6, PPM_C=1500;                 // pixel per unita' dei tasti, pixel per metro del corpo
@@ -1968,16 +1959,6 @@ function pianoPosato(w,h,cx,cy,fuori,mat){
 function roundRect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
   x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 function rgbHex(c,al){const r=(c>>16)&255,g=(c>>8)&255,b=c&255;return 'rgba('+r+','+g+','+b+','+al+')';}
-// le scritte lunghe: due righe al massimo
-function spezzaTesto(x,testo,spazio){
-  if(x.measureText(testo).width<=spazio) return [testo];
-  const parole=testo.split(' '); let a='',b='';
-  for(const p of parole){
-    const prova=a?a+' '+p:p;
-    if(!b && x.measureText(prova).width<=spazio) a=prova; else b=b?b+' '+p:p;
-  }
-  return b?[a,b]:[a];
-}
 
 // ---- la tavolozza del disegno (tema 4A: «placche, trapezi smussati, cornice colorata») ----
 const TEMA={corpo:'#E6E0D3', cornice:'#BDB2A0', tasto:'#F8F5EF', ink:'#3B352D', neutro:'#8F8676',
@@ -1988,7 +1969,6 @@ const PAL_C={oriz:['#8B5A2B','#7A4E24'], merid:['#2E7D46','#26683A'], pvert:['#D
   equat:['#5BA4D6','#2C6F9B'], eclit:['#C0392B','#A82F23'], zod:['#C0392B','#A82F23'],
   lat:['#7B2D42','#6B2439'], asc:['#E07B2A','#A8541A'], mc:['#C9A227','#8A6A1E'],
   ds:['#8B3A1F','#7D331A'], ic:['#2B4A8B','#24407A'], comp:['#8E6BD8','#6A4FB0']};
-const CORPO_PATH='M38,290 L445,102 L527,22 L933,22 L1015,102 L1422,290 L1422,830 L1072,940 L1018,454 L442,454 L388,940 L38,830 Z';
 
 // ---- i tasti: dove stanno sull'anello, che forma hanno, che cosa fanno ----
 // pa = l'azimut del centro del tasto, in gradi (0 davanti, negativo a sinistra); pr = la sua
@@ -2001,27 +1981,15 @@ const CORPO_PATH='M38,290 L445,102 L527,22 L933,22 L1015,102 L1422,290 L1422,830
 // almeno un grado e mezzo.
 const CONSOLLE=[
   // DAVANTI (fino a ±37°): il luogo e il tempo, il moto diurno, l'orizzonte; ai lati le stelle
-  {id:'milano',   k:'luogo',     f:'rett',  pa:0,     pr:0.474, w:300, h:52, big:true},
   {id:'archivio', k:'temi',      f:'rett',  pa:-23.5, pr:0.474, w:188, h:42, t:'archivio'},
   {id:'nuovo',    k:'nuovo',     f:'rett',  pa:23.5,  pr:0.474, w:188, h:42, t:'nuovo tema'},
-  {id:'tempo',    k:'tempo',     f:'rett',  pa:0,     pr:0.425, w:380, h:50, t:'tempo'},
-  {id:'moto',                    f:'moto',  pa:0,     pr:0.378, w:380, h:48, t:'moto diurno'},
-  {id:'motoL',                   f:'freccia', pa:0, pr:0.378, w:40, h:40, t:'‹', motoDx:-162},
-  {id:'motoR',                   f:'freccia', pa:0, pr:0.378, w:40, h:40, t:'›', motoDx:162},
   {id:'cost',                    f:'hex',   pa:-25,   pr:0.425, w:88, h:62, icona:'Const'},
   {id:'lin',      k:'linee',     f:'hex',   pa:-27.5, pr:0.378, w:88, h:62, icona:'Lines'},
   {id:'sBig',     k:'stelle',    f:'hex',   pa:25,    pr:0.425, w:88, h:62, icona:'StarBig'},
   {id:'sSmall',   k:'costellazioni', f:'hex', pa:27.5, pr:0.378, w:88, h:62, icona:'StarSmall'},
   {id:'oriz',     k:'frame',     f:'cerchio', pa:-13.7, pr:0.317, d:88,  col:'oriz', t:'oriz', oriz:true},
-  {id:'azimut',   k:'azimut',    f:'cerchio', pa:0,     pr:0.317, d:100, t:'Azimut'},
-  {id:'alt',      k:'alt',       f:'cerchio', pa:13.7,  pr:0.317, d:88,  t:'Alt'},
-  {id:'dTrans',                  f:'pallino', pa:-23,   pr:0.317, d:38, col:'oriz', icona:'Trans'},
-  {id:'dRefl',                   f:'pallino', pa:-28.5, pr:0.317, d:38, col:'oriz', icona:'Refl'},
-  {id:'dFull',                   f:'pallino', pa:-34,   pr:0.317, d:38, col:'oriz', icona:'Full'},
-  {id:'grAz',     k:'grigliaAz', f:'cerchio', pa:25,    pr:0.317, d:64, icona:'Grid'},
   // A SINISTRA: la griglia equatoriale, poi la vista (oltre −84°). I cerchi dell'equatore e del luogo
   // (equatore, meridiano, primo verticale, asse) sono diventati SFERETTE, sospese sopra il banco
-  {id:'grEq',     k:'grigliaEq', f:'cerchio', pa:-65, pr:0.468, d:64, col:'equat', icona:'Grid'},
   {id:'componi',  k:'componi',   f:'rett', pa:-50, pr:0.335, w:170, h:60, col:'comp', t:'componi'},
   {id:'specchia', k:'specchia',  f:'rett', pa:-50, pr:0.40,  w:170, h:44, col:'comp', t:'specchio'},
   // il cartellino della versione: dice nel visore quale pagina si sta guardando (cresce a ogni giro)
@@ -2032,7 +2000,6 @@ const CONSOLLE=[
   {id:'zoom',     k:'zoom',      f:'rett', pa:-105.2, pr:0.376, w:140, h:80, t:'zoom'},
   // A DESTRA: la griglia eclittica e i pianeti, poi gli angoli (oltre 84°). Eclittica, zodiaco,
   // latitudini e vis luminis sono diventati SFERETTE
-  {id:'grEc',     k:'grigliaEcl',f:'cerchio', pa:65, pr:0.468, d:64, col:'eclit', icona:'Grid'},
   {id:'pianeti',  k:'pianeti',   f:'rett', pa:55.7, pr:0.324, w:230, h:58, t:'pianeti'},
   {id:'wheel',    k:'elementi',  f:'cerchio', pa:75.9, pr:0.324, d:60, icona:'Wheel'},
   {id:'asc',      k:'p-asc',     f:'hex',     pa:89,  pr:0.452, w:96, h:86, col:'asc', t:'asc'},
@@ -2042,11 +2009,8 @@ const CONSOLLE=[
 ];
 CONSOLLE.forEach(s=>{
   if(s.d){ s.w=s.h=s.d; }
-  // le frecce stanno sulla capsula del moto diurno: il loro scarto e' in unita' lungo l'arco
-  if(s.motoDx!==undefined) s.pa=s.motoDx*U/s.pr/DEG;
   // da quali stati dipende il suo aspetto: cambiando quelli, il tasto si ridipinge
-  s.dip={cost:['costellazioni','linee'], motoL:['spin'], motoR:['spin'], dFull:['orizReale'],
-         dRefl:['orizReale'], dTrans:['orizReale']}[s.id]||[s.k];
+  s.dip={cost:['costellazioni','linee']}[s.id]||[s.k];
 });
 // le sagome del disegno: il trapezio col suo sbieco, e esagono, ottagono e rombo
 function trapPts(sk,w,h,i){
@@ -2072,10 +2036,9 @@ const bislungo=(a,b,w,h,r)=>{ const p=new Path2D(); p.moveTo(a+r,b); p.arcTo(a+w
 // la sagoma piena del tasto, nelle unita' del disegno a partire dal suo angolo: serve al raggio
 // (preme solo dentro la forma, non nel suo riquadro) e all'alone
 function sagoma(s){
-  if(s.f==='cerchio'||s.f==='pallino'||s.f==='freccia') return tondo(s.w/2,s.h/2,s.w/2);
+  if(s.f==='cerchio') return tondo(s.w/2,s.h/2,s.w/2);
   if(s.f==='trap') return poligono(trapPts(s.sk,s.w,s.h,1));
   if(s.f==='hex'||s.f==='oct'||s.f==='diamond') return poligono(polyPts(s.f,s.w,s.h,1));
-  if(s.f==='moto') return bislungo(0,0,s.w,s.h,s.h/2);
   return bislungo(0,0,s.w,s.h,12);
 }
 // le icone del disegno (le sue linee SVG, in un quadrato di 24)
@@ -2090,26 +2053,7 @@ const FIGURA='M3.5 17 L8.5 9 L14.5 12 L20.5 4.5 M14.5 12 L18 19.5';
 function icona(x,nome,cx,cy,lato,colore){
   x.save(); x.translate(cx-lato/2,cy-lato/2);
   x.strokeStyle=colore; x.fillStyle=colore; x.lineJoin='round';
-  if(nome==='Full'||nome==='Refl'||nome==='Trans'){          // i tre modi dell'orizzonte: 36 di lato
-    x.scale(lato/36,lato/36);
-    const g=x.createLinearGradient(0,1,0,35), terra=PAL_C.oriz[0];
-    if(nome==='Full'){ g.addColorStop(0,TEMA.cielo); g.addColorStop(.5,TEMA.cielo); g.addColorStop(.5,terra); g.addColorStop(1,PAL_C.oriz[1]); }
-    if(nome==='Refl'){ g.addColorStop(0,TEMA.notte); g.addColorStop(.5,TEMA.cielo); g.addColorStop(1,TEMA.notte); }
-    if(nome==='Trans'){ g.addColorStop(0,TEMA.cielo); g.addColorStop(.5,TEMA.cielo); g.addColorStop(.5,'rgba(139,90,43,.55)'); g.addColorStop(1,'rgba(139,90,43,.08)'); }
-    x.fillStyle=g; x.fill(tondo(18,18,17));
-    if(nome!=='Full'){ x.strokeStyle=terra; x.lineWidth=1.2; if(nome==='Trans') x.setLineDash([2.5,2]);
-      x.beginPath(); x.moveTo(1,18); x.lineTo(35,18); x.stroke(); x.setLineDash([]); }
-    x.fillStyle=TEMA.stella;
-    if(nome==='Refl'){ x.fill(tondo(18,10,2.4)); x.globalAlpha=.45; x.fill(tondo(18,26,2.4)); x.globalAlpha=1; }
-    if(nome==='Trans'){ x.fill(tondo(13,26,1.8)); x.fill(tondo(23,29,1.4)); }
-    x.restore(); return;
-  }
   x.scale(lato/24,lato/24);
-  if(nome==='Grid'){ x.lineWidth=1.3;
-    x.stroke(tondo(12,12,9.5));
-    x.stroke(poligono([[12,2.5],[19.5,7.5],[19.5,16.5],[12,21.5],[4.5,16.5],[4.5,7.5]]));
-    x.stroke(new Path2D('M4.5 7.5 L12 12 L19.5 7.5 M12 12 L12 21.5 M12 2.5 L12 12 M4.5 16.5 L12 12 L19.5 16.5'));
-  }
   if(nome==='Const'){ x.lineWidth=1.1; x.stroke(new Path2D(FIGURA)); SCINTILLE.forEach(d=>x.fill(new Path2D(d))); }
   if(nome==='Lines'){ x.lineWidth=1.5; x.lineCap='round'; x.stroke(new Path2D(FIGURA)); }
   if(nome==='StarBig'){ const p=poligono([[12,2],[14.6,9],[22,9.2],[16.2,13.8],[18.3,21],[12,16.8],[5.7,21],[7.8,13.8],[2,9.2],[9.4,9]]);
@@ -2123,8 +2067,6 @@ function icona(x,nome,cx,cy,lato,colore){
 function accesoTasto(s){
   switch(s.id){
     case 'cost':   return !!(stato.costellazioni&&stato.linee);
-    case 'motoL':  return !!stato.spin&&dirMoto<0;
-    case 'motoR':  return !!stato.spin&&dirMoto>0;
     case 'moto': case 'dRefl': return false;
     case 'dFull':  return !!stato.orizReale;
     case 'dTrans': return !stato.orizReale;
@@ -2137,7 +2079,7 @@ function accesoTasto(s){
   return !!stato[s.k];
 }
 const MRG=10;   // unita' di margine attorno a ogni tasto: le ombre e l'anello dei pallini
-function testoTasto(s){ return s.id==='milano'?LUOGO.nome:(s.t||''); }
+function testoTasto(s){ return s.t||''; }
 function disegnaTasto(s){
   const P=PPU_K, c=document.createElement('canvas');
   c.width=Math.round((s.w+2*MRG)*P); c.height=Math.round((s.h+2*MRG)*P);
@@ -2146,8 +2088,8 @@ function disegnaTasto(s){
   const on=accesoTasto(s), w=s.w, h=s.h;
   const colTesto=on?TEMA.inv:scritta;
   x.lineJoin='round';
-  if(s.f==='rett'||s.f==='moto'){
-    const r=s.f==='moto'?h/2:12;
+  if(s.f==='rett'){
+    const r=12;
     x.fillStyle='rgba(60,50,35,0.12)'; x.fill(bislungo(0,2,w,h,r));
     const p=bislungo(1,1,w-2,h-2,r-1);
     x.fillStyle=on?bordo:TEMA.tasto; x.fill(p);
@@ -2167,31 +2109,21 @@ function disegnaTasto(s){
       x.save(); x.clip(tondo(r,r,r-2));
       x.fillStyle=on?TEMA.inv:bordo; x.fillRect(0,2+0.6*(h-4),w,2.5); x.restore();
     }
-  }else if(s.f==='pallino'){
-    const r=w/2;
-    if(on){ x.fillStyle=bordo; x.fill(tondo(r,r,r+6)); x.fillStyle=TEMA.corpo; x.fill(tondo(r,r,r+3)); }
-    x.fillStyle=TEMA.tasto; x.fill(tondo(r,r,r-1));
-    x.strokeStyle=bordo; x.lineWidth=2; x.stroke(tondo(r,r,r-1));
-  }else if(s.f==='freccia'){
-    const r=w/2;
-    x.fillStyle=on?TEMA.ink:TEMA.tasto; x.fill(tondo(r,r,r-1));
-    x.strokeStyle=TEMA.neutro; x.lineWidth=2; x.stroke(tondo(r,r,r-1));
   }
   // dentro: l'icona o la scritta
   if(s.icona){
-    const lato=s.f==='pallino'?h-6:s.f==='hex'?40:Math.round(h*0.62);
+    const lato=s.f==='hex'?40:Math.round(h*0.62);
     icona(x,s.icona,w/2,h/2,lato,colTesto);
   }
   const t=testoTasto(s);
   if(t){
-    let fs=s.f==='freccia'?28:s.big?24:(s.f==='trap'||s.f==='rett')&&w<120?18:20;
-    const spazio=s.f==='cerchio'?w*0.78:s.f==='hex'||s.f==='oct'||s.f==='diamond'?w*0.62:
-                 s.f==='moto'?w-140:w*0.84;
+    let fs=(s.f==='trap'||s.f==='rett')&&w<120?18:20;
+    const spazio=s.f==='cerchio'?w*0.78:s.f==='hex'||s.f==='oct'||s.f==='diamond'?w*0.62:w*0.84;
     const fnt=()=>x.font='500 '+fs+'px '+TEMA.font;
     fnt(); while(x.measureText(t).width>spazio && fs>11){ fs-=1; fnt(); }
-    x.fillStyle=s.f==='freccia'?(on?TEMA.inv:TEMA.ink):s.f==='moto'?TEMA.ink:colTesto;
+    x.fillStyle=colTesto;
     x.textAlign='center'; x.textBaseline='middle';
-    x.fillText(t,w/2,h/2-(s.oriz?11:0)+(s.f==='freccia'?-2:0));
+    x.fillText(t,w/2,h/2-(s.oriz?11:0));
   }
   const tx=new THREE.CanvasTexture(c); tx.anisotropy=4; return tx;
 }
@@ -2234,7 +2166,7 @@ CONSOLLE.forEach(s=>{
   // corretta perche' sul tavolo, a quella distanza, il tasto abbia la sua misura vera
   const cx=s.pa*DEG*R_MID, cy=s.pr-R_IN-CR_H/2;
   const wb=(s.w+2*MRG)*U*R_MID/s.pr, hb=(s.h+2*MRG)*U;
-  const fuori=s.f==='freccia'?0.007:0.004;   // le frecce stanno sopra la loro capsula
+  const fuori=0.004;
   // alphaTest: il margine trasparente attorno al tasto non deve scrivere la profondita', se no
   // buca il corpo del banco e ci si vede il cielo attraverso
   const m=pianoPosato(wb,hb,cx,cy,fuori,new THREE.MeshBasicMaterial({map:disegnaTasto(s),transparent:true,alphaTest:0.02,
@@ -2263,14 +2195,6 @@ function premiTasto(s){
       const on=!(stato.costellazioni&&stato.linee);
       imposta('costellazioni',on); imposta('linee',on);
       diag(on?'costellazioni: le stelle minori e le linee':'costellazioni spente'); return; }
-    case 'motoL': case 'motoR': {   // le frecce: il verso; la stessa freccia ripremuta ferma il cielo
-      const d=s.id==='motoL'?-1:1;
-      if(stato.spin&&dirMoto===d){ imposta('spin',false); diag('moto diurno fermo'); return; }
-      dirMoto=d; imposta('spin',true); ridipingiTasti(['spin']);
-      diag('moto diurno '+(d>0?'in avanti':'all’indietro')+', velocità '+VELOCITA[livVel].t+': '+VELOCITA[livVel].d);
-      return; }
-    case 'moto':     // la scritta: ogni pressione passa alla velocita' dopo, e dalla quarta torna alla prima
-      impostaVelocita((livVel+1)%VELOCITA.length); return;
     case 'dFull':  if(!stato.orizReale) imposta('orizReale',true);
       diag('orizzonte pieno: il mare nasconde quello che non è sorto'); return;
     case 'dTrans': if(stato.orizReale) imposta('orizReale',false);
@@ -2571,7 +2495,6 @@ function tastiControllo(){
   }
 }
 
-// (qui c'era una seconda copia di `ridipingi`, identica a quella che sta piu' sopra: tolta)
 // la velocita': un grado solo per volta, dal tasto del visore o dai quattro della pagina
 function impostaVelocita(i){
   livVel=i;
@@ -2707,7 +2630,7 @@ function tastoSottoDito(pMondo){
     const s=t.s, u=s.w/2+(a-s.pa*DEG)*s.pr/U, v=s.h/2-(r-s.pr)/U;
     if(u<0||u>s.w||v<0||v>s.h) continue;
     if(!_prova.isPointInPath(t.sg,u,v)) continue;
-    if(!meglio||s.f==='freccia') meglio=t;   // le frecce stanno sopra la capsula del moto
+    meglio=t;
   }
   return meglio?{t:meglio,sopra}:null;
 }
@@ -2737,7 +2660,6 @@ function aggiornaMani(){
 const _occhio2=new THREE.Vector3();
 
 // le tre dita lunghe piegate: un pizzico fatto a pugno non e' un pizzico, e non preme nulla
-// (il cielo, prima col pugno e poi con la mano piatta, ora lo gira la SFERA DEL CIELO, fra i corpi)
 function ditaPiegate(i){
   const M=MANI[i]; if(!M) return false;
   const j=M.h.visible&&M.h.joints; if(!j) return false;
@@ -2755,12 +2677,12 @@ function ditaPiegate(i){
 // alla velocita' (il «filtro 1€»): quando la mano e' quasi ferma il raggio si calma molto (e si mira),
 // quando la mano si muove davvero segue subito (e non resta indietro). I controller non ne hanno
 // bisogno e restano come sono.
-// E il raggio di una mano PARTE DALL'INDICE (4 ottobre, richiesta dell'autore): dalla sua punta, e
+// E il raggio di una mano PARTE DALL'INDICE: dalla sua punta, e
 // nella direzione dell'osso del dorso dell'indice (dalla nocca del polso a quella del dito). Non nella
 // direzione del dito: pizzicando il dito si piega, e il raggio scatterebbe proprio nel momento del clic.
 const RAGGIO_CALMO=0.08, RAGGIO_SVELTO=6;   // quanto segue da fermo (per fotogramma), e quanto cresce con la velocita' (rad/s)
 const _mP=new THREE.Vector3(), _mQ=new THREE.Quaternion(), _mS=new THREE.Vector3(), _mA=new THREE.Vector3(), _mB=new THREE.Vector3();
-const _mM=new THREE.Matrix4(), _mZ=new THREE.Vector3(0,0,-1);
+const _mZ=new THREE.Vector3(0,0,-1);
 // la posa del raggio dall'indice, se il visore vede le sue giunture: true se l'ha messa in _mP/_mQ
 function posaDallIndice(i){
   const M=MANI[i], j=M&&M.h.visible&&M.h.joints; if(!j) return false;
@@ -2791,11 +2713,9 @@ function ammorbidisciRaggi(dt){
 // Corpi di cristallo sospesi sopra il banco: le sferette dei cerchi (e quelle di azimut e altezza, e le
 // tre piccole delle griglie, e le tre piccolissime dell'orizzonte), le tre CUPOLE del tempo, la ROTELLA
 // dell'elenco, la SFERA DEL CIELO, l'OROLOGIO di 24 ore coi display del luogo e del tempo, il tasto che
-// nasconde la TASTIERA
-// (il banco). Si toccano col dito
-// (o col grilletto, standoci dentro); col tasto «componi» si prendono e si portano dove sono comodi.
-// (La prima prova — il globo dello zodiaco, la leva del moto, la manopola dell'ora — e' stata tolta il
-// 2 ottobre 2026: l'autore compone la consolle da se', nel visore.)
+// nasconde la TASTIERA (il banco). Si toccano col dito (o col grilletto, standoci dentro); col tasto
+// «componi» si prendono e si portano dove sono comodi. Sul banco piatto restano solo i comandi che un
+// corpo non ha.
 // Il cristallo e' finto: brilla sui bordi e si fa trasparente al centro, e costa quasi niente.
 const CRISTALLO_V=`varying vec3 vN; varying vec3 vV;
 void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0);
@@ -2973,7 +2893,7 @@ SF_DEF.forEach(d=>{
   if(!d.tasto) S.titolo=()=>{ const b=BUTTONS.find(x=>x.k===S.k); return b?b.t:S.k; };
   corpoTasto(S);
   if(d.tasto){   // le sferette dell'orizzonte fanno quello che fanno i pallini del banco
-    const t=CONSOLLE.find(x=>x.id===d.k);
+    const t={id:d.k, dip:['orizReale']};   // premiTasto e accesoTasto le riconoscono dal nome
     S.acceso=()=>accesoTasto(t);
     S.fai=()=>{ premiTasto(t); ridipingiTasti(t.dip); };
     S.titolo=()=>d.tasto;
@@ -3109,7 +3029,7 @@ ROTELLA.aggiorna=()=>{};
 corpoTasto(ROTELLA); CORPI.push(ROTELLA);
 
 // ---- l'OROLOGIO: un quadrante di 24 ore, 37,5 cm, coi display del luogo e del tempo dentro ----
-// (disegnato a 30 cm e ingrandito tutto insieme di OR_SCALA: un quarto in piu', 3 ottobre)
+// (disegnato a 30 cm e ingrandito tutto insieme di OR_SCALA)
 // Di vetro scuro e luce fredda, come uno strumento di bordo: un anello luminoso, le 24 ore, i 60
 // minuti a puntini, un'orbita tratteggiata che gira piano, e il punto ambra dei secondi che la percorre.
 // Mezzogiorno in alto (il Sole al meridiano), mezzanotte in basso; la lancetta delle ore fa un giro
@@ -3305,10 +3225,9 @@ corpoTasto(TASTIERA_T); CORPI.push(TASTIERA_T);
 // il cielo verso sinistra, DA SINISTRA verso destra; piu' affonda, piu' corre — il velo di fuori
 // piano, lo strato di mezzo di piu', il nucleo veloce. Lo strato in cui si sta si accende. Uscita la
 // mano, il cielo si ferma subito. Conta il punto della mano piu' affondato (punte, nocche, polso).
-// (Prima: il pugno, la ruota da far girare col palmo, la mano aperta e piatta: troppo complessi.)
 const R_ATM=0.09;
-// gradi di cielo al secondo: 4, poi un terzo in piu' ogni strato (4 ottobre: prima 8/25/60, e il
-// nucleo, largo un terzo, non lo si raggiungeva: ora gli strati sono piu' uguali)
+// gradi di cielo al secondo: 4, poi un terzo in piu' ogni strato; gli strati quasi uguali, perche'
+// anche il nucleo si raggiunga
 const ATM_V1=4;
 const ATM_STRATI=[{r:1.00, vel:ATM_V1,       col:0x9fd8ff, op:0.10},
                   {r:0.70, vel:ATM_V1*4/3,   col:0x4f8cff, op:0.16},
@@ -3480,8 +3399,6 @@ function lasciaSfera(S){
 // gemello si muove insieme a lui, rovesciato: stesso raggio, stessa altezza, angolo col segno
 // cambiato; un filo li lega, perche' si veda chi e' il gemello. Comanda quello che si tiene in mano,
 // da qualunque lato stia. Mettere due corpi simmetrici a mano, nello spazio, e' quasi impossibile.
-// (Il 3 ottobre era un tasto che specchiava tutto in un colpo: l'autore non vedeva che cosa andava
-// dove, e il risultato pareva un pasticcio.)
 const COPPIE=[['equator','ecliptic'],['meridiano','zodiaco'],['primovert','latitudini'],['axis','vis'],
   ['azimut','alt'],['grigliaAz','grigliaEcl']];
 function gemello(S){
@@ -3581,7 +3498,6 @@ const VELO=new THREE.Mesh(new THREE.SphereGeometry(0.3,24,16),
   new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0,side:THREE.BackSide,depthTest:false,depthWrite:false}));
 VELO.renderOrder=9999; VELO.visible=false; camera.add(VELO);
 const VELO_LENTO={scuro:260, pausa:90, chiaro:380};   // il cambio di luogo: un salto lungo
-const VELO_BATTITO={scuro:110, pausa:30, chiaro:170};  // il ri-ancoraggio della lente: un battito di ciglia
 let velo=null;
 const morbido=x=>x*x*(3-2*x);
 function conDissolvenza(azione,tempi){
@@ -3595,7 +3511,6 @@ function conDissolvenza(azione,tempi){
     T.scuro+60+T.pausa+T.chiaro+200);
   velo=v;
 }
-const battitoDiCiglia=azione=>conDissolvenza(azione,VELO_BATTITO);
 function aggiornaVelo(ora){
   if(!velo){ VELO.visible=false; return; }
   const t=ora-velo.t0, T=velo.T; let op;
