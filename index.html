@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='44';
+const VERSIONE='45';
 const diagBox=document.getElementById('diag');
 const diagRighe=[]; let logSporco=true;
 function diag(msg,kind){
@@ -2755,20 +2755,36 @@ function ditaPiegate(i){
 // alla velocita' (il «filtro 1€»): quando la mano e' quasi ferma il raggio si calma molto (e si mira),
 // quando la mano si muove davvero segue subito (e non resta indietro). I controller non ne hanno
 // bisogno e restano come sono.
+// E il raggio di una mano PARTE DALL'INDICE (4 ottobre, richiesta dell'autore): dalla sua punta, e
+// nella direzione dell'osso del dorso dell'indice (dalla nocca del polso a quella del dito). Non nella
+// direzione del dito: pizzicando il dito si piega, e il raggio scatterebbe proprio nel momento del clic.
 const RAGGIO_CALMO=0.08, RAGGIO_SVELTO=6;   // quanto segue da fermo (per fotogramma), e quanto cresce con la velocita' (rad/s)
-const _mP=new THREE.Vector3(), _mQ=new THREE.Quaternion(), _mS=new THREE.Vector3();
+const _mP=new THREE.Vector3(), _mQ=new THREE.Quaternion(), _mS=new THREE.Vector3(), _mA=new THREE.Vector3(), _mB=new THREE.Vector3();
+const _mM=new THREE.Matrix4(), _mZ=new THREE.Vector3(0,0,-1);
+// la posa del raggio dall'indice, se il visore vede le sue giunture: true se l'ha messa in _mP/_mQ
+function posaDallIndice(i){
+  const M=MANI[i], j=M&&M.h.visible&&M.h.joints; if(!j) return false;
+  const t=j['index-finger-tip'], a=j['index-finger-metacarpal'], b=j['index-finger-phalanx-proximal'];
+  if(!t||!a||!b||t.visible===false||a.visible===false||b.visible===false) return false;
+  a.getWorldPosition(_mA); b.getWorldPosition(_mB).sub(_mA);
+  if(_mB.lengthSq()<1e-8) return false;
+  t.getWorldPosition(_mP);
+  _mQ.setFromUnitVectors(_mZ,_mB.normalize());
+  return true;
+}
 function ammorbidisciRaggi(dt){
-  for(const c of [c0,c1]){
+  [c0,c1].forEach((c,i)=>{
     const s=c&&c.userData.src;
-    if(!s||!s.hand){ if(c) c.userData.qLiscia=null; continue; }
+    if(!s||!s.hand){ if(c) c.userData.qLiscia=null; return; }
     c.matrix.decompose(_mP,_mQ,_mS);
+    posaDallIndice(i);
     const u=c.userData;
-    if(!u.qLiscia){ u.qLiscia=_mQ.clone(); continue; }
+    if(!u.qLiscia) u.qLiscia=_mQ.clone();
     const vel=u.qLiscia.angleTo(_mQ)/Math.max(dt,1)*1000;          // radianti al secondo
     const k=Math.min(1,RAGGIO_CALMO+RAGGIO_SVELTO*vel*Math.max(dt,1)/1000);
     u.qLiscia.slerp(_mQ,k);
     c.matrix.compose(_mP,u.qLiscia,_mS); c.matrixWorldNeedsUpdate=true; c.updateMatrixWorld(true);
-  }
+  });
 }
 
 // ====================== I CORPI: la consolle fatta di cose da toccare e da spostare ======================
@@ -3291,9 +3307,12 @@ corpoTasto(TASTIERA_T); CORPI.push(TASTIERA_T);
 // mano, il cielo si ferma subito. Conta il punto della mano piu' affondato (punte, nocche, polso).
 // (Prima: il pugno, la ruota da far girare col palmo, la mano aperta e piatta: troppo complessi.)
 const R_ATM=0.09;
-const ATM_STRATI=[{r:1.00, vel:8,  col:0x9fd8ff, op:0.10},     // gradi di cielo al secondo
-                  {r:0.66, vel:25, col:0x4f8cff, op:0.16},
-                  {r:0.33, vel:60, col:0xb06cff, op:0.30}];
+// gradi di cielo al secondo: 4, poi un terzo in piu' ogni strato (4 ottobre: prima 8/25/60, e il
+// nucleo, largo un terzo, non lo si raggiungeva: ora gli strati sono piu' uguali)
+const ATM_V1=4;
+const ATM_STRATI=[{r:1.00, vel:ATM_V1,       col:0x9fd8ff, op:0.10},
+                  {r:0.70, vel:ATM_V1*4/3,   col:0x4f8cff, op:0.16},
+                  {r:0.42, vel:ATM_V1*16/9,  col:0xb06cff, op:0.30}];
 const ATM_MORTA=0.012;   // metri: con la mano quasi sull'asse il verso non si sa, e non si spinge
 const ATMOSFERA={nome:'atmosfera', id:'atmosfera', titolo:()=>'Sfera del cielo', zona:R_ATM+0.02, raggio:R_ATM,
   luce:LUCE_CORPO, strato:-1};
