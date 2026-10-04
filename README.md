@@ -206,16 +206,21 @@ In tutto 720 stelle e 657 lati di figura.
   all'orizzonte anche inclinando la testa, come scritti sul cielo (prima giravano con la testa).
 - **Alt**: un cerchio verticale — per lo zenit e il nadir — che **segue lo sguardo**: sta sempre
   sull'azimut verso cui si guarda, e girando la testa gira con lei.
-- **Le mani**: senza controller il visore vede le mani; il pizzico è il grilletto, e sul banco i
-  tasti si premono anche **col dito**.
-- **I corpi** (prova): sopra il banco, tre oggetti di cristallo da prendere in mano, primo passo verso
-  una consolle fatta di cose e non di tasti. Il **globo dello zodiaco**, davanti, è il cielo in
-  piccolo visto da fuori: gira col cielo vero dentro l'anello verde dell'orizzonte, e toccato col dito
-  accende e spegne lo zodiaco. La **leva del moto diurno**, a sinistra: spinta via il cielo va avanti,
-  tirata indietro va all'indietro, più è inclinata più corre (quattro gradi), dritta si ferma. La
-  **manopola dell'ora**, a destra, è un quadrante di 24 ore (mezzogiorno lontano, mezzanotte vicino)
-  con la tacca sull'ora del luogo: presa col pizzico e girata porta il tempo, in senso orario avanti,
-  un giro intero è un giorno.
+- **Le mani**: senza controller il visore vede le mani. Il raggio è **l'indice che indica**: si
+  accende unendo medio e anulare al pollice con l'indice dritto, e si sceglie col **grilletto
+  dell'indice** (piegarlo un poco: il raggio si ferma dov'era, piegato di più sceglie). Il pizzico
+  prende i corpi; sul banco i tasti si premono anche **col dito**.
+- **I corpi**: sopra il banco, oggetti da toccare col dito e, col tasto *componi*, da prendere e
+  mettere dove sono comodi. Sono **coppie dialettiche**, una a destra e una a sinistra (azimut e
+  altezza, equatore ed eclittica, meridiano e zodiaco, primo verticale e latitudini, asse e *vis
+  luminis*, archivio e rotella, griglia equatoriale ed eclittica, orizzonte trasparente e riflesso,
+  visione geocentrica e topocentrica), e **corpi mediali** che stanno sull'asse e si spostano solo
+  lungo di lui (la griglia azimutale, l'orizzonte pieno). Il tasto *specchio* copia la destra sulla
+  sinistra e, mentre si compone, fa seguire al gemello il corpo che si tiene. Ci sono poi le tre
+  cupole del tempo (adesso, velocità, stop), l'orologio di 24 ore coi display del luogo e del tempo,
+  e la **sfera del cielo**, un pallone da rugby di tre strati: la mano che ci entra da un lato fa
+  girare il cielo, più affonda più corre. La **visione topocentrica** mostra i pianeti visti dal
+  luogo invece che dal centro della Terra (la Luna si sposta fino a un grado).
 - Interruttori per equatore, eclittica, orizzonte, asse, Sole, pianeti, stelle di Regulus,
   stelle delle costellazioni e **linee delle costellazioni**, ognuno per conto suo.
 

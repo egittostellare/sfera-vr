@@ -306,7 +306,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='47';
+const VERSIONE='48';
 const diagBox=document.getElementById('diag');
 const diagRighe=[];
 function diag(msg,kind){
@@ -673,10 +673,20 @@ function daJ2000(raDeg,deDeg){
   const e=A.EquatorFromVector(A.RotateVector(ROT,v));
   return {ra:e.ra*15*DEG, de:e.dec*DEG};
 }
-// geocentrico e apparente, sull'equatore di data (come Swiss in Regulus), all'istante t
+// dove sta un corpo (J2000, in unita' astronomiche): visto dal centro della Terra o, con la VISIONE
+// TOPOCENTRICA, dal luogo, sulla sua superficie — gli si toglie il vettore che va dal centro al luogo.
+// (TOPO e' stato.topo, tenuto qui perche' il Sole si calcola prima che «stato» esista)
+let TOPO=false;
+function vettoreCorpo(corpo,t){
+  const v=A.GeoVector(corpo,t,true);
+  if(!TOPO) return v;
+  const o=A.ObserverVector(t,new A.Observer(LUOGO.lat,LUOGO.lng,0),false);
+  return new A.Vector(v.x-o.x,v.y-o.y,v.z-o.z,t);
+}
+// apparente, sull'equatore di data (come Swiss in Regulus), all'istante t
 function diCorpo(nomeEn,t,rot){
   t=t||TEMPO; rot=rot||ROT;
-  const e=A.EquatorFromVector(A.RotateVector(rot,A.GeoVector(A.Body[nomeEn],t,true)));
+  const e=A.EquatorFromVector(A.RotateVector(rot,vettoreCorpo(A.Body[nomeEn],t)));
   return {ra:e.ra*15*DEG, de:e.dec*DEG};
 }
 const dirEq=p=>eqv(p.ra,p.de);   // la direzione nella volta (sistema equatoriale)
@@ -1019,9 +1029,9 @@ const _vSole=new THREE.Vector3(), _vP=new THREE.Vector3();
 function collocaPianeti(){
   if(!A) return;
   const t=A.MakeTime(istanteCielo()), rot=A.Rotation_EQJ_EQD(t);
-  aDate(A.GeoVector(A.Body.Sun,t,true),rot,t,_vSole);
+  aDate(vettoreCorpo(A.Body.Sun,t),rot,t,_vSole);
   for(const p of PIANETI){
-    aDate(A.GeoVector(A.Body[p.en],t,true),rot,t,_vP);
+    aDate(vettoreCorpo(A.Body[p.en],t),rot,t,_vP);
     p.punto.position.copy(_vP).normalize().multiplyScalar(RS);
     // LA LUCE VIENE DA DOVE STA IL SOLE VISTO DA QUEL CORPO: e' questa differenza — e non la
     // direzione del Sole vista da noi — che fa la falce di Venere e la fase della Luna
@@ -1809,7 +1819,7 @@ function aggiornaIndicazioni(){
 const stato={equator:true,ecliptic:true,frame:true,axis:true,planet:true,
   pianeti:true,stelle:true,costellazioni:true,linee:true,orizReale:false,spin:false,zoom:false,
   mare:true,onda:true,meridiano:true,primovert:false,azimut:false,zodiaco:false,latitudini:false,
-  vis:false,grigliaEq:false,grigliaEcl:false,grigliaAz:false,radix:false,alt:false};
+  vis:false,grigliaEq:false,grigliaEcl:false,grigliaAz:false,radix:false,alt:false,topo:false};
 // gli elementi celesti, uno per uno: i pianeti accesi (li spegne chi vuole), i punti dello zodiaco
 // spenti — si accendono dal sottomenu del tasto «Pianeti»
 Object.keys(PIANETI_EN).forEach(n=>stato['el-'+n]=true);
@@ -1819,6 +1829,7 @@ function imposta(k,on){
   if(groups[k]) groups[k].visible=on;
   if(k==='spin'){ spin=on; tPrec=null; }
   if(k==='orizReale') applicaOrizzonte(on);
+  if(k==='topo'){ TOPO=on; collocaPianeti(); }
   if(k==='mare'){ applicaMare(); if(MARE.acceso) diag('mare calmo, orizzonte a '+testoMare()); }
   if(k==='vis'&&on) diag(testoVis());
   if(k==='onda'){ MARE_MESH.material.uniforms.uOndaLunga.value=on?1:0;
@@ -1978,7 +1989,6 @@ const PAL_C={oriz:['#8B5A2B','#7A4E24'], merid:['#2E7D46','#26683A'], pvert:['#D
 // almeno un grado e mezzo.
 const CONSOLLE=[
   // DAVANTI (fino a ±37°): il luogo e il tempo, il moto diurno, l'orizzonte; ai lati le stelle
-  {id:'archivio', k:'temi',      f:'rett',  pa:-23.5, pr:0.474, w:188, h:42, t:'archivio'},
   {id:'nuovo',    k:'nuovo',     f:'rett',  pa:23.5,  pr:0.474, w:188, h:42, t:'nuovo tema'},
   {id:'cost',                    f:'hex',   pa:-25,   pr:0.425, w:88, h:62, icona:'Const'},
   {id:'lin',      k:'linee',     f:'hex',   pa:-27.5, pr:0.378, w:88, h:62, icona:'Lines'},
@@ -2067,6 +2077,8 @@ function accesoTasto(s){
     case 'moto': case 'dRefl': return false;
     case 'dFull':  return !!stato.orizReale;
     case 'dTrans': return !stato.orizReale;
+    case 'dGeo':   return !stato.topo;
+    case 'dTopo':  return !!stato.topo;
     case 'componi': return COMPONI;
     case 'specchia': return SPECCHIO;
     case 'versione': return false;
@@ -2200,6 +2212,10 @@ function premiTasto(s){
     case 'specchia': cambiaSpecchio(); return;
     case 'versione': diag('questa è la pagina v'+VERSIONE); return;
     case 'dRefl':  diag('orizzonte riflesso (il mare che specchia le stelle): non c’è ancora','warn'); return;
+    case 'dGeo':   if(stato.topo) imposta('topo',false);
+      diag('visione geocentrica: i pianeti visti dal centro della Terra'); return;
+    case 'dTopo':  if(!stato.topo) imposta('topo',true);
+      diag('visione topocentrica: i pianeti visti da '+LUOGO.nome+', sulla superficie (la Luna si sposta fino a un grado)'); return;
   }
   const b=BUTTONS.find(x=>x.k===s.k);
   if(b) toggleBtn(b); else imposta(s.k,!stato[s.k]);
@@ -2524,15 +2540,19 @@ function makeController(i){
     // altre dita piegate non e' un pizzico, e' il pugno che afferra il cielo
     if(ctl.userData.src&&ctl.userData.src.hand&&ditaPiegate(i)) return;
     if(prendiCorpo(i)) return;             // la mano sta su un corpo (una sferetta, la cupola, un display…)
+    if(ctl.userData.src&&ctl.userData.src.hand) return;   // la mano col raggio sceglie col grilletto dell'indice
     if(prendiScheda(ctl)) return;         // la cornice del riquadro, se il raggio la tocca
-    const hit=hitTest(ctl);
-    if(hit){ vibra(ctl,0.6,45); hit.object.userData.fai(); return; }
-    // fuori dal pannello: si seleziona quello che il raggio indica, o si toglie la selezione
-    const b=ctl.userData.puntato||null;
-    if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); }
-    else if(SEL) seleziona(null);
+    sceltaRaggio(ctl);
   });
   return ctl;
+}
+// scegliere col raggio: il tasto che tocca; fuori dai pannelli quello che indica, o niente
+function sceltaRaggio(ctl){
+  const hit=hitTest(ctl);
+  if(hit){ vibra(ctl,0.6,45); hit.object.userData.fai(); return; }
+  const b=ctl.userData.puntato||null;
+  if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); }
+  else if(SEL) seleziona(null);
 }
 const _orig=new THREE.Vector3(), _dir=new THREE.Vector3();
 function raggioDi(ctl){   // origine e direzione del raggio nel mondo
@@ -2563,8 +2583,8 @@ function inVista(o){ for(;o;o=o.parent) if(!o.visible) return false; return true
 // ====================== LE MANI ======================
 // Senza controller, col visore che vede le mani (la sessione chiede «hand-tracking»):
 // - le mani SI VEDONO: un pallino per giuntura, grande quanto la giuntura vera;
-// - il raggio esce dalla mano da se' (e' il targetRay della mano), e il PIZZICO — pollice e indice
-//   che si toccano — e' il grilletto: preme i tasti di tutti i pannelli, come prima;
+// - il raggio e' l'INDICE CHE INDICA (medio e anulare al pollice), e sceglie col grilletto
+//   dell'indice (vedi I RAGGI DELLE MANI); il PIZZICO — pollice e indice — prende i corpi;
 // - sul BANCO si puo' anche PREMERE COL DITO: la punta dell'indice che scende dentro la forma di un
 //   tasto lo fa scattare; per ripremerlo il dito deve risalire di un paio di centimetri.
 // I tasti B, X e Y del controller, con le mani, non ci sono.
@@ -2640,34 +2660,58 @@ function ditaPiegate(i){
 // alla velocita' (il «filtro 1€»): quando la mano e' quasi ferma il raggio si calma molto (e si mira),
 // quando la mano si muove davvero segue subito (e non resta indietro). I controller non ne hanno
 // bisogno e restano come sono.
-// E il raggio di una mano PARTE DALL'INDICE: dalla sua punta, e
-// nella direzione dell'osso del dorso dell'indice (dalla nocca del polso a quella del dito). Non nella
-// direzione del dito: pizzicando il dito si piega, e il raggio scatterebbe proprio nel momento del clic.
+// IL RAGGIO DI UNA MANO E' L'INDICE CHE INDICA. Si accende solo col gesto: MEDIO E ANULARE UNITI AL
+// POLLICE, e l'indice dritto; parte dalla punta dell'indice e va dove va il dito (dalla nocca alla
+// punta). Lasciati medio e anulare, si spegne. Si SCEGLIE col GRILLETTO DELL'INDICE: appena il dito
+// comincia a piegarsi il raggio si ferma dov'era (cosi' la mira non scappa), piegato un poco di piu'
+// sceglie; per scegliere di nuovo, l'indice si raddrizza. I controller non cambiano.
 const RAGGIO_CALMO=0.08, RAGGIO_SVELTO=6;   // quanto segue da fermo (per fotogramma), e quanto cresce con la velocita' (rad/s)
+const GESTO_DENTRO=0.035, GESTO_FUORI=0.055;    // medio e anulare dal pollice, in metri: per accendere, per spegnere
+const INDICE_DRITTO=0.93, INDICE_GRILLETTO=0.85; // quanto e' dritto l'indice (1 = del tutto): sotto il primo il raggio si ferma, sotto il secondo sceglie
 const _mP=new THREE.Vector3(), _mQ=new THREE.Quaternion(), _mS=new THREE.Vector3(), _mA=new THREE.Vector3(), _mB=new THREE.Vector3();
 const _mZ=new THREE.Vector3(0,0,-1);
-// la posa del raggio dall'indice, se il visore vede le sue giunture: true se l'ha messa in _mP/_mQ
-function posaDallIndice(i){
-  const M=MANI[i], j=M&&M.h.visible&&M.h.joints; if(!j) return false;
-  const t=j['index-finger-tip'], a=j['index-finger-metacarpal'], b=j['index-finger-phalanx-proximal'];
-  if(!t||!a||!b||t.visible===false||a.visible===false||b.visible===false) return false;
-  a.getWorldPosition(_mA); b.getWorldPosition(_mB).sub(_mA);
-  if(_mB.lengthSq()<1e-8) return false;
-  t.getWorldPosition(_mP);
-  _mQ.setFromUnitVectors(_mZ,_mB.normalize());
-  return true;
+const giuntura=(j,n,out)=>{ const g=j[n]; if(!g||g.visible===false) return null; return g.getWorldPosition(out); };
+// il gesto della mano i: null se il visore non vede le giunture; se no quanto medio e anulare stanno
+// lontani dal pollice (il piu' lontano dei due) e quanto l'indice e' dritto (la distanza nocca-punta
+// divisa per la lunghezza delle sue tre falangi)
+const _gT=new THREE.Vector3(), _gK=[0,1,2,3].map(()=>new THREE.Vector3());
+function gestoMano(i){
+  const M=MANI[i], j=M&&M.h.visible&&M.h.joints; if(!j) return null;
+  if(!giuntura(j,'thumb-tip',_gT)||!giuntura(j,'middle-finger-tip',_mA)||!giuntura(j,'ring-finger-tip',_mB)) return null;
+  const unite=Math.max(_gT.distanceTo(_mA),_gT.distanceTo(_mB));
+  const K=['index-finger-phalanx-proximal','index-finger-phalanx-intermediate','index-finger-phalanx-distal','index-finger-tip'];
+  for(let k=0;k<4;k++) if(!giuntura(j,K[k],_gK[k])) return null;
+  const lungo=_gK[0].distanceTo(_gK[1])+_gK[1].distanceTo(_gK[2])+_gK[2].distanceTo(_gK[3]);
+  if(lungo<1e-4) return null;
+  return {unite, dritto:_gK[0].distanceTo(_gK[3])/lungo, nocca:_gK[0], punta:_gK[3]};
 }
+// il raggio di una mano: acceso o spento dal gesto, fermo durante il grilletto, ammorbidito il resto
 function ammorbidisciRaggi(dt){
   [c0,c1].forEach((c,i)=>{
     const s=c&&c.userData.src;
-    if(!s||!s.hand){ if(c) c.userData.qLiscia=null; return; }
-    c.matrix.decompose(_mP,_mQ,_mS);
-    posaDallIndice(i);
+    if(!c) return;
     const u=c.userData;
+    if(!s||!s.hand){ u.qLiscia=null; u.acceso=true; return; }
+    const g=gestoMano(i);
+    if(!g){ u.acceso=false; u.qLiscia=null; return; }
+    if(!u.acceso){
+      if(g.unite<GESTO_DENTRO&&g.dritto>INDICE_DRITTO){ u.acceso=true; u.fermo=false; u.armato=true; u.qLiscia=null;
+        vibra(c,0.2,12); }
+      else { u.acceso=false; return; }
+    } else if(g.unite>GESTO_FUORI){ u.acceso=false; u.qLiscia=null; return; }
+    c.matrix.decompose(_mP,_mQ,_mS);
+    if(g.dritto>INDICE_DRITTO){ u.fermo=false; u.armato=true; }
+    else if(!u.fermo&&u.qLiscia){ u.fermo=true; u.pFermo=(u.pFermo||new THREE.Vector3()).copy(u.pLiscio); }
+    if(u.fermo){
+      c.matrix.compose(u.pFermo,u.qLiscia,_mS); c.matrixWorldNeedsUpdate=true; c.updateMatrixWorld(true);
+      if(u.armato&&g.dritto<INDICE_GRILLETTO){ u.armato=false; vibra(c,0.6,45); sceltaRaggio(c); }
+      return;
+    }
+    _mP.copy(g.punta); _mQ.setFromUnitVectors(_mZ,_mB.copy(g.punta).sub(g.nocca).normalize());
     if(!u.qLiscia) u.qLiscia=_mQ.clone();
     const vel=u.qLiscia.angleTo(_mQ)/Math.max(dt,1)*1000;          // radianti al secondo
     const k=Math.min(1,RAGGIO_CALMO+RAGGIO_SVELTO*vel*Math.max(dt,1)/1000);
-    u.qLiscia.slerp(_mQ,k);
+    u.qLiscia.slerp(_mQ,k); u.pLiscio=(u.pLiscio||new THREE.Vector3()).copy(_mP);
     c.matrix.compose(_mP,u.qLiscia,_mS); c.matrixWorldNeedsUpdate=true; c.updateMatrixWorld(true);
   });
 }
@@ -2720,14 +2764,17 @@ const SF_DEF=[
   // queste due hanno un posto loro, davanti, ai lati dei display
   {k:'azimut',     a:-18, r:0.46, su:0.22},
   {k:'alt',        a: 18, r:0.46, su:0.22},
-  // le tre griglie, in sferette di due terzi, davanti in fila
-  {k:'grigliaAz',  a:-14, r:0.42, su:0.10, scala:SF_SCALA*2/3},
-  {k:'grigliaEq',  a:  0, r:0.42, su:0.10, scala:SF_SCALA*2/3},
+  // le tre griglie, in sferette di due terzi, davanti in fila: l'azimutale nel mezzo, sull'asse
+  {k:'grigliaEq',  a:-14, r:0.42, su:0.10, scala:SF_SCALA*2/3},
+  {k:'grigliaAz',  a:  0, r:0.42, su:0.10, scala:SF_SCALA*2/3, mediale:true},
   {k:'grigliaEcl', a: 14, r:0.42, su:0.10, scala:SF_SCALA*2/3},
-  // l'orizzonte: pieno, trasparente, riflesso (i tre pallini del banco), meta' delle griglie
-  {k:'dFull',      a: -8, r:0.62, su:0.16, scala:SF_SCALA/3, tasto:'Orizzonte pieno'},
-  {k:'dTrans',     a:  0, r:0.62, su:0.16, scala:SF_SCALA/3, tasto:'Orizzonte trasparente'},
+  // l'orizzonte: trasparente, pieno (sull'asse), riflesso (i tre pallini del banco), meta' delle griglie
+  {k:'dTrans',     a: -8, r:0.62, su:0.16, scala:SF_SCALA/3, tasto:'Orizzonte trasparente'},
+  {k:'dFull',      a:  0, r:0.62, su:0.16, scala:SF_SCALA/3, tasto:'Orizzonte pieno', mediale:true},
   {k:'dRefl',      a:  8, r:0.62, su:0.16, scala:SF_SCALA/3, tasto:'Orizzonte riflesso'},
+  // la visione: dal centro della Terra o dal luogo, grandi come le griglie
+  {k:'dGeo',       a: -8, r:0.34, su:0.07, scala:SF_SCALA*2/3, tasto:'Visione geocentrica', dip:['topo']},
+  {k:'dTopo',      a:  8, r:0.34, su:0.07, scala:SF_SCALA*2/3, tasto:'Visione topocentrica', dip:['topo']},
 ];
 // un anello sottile di raggio r, nel piano xy del gruppo che lo contiene
 const anelloSf=(r,spess,col)=>new THREE.Mesh(new THREE.TorusGeometry(r,spess,6,64),
@@ -2747,7 +2794,7 @@ function glifoSf(gl,col){
 SF_DEF.forEach(d=>{
   const a=d.a!==undefined?d.a:d.lato*(40+d.i*SF_PASSO);
   const sc=d.scala||SF_SCALA;
-  const S={nome:'sfera-'+d.k, id:d.k, k:d.k, zona:R_SF*sc+0.02, raggio:R_SF*sc, luce:LUCE_CORPO, dentro:[]};
+  const S={nome:'sfera-'+d.k, id:d.k, k:d.k, zona:R_SF*sc+0.02, raggio:R_SF*sc, luce:LUCE_CORPO, dentro:[], mediale:!!d.mediale};
   const casa=new THREE.Group(); casa.position.copy(posaCorpo(a,d.r||SF_R,d.su||SF_SU));
   casa.rotation.y=-a*DEG; casa.scale.setScalar(sc);   // il suo +z guarda chi sta al centro
   CORPI_G.add(casa); S.casa=casa;
@@ -2827,7 +2874,7 @@ SF_DEF.forEach(d=>{
   // l'orizzonte: il piano del mare (appena inclinato verso chi guarda), qualche stella sopra, e sotto
   // il mare pieno (terra bruna), trasparente (vetro scuro: le stelle di sotto si vedono) o riflesso
   // (acqua blu: le stelle di sopra specchiate)
-  if(d.tasto){
+  if(d.tasto&&!d.dip){
     const o=new THREE.Group(); o.rotation.x=18*DEG; icona.add(o);
     const brun=0x8B5A2B, an=anelloSf(r,0.0014,brun); an.rotation.x=Math.PI/2; o.add(an);
     const mare={dFull:[0x6b4422,0.9], dTrans:[0x6f88a8,0.32], dRefl:[0x2f74c0,0.75]}[d.k];
@@ -2839,6 +2886,30 @@ SF_DEF.forEach(d=>{
     sopra.forEach(([a,b,c])=>stella(a*r,b*r,c*r,0.95));
     if(d.k==='dTrans') [[0.35,-0.4,0.1],[-0.15,-0.55,-0.2]].forEach(([a,b,c])=>stella(a*r,b*r,c*r,0.8));
     if(d.k==='dRefl') sopra.forEach(([a,b,c])=>stella(a*r,-b*r,c*r,0.55));
+  }
+  // la visione: la Terra in mezzo, e le linee che vanno alle stelle — dal suo CENTRO (geocentrica) o da
+  // un punto della sua superficie, col suo orizzonte (topocentrica)
+  if(d.dip){
+    const terra=new THREE.Mesh(new THREE.SphereGeometry(r*0.34,24,16),
+      new THREE.MeshBasicMaterial({color:0x3b7dd8,transparent:true,opacity:.9}));
+    icona.add(terra);
+    const geo=d.k==='dGeo', oro=0xffe6a8;
+    const occhio=new THREE.Vector3(0,geo?0:r*0.34,0);
+    const pallino=new THREE.Mesh(new THREE.SphereGeometry(0.0028,10,8),
+      new THREE.MeshBasicMaterial({color:oro,transparent:true,opacity:.95,depthTest:!geo}));
+    pallino.position.copy(occhio); icona.add(pallino);
+    const stelle=[[-0.55,0.62,0.2],[0.6,0.55,-0.1],[0.1,0.9,0.3],[-0.2,0.7,-0.55]];
+    const pt=[];
+    for(const [x,y,z] of stelle){
+      const v=new THREE.Vector3(x,y,z).normalize().multiplyScalar(r*0.92);
+      pt.push(occhio.clone(),v);
+      const st=new THREE.Mesh(new THREE.SphereGeometry(0.0022,8,6),pallino.material); st.position.copy(v); icona.add(st);
+    }
+    icona.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pt),
+      new THREE.LineBasicMaterial({color:oro,transparent:true,opacity:.8})));
+    if(!geo){   // l'orizzonte del luogo: un anello piatto che tocca la Terra in cima
+      const an=anelloSf(r*0.42,0.0010,0x57d68f); an.rotation.x=Math.PI/2; an.position.copy(occhio); icona.add(an);
+    }
   }
   if(d.k==='vis'){              // una luce tenuissima che pulsa piano
     const m=new THREE.MeshBasicMaterial({color:0xf2d08a,transparent:true,opacity:.2,
@@ -2856,7 +2927,7 @@ SF_DEF.forEach(d=>{
   if(!d.tasto) S.titolo=()=>{ const b=BUTTONS.find(x=>x.k===S.k); return b?b.t:S.k; };
   corpoTasto(S);
   if(d.tasto){   // le sferette dell'orizzonte fanno quello che fanno i pallini del banco
-    const t={id:d.k, dip:['orizReale']};   // premiTasto e accesoTasto le riconoscono dal nome
+    const t={id:d.k, dip:d.dip||['orizReale']};   // premiTasto e accesoTasto le riconoscono dal nome
     S.acceso=()=>accesoTasto(t);
     S.fai=()=>{ premiTasto(t); ridipingiTasti(t.dip); };
     S.titolo=()=>d.tasto;
@@ -2990,6 +3061,40 @@ ROTELLA.centro=out=>ROTELLA.casa.getWorldPosition(out);
 ROTELLA.fai=()=>diag('la rotella: qui dentro andrà l’elenco delle scelte (da definire)');
 ROTELLA.aggiorna=()=>{};
 corpoTasto(ROTELLA); CORPI.push(ROTELLA);
+
+// ---- l'ARCHIVIO: una cassetta di schede, gemella della rotella; toccata apre l'archivio dei temi ----
+// Legno pieno, scuro sotto e chiaro sopra (come la rotella, perche' sul banco non sparisca), aperta in
+// alto; dentro sei schede color carta, ognuna col suo cavaliere colorato, appena sfalsate.
+const ARC_W=0.11, ARC_D=0.075, ARC_H=0.05;   // larga (di traverso), profonda, alta: metri
+const ARCHIVIO={nome:'archivio', id:'archivio', zona:ARC_W/2+0.03, raggio:ARC_H, luce:LUCE_CORPO, titolo:()=>'Archivio'};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(-30,0.40,0.14)); casa.rotation.y=30*DEG;
+  CORPI_G.add(casa); ARCHIVIO.casa=casa;
+  ARCHIVIO.mat=new THREE.ShaderMaterial({uniforms:{uR:{value:ARC_H}, uBasso:{value:new THREE.Color(0x4a2c12)},
+    uAlto:{value:new THREE.Color(0xd09a58)}, uPiena:{value:1}, uLuce:{value:0.55}},
+    vertexShader:CUPOLA_V, fragmentShader:CUPOLA_F, transparent:true, depthWrite:false});
+  const cassa=new THREE.Group(); cassa.position.y=-ARC_H/2; casa.add(cassa);
+  const asse=(w,h,d,x,y,z)=>{ const g=new THREE.BoxGeometry(w,h,d); g.translate(x,y,z); cassa.add(new THREE.Mesh(g,ARCHIVIO.mat)); };
+  const sp=0.004;
+  asse(ARC_W,sp,ARC_D, 0,sp/2,0);                                  // il fondo
+  asse(ARC_W,ARC_H,sp, 0,ARC_H/2, ARC_D/2-sp/2);                   // davanti (verso chi guarda)
+  asse(ARC_W,ARC_H*0.8,sp, 0,ARC_H*0.4,-ARC_D/2+sp/2);             // dietro, piu' basso: le schede si vedono
+  asse(sp,ARC_H,ARC_D, ARC_W/2-sp/2,ARC_H/2,0); asse(sp,ARC_H,ARC_D, -ARC_W/2+sp/2,ARC_H/2,0);
+  const carta=new THREE.MeshBasicMaterial({color:0xf3ead6,transparent:true,opacity:.95});
+  const CAV=[0xFF2930,0x1ED135,0xFCC10B,0x6699FF,0xC9A227,0x8E6BD8];
+  for(let k=0;k<6;k++){
+    const z=-ARC_D/2+0.012+k*(ARC_D-0.022)/5, h=ARC_H*1.15;
+    const sc=new THREE.Mesh(new THREE.BoxGeometry(ARC_W-0.016,h,0.0015),carta);
+    sc.position.set(0,sp+h/2,z); sc.rotation.x=-8*DEG; cassa.add(sc);
+    const cv=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.010,0.0018),
+      new THREE.MeshBasicMaterial({color:CAV[k],transparent:true,opacity:.95}));
+    cv.position.set(-ARC_W/2+0.02+k*0.014,h/2+0.005,0); sc.add(cv);
+  }
+}
+ARCHIVIO.centro=out=>ARCHIVIO.casa.getWorldPosition(out);
+ARCHIVIO.fai=()=>toggleBtn(BUTTONS.find(x=>x.k==='temi'));
+ARCHIVIO.aggiorna=()=>{};
+corpoTasto(ARCHIVIO); CORPI.push(ARCHIVIO);
 
 // ---- l'OROLOGIO: un quadrante di 24 ore, 37,5 cm, coi display del luogo e del tempo dentro ----
 // (disegnato a 30 cm e ingrandito tutto insieme di OR_SCALA)
@@ -3184,11 +3289,13 @@ TASTIERA_T.aggiorna=()=>{
 corpoTasto(TASTIERA_T); CORPI.push(TASTIERA_T);
 
 // ---- la SFERA DEL CIELO: tre strati d'atmosfera, e la mano che ci entra spinge il cielo ----
+// E' fatta a PALLONE DA RUGBY: lungo 36 cm da sinistra a destra, panciuto 23 cm, perche' la mano che
+// entra da un lato abbia 18 cm di strada per sentire i tre strati (tre palloni uno dentro l'altro).
 // Una leva senza leva: la mano (qualunque, in qualunque forma) che entra nella sfera DA DESTRA spinge
 // il cielo verso sinistra, DA SINISTRA verso destra; piu' affonda, piu' corre — il velo di fuori
 // piano, lo strato di mezzo di piu', il nucleo veloce. Lo strato in cui si sta si accende. Uscita la
 // mano, il cielo si ferma subito. Conta il punto della mano piu' affondato (punte, nocche, polso).
-const R_ATM=0.09;
+const R_ATM=0.18, R_ATM_B=0.115;   // la mezza lunghezza (da sinistra a destra) e la mezza pancia
 // gradi di cielo al secondo: 4, poi un terzo in piu' ogni strato; gli strati quasi uguali, perche'
 // anche il nucleo si raggiunga
 const ATM_V1=4;
@@ -3196,31 +3303,41 @@ const ATM_STRATI=[{r:1.00, vel:ATM_V1,       col:0x9fd8ff, op:0.10},
                   {r:0.70, vel:ATM_V1*4/3,   col:0x4f8cff, op:0.16},
                   {r:0.42, vel:ATM_V1*16/9,  col:0xb06cff, op:0.30}];
 const ATM_MORTA=0.012;   // metri: con la mano quasi sull'asse il verso non si sa, e non si spinge
-const ATMOSFERA={nome:'atmosfera', id:'atmosfera', titolo:()=>'Sfera del cielo', zona:R_ATM+0.02, raggio:R_ATM,
+const ATMOSFERA={nome:'atmosfera', id:'atmosfera', titolo:()=>'Sfera del cielo', zona:R_ATM+0.02, raggio:R_ATM_B,
   luce:LUCE_CORPO, strato:-1};
 {
   const casa=new THREE.Group(); casa.position.copy(posaCorpo(50,0.50,0.22)); casa.rotation.y=-50*DEG;
   CORPI_G.add(casa); ATMOSFERA.casa=casa;
   ATMOSFERA.mat=cristallo(0x9fd8ff);
-  casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_ATM,48,28),ATMOSFERA.mat));
+  const pallone=(k,m)=>{ const v=new THREE.Mesh(new THREE.SphereGeometry(1,48,28),m);
+    v.scale.set(R_ATM*k,R_ATM_B*k,R_ATM_B*k); casa.add(v); return v; };
+  pallone(1,ATMOSFERA.mat);
   ATMOSFERA.veli=ATM_STRATI.map(s=>{
     const m=new THREE.MeshBasicMaterial({color:s.col,transparent:true,opacity:s.op,depthWrite:false,
       blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
-    const v=new THREE.Mesh(new THREE.SphereGeometry(R_ATM*s.r*0.98,40,24),m); casa.add(v); return m;
+    pallone(s.r*0.98,m); return m;
   });
+  // le quattro cuciture, da punta a punta
+  const cuc=new THREE.LineBasicMaterial({color:0xd8f6ff,transparent:true,opacity:.35,depthWrite:false});
+  for(let q=0;q<4;q++){ const f=q*Math.PI/2+Math.PI/4, pt=[];
+    for(let k=0;k<=64;k++){ const t=k/64*Math.PI;
+      pt.push(new THREE.Vector3(-R_ATM*Math.cos(t),R_ATM_B*Math.sin(t)*Math.cos(f),R_ATM_B*Math.sin(t)*Math.sin(f))); }
+    casa.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pt),cuc)); }
   // due frecce sottili ai lati: da dove si spinge, e verso dove va il cielo
   const freccia=lato=>{ const g=new THREE.Group(), m=new THREE.MeshBasicMaterial({color:0xd8f6ff,transparent:true,opacity:.6});
     const asta=new THREE.Mesh(new THREE.CylinderGeometry(0.0012,0.0012,0.03,8),m); asta.rotation.z=Math.PI/2; g.add(asta);
     const punta=new THREE.Mesh(new THREE.ConeGeometry(0.004,0.009,12),m); punta.rotation.z=Math.PI/2; punta.position.x=-0.019; g.add(punta);
     g.position.set(lato*(R_ATM+0.022),0,0); if(lato<0) g.rotation.y=Math.PI; casa.add(g); };
   freccia(1); freccia(-1);
-  const e=etichetta('cielo'); e.position.set(0,R_ATM+0.018,0); casa.add(e);
+  const e=etichetta('cielo'); e.position.set(0,R_ATM_B+0.018,0); casa.add(e);
 }
 ATMOSFERA.centro=out=>ATMOSFERA.casa.getWorldPosition(out);
 ATMOSFERA.fai=()=>{};   // non si preme: ci si entra
 const ATM_GIUNTURE=['index-finger-tip','middle-finger-tip','ring-finger-tip','pinky-finger-tip','thumb-tip',
   'index-finger-metacarpal','middle-finger-metacarpal','pinky-finger-metacarpal','wrist'];
 const _pA=new THREE.Vector3(), _pAm=new THREE.Vector3();
+// quanto un punto (nel sistema della sfera) sta dentro il pallone: 1 sulla buccia, 0 nel centro
+const affondo=p=>Math.sqrt((p.x/R_ATM)**2+(p.y*p.y+p.z*p.z)/(R_ATM_B*R_ATM_B));
 // il punto della mano piu' dentro la sfera (nel sistema della sfera), o null se la mano e' fuori
 function puntoInAtmosfera(M,out){
   const j=M.h.visible&&M.h.joints; if(!j) return null;
@@ -3228,7 +3345,7 @@ function puntoInAtmosfera(M,out){
   for(const n of ATM_GIUNTURE){
     const g=j[n]; if(!g||g.visible===false) continue;
     ATMOSFERA.casa.worldToLocal(g.getWorldPosition(_pA));
-    const d=_pA.length(); if(d<meglio&&d<R_ATM){ meglio=d; out.copy(_pA); }
+    const d=affondo(_pA); if(d<meglio&&d<1){ meglio=d; out.copy(_pA); }
   }
   return meglio<Infinity?out:null;
 }
@@ -3239,9 +3356,9 @@ ATMOSFERA.aggiorna=dt=>{
     MANI.forEach((M,i)=>{
       if(PRESE[i]) return;
       const p=puntoInAtmosfera(M,_pAm); if(!p) return;
-      const d=p.length(); if(d>=fondo) return;
+      const d=affondo(p); if(d>=fondo) return;
       fondo=d; verso=Math.abs(p.x)<ATM_MORTA?0:(p.x>0?1:-1);
-      strato=d<R_ATM*ATM_STRATI[2].r?2:d<R_ATM*ATM_STRATI[1].r?1:0;
+      strato=d<ATM_STRATI[2].r?2:d<ATM_STRATI[1].r?1:0;
     });
   }
   if(strato>=0&&verso){
@@ -3276,10 +3393,11 @@ function salvaSfere(){
     if(S.quadro) o[S.id].push(Math.round(S.incl/DEG)); });
   try{ localStorage.setItem(CHIAVE_SFERE,JSON.stringify(o)); }catch(e){}
 }
+const POSATI=new Set();   // i corpi che il visore ha gia' messo a posto almeno una volta
 try{
   const o=JSON.parse(localStorage.getItem(CHIAVE_SFERE)||'null');
   if(o) CORPI.forEach(S=>{ const v=o[S.id]; if(S.parteDi||!Array.isArray(v)||!v.every(Number.isFinite)) return;
-    posaSfera(S,v[0],v[1],v[2]);
+    posaSfera(S,S.mediale?0:v[0],v[1],v[2]); POSATI.add(S);
     if(S.quadro&&v.length>3){ S.incl=Math.max(-S.inclMax,Math.min(S.inclMax,v[3]*DEG)); S.quadro.rotation.x=S.incl; } });
 }catch(e){}
 // la guida: griglia, filo e scritta, visibile solo mentre una sferetta e' in mano
@@ -3345,6 +3463,7 @@ function prendiSfera(S,p){
 }
 function trascinaSfera(S,p){
   CORPI_G.worldToLocal(_pl.copy(p)).add(S.off);
+  if(S.mediale) _pl.x=0;   // quelli dell'asse vanno solo avanti e indietro, su e giu'
   const a=Math.atan2(_pl.x,-_pl.z);
   S.casa.position.copy(_pl); S.casa.rotation.y=-a;   // il suo davanti resta rivolto a chi sta al centro
   if(S.quadro&&S.becc0!=null&&BECCHEGGIO!=null){
@@ -3358,12 +3477,15 @@ function lasciaSfera(S){
   diag(S.titolo()+' posato: angolo '+Math.round(q.a)+'°, distanza '+Math.round(q.r*100)+' cm, altezza '+Math.round(q.su*100)+' cm'
     +(S.quadro?', inclinato '+Math.round(-S.incl/DEG)+'°':''));
 }
-// LO SPECCHIO VIVO: acceso (tasto «specchio» del banco), mentre col componi si sposta un corpo il suo
-// gemello si muove insieme a lui, rovesciato: stesso raggio, stessa altezza, angolo col segno
-// cambiato; un filo li lega, perche' si veda chi e' il gemello. Comanda quello che si tiene in mano,
-// da qualunque lato stia. Mettere due corpi simmetrici a mano, nello spazio, e' quasi impossibile.
-const COPPIE=[['equator','ecliptic'],['meridiano','zodiaco'],['primovert','latitudini'],['axis','vis'],
-  ['azimut','alt'],['grigliaAz','grigliaEcl']];
+// LO SPECCHIO: acceso (tasto «specchio» del banco), per prima cosa ogni corpo di SINISTRA va nel punto
+// speculare del suo gemello di DESTRA (di ogni coppia, comanda quello che sta piu' a destra); poi,
+// mentre col componi si sposta un corpo, il suo gemello si muove insieme a lui, rovesciato: stesso
+// raggio, stessa altezza, angolo col segno cambiato, e un filo li lega. Comanda quello che si tiene in
+// mano, da qualunque lato stia. Mettere due corpi simmetrici a mano, nello spazio, e' quasi impossibile.
+// Le coppie sono DIALETTICHE (una a destra, una a sinistra); i corpi MEDIALI (la griglia azimutale e
+// l'orizzonte pieno) stanno sull'asse, e si spostano solo lungo di lui.
+const COPPIE=[['azimut','alt'],['equator','ecliptic'],['meridiano','zodiaco'],['primovert','latitudini'],
+  ['axis','vis'],['archivio','rotella'],['grigliaEq','grigliaEcl'],['dTrans','dRefl'],['dGeo','dTopo']];
 function gemello(S){
   for(const [a,b] of COPPIE){ const o=S.id===a?b:S.id===b?a:null; if(o) return CORPI.find(c=>c.id===o)||null; }
   return null;
@@ -3379,9 +3501,23 @@ function specchiaGemello(S){
   v.setXYZ(1,G.casa.position.x,G.casa.position.y,G.casa.position.z); v.needsUpdate=true;
   GUIDA.filo2.geometry.computeBoundingSphere();
 }
+// la destra sulla sinistra, per tutte le coppie
+function specchiaDestra(){
+  let n=0;
+  for(const [a,b] of COPPIE){
+    const A_=CORPI.find(c=>c.id===a), B_=CORPI.find(c=>c.id===b); if(!A_||!B_) continue;
+    const qa=polareSfera(A_), qb=polareSfera(B_);
+    const [D,q]=qa.a>=qb.a?[B_,qa]:[A_,qb];   // D va a sinistra, nello specchio di q
+    posaSfera(D,-q.a,q.r,q.su); n++;
+  }
+  salvaSfere(); return n;
+}
+// un corpo nuovo, mai posato, il cui gemello e' gia' stato messo a posto: va nel punto speculare
+CORPI.forEach(S=>{ const G=gemello(S); if(G&&!POSATI.has(S)&&POSATI.has(G)){ const q=polareSfera(G); posaSfera(S,-q.a,q.r,q.su); } });
 function cambiaSpecchio(){
   SPECCHIO=!SPECCHIO; ridipingiTasti(['specchia']);
-  diag(SPECCHIO?'specchio vivo: spostando un corpo, il suo gemello lo segue dall’altra parte':'specchio spento');
+  if(SPECCHIO){ const n=specchiaDestra(); diag('specchio: '+n+' coppie, la sinistra copiata dalla destra; nel componi il gemello segue'); }
+  else diag('specchio spento');
 }
 function cambiaComponi(){
   COMPONI=!COMPONI;
@@ -4372,8 +4508,12 @@ function aggiornaRaggi(){
   let indicato=null;
   for(const c of [c0,c1]){
     if(!c) continue;
-    const h=hitTest(c);
     c.userData.puntato=null;
+    // la mano senza il gesto dell'indicare non ha raggio
+    const acceso=c.userData.acceso!==false;
+    c.userData.ray.visible=acceso;
+    if(!acceso){ c.userData.dot.visible=false; c.userData.mirino.visible=false; c.userData.sopra=null; c.userData.suAstro=null; continue; }
+    const h=hitTest(c);
     if(h){   // sul cruscotto: il raggio si ferma sul tasto
       c.userData.ray.scale.z=h.distance;
       c.userData.dot.visible=true; c.userData.dot.position.z=-h.distance; c.userData.dot.scale.setScalar(1);
@@ -4522,7 +4662,7 @@ function cambiaLuogo(l){ conDissolvenza(()=>applicaLuogo(l)); }
 function applicaLuogo(l){
   LUOGO={nome:l.nome, lat:l.lat, lng:l.lng, fuso:fusoValido(l.fuso)?l.fuso:'UTC'};
   PHI=LUOGO.lat*DEG; LST0=GAST0+LUOGO.lng*DEG;
-  orientaCielo(); aggiornaGlifi();
+  orientaCielo(); if(TOPO) collocaPianeti(); aggiornaGlifi();
   minutoMostrato=null; aggiornaOra();
   btnLuogo.textContent='⌖ '+LUOGO.nome;
   const b=BUTTONS.find(x=>x.k==='luogo'); if(b){ b.t='Luogo: '+LUOGO.nome; ridipingi(b); }
