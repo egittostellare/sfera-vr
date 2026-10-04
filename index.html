@@ -306,15 +306,14 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='46';
+const VERSIONE='47';
 const diagBox=document.getElementById('diag');
-const diagRighe=[]; let logSporco=true;
+const diagRighe=[];
 function diag(msg,kind){
   const d=new Date(), t=String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
   diagRighe.push({t,msg,kind:kind||''});
   while(diagRighe.length>9) diagRighe.shift();
   diagBox.innerHTML=diagRighe.map(l=>'<div class="'+l.kind+'"><b>'+l.t+'</b>'+l.msg+'</div>').join('');
-  logSporco=true;
 }
 diagBox.addEventListener('click',()=>diagBox.classList.toggle('chiuso'));
 addEventListener('error',e=>diag('JS: '+(e.message||e.type),'err'));
@@ -1903,8 +1902,6 @@ let COMPONI=false;                            // il modo «componi»: le sferett
 let SPECCHIO=false;                           // lo specchio vivo del componi (vedi LO SPECCHIO VIVO)
 const FILI=[-82,-38,38,82];                  // i fili che separano i gruppi, in gradi
 const CR_W=GIRO_BANCO*DEG*R_MID, CR_H=R_OUT-R_IN, CX_CORPO=0, LARG_T=CR_W;
-const DW=1460, DH=990;
-const dX=xd=>(xd-DW/2)*U, dY=yd=>(DH/2-yd)*U;   // (resta per il quadro, che per ora non si monta)
 const PPU_K=2.6, PPM_C=1500;                 // pixel per unita' dei tasti, pixel per metro del corpo
 const PPM=1600, PPM_K=3000;                  // pixel per metro: l'ala degli elementi, che e' rimasta com'era
 const btnMeshes=[];                          // i tasti dell'ala
@@ -2381,40 +2378,6 @@ function ridipingi(b){
   ridipingiTasti([b.k]);
 }
 
-// il quadro: l'ora del cielo e il diario di bordo (nel visore la pagina non si vede). Il disegno
-// non ce l'ha: sta DA PARTE, nel vano fra le due gambe del banco, finche' l'autore non gli da' un posto
-const QU_W=536*U, QUADRO_H=170*U, QU_PPM=2/U;   // la tela ha sempre gli stessi pixel, qualunque sia U
-const logCv=document.createElement('canvas');
-logCv.width=Math.round(QU_W*QU_PPM); logCv.height=Math.round(QUADRO_H*QU_PPM);
-const logTex=new THREE.CanvasTexture(logCv); logTex.anisotropy=4;
-const logMesh=pianoPiegato(QU_W,QUADRO_H,dX(730),dY(565),0.003,
-  new THREE.MeshBasicMaterial({map:logTex,transparent:true,color:new THREE.Color(LUCE,LUCE,LUCE)}));
-// TOLTO dal banco su richiesta dell'autore (29 settembre): si reinserira'. Resta pronto e
-// continua a scriversi, solo non si vede.
-// banco.add(logMesh);
-let fps=0, oraVR='';
-function scriviOrologioVR(testo){ oraVR=testo; logSporco=true; }
-function disegnaLog(){
-  const x=logCv.getContext('2d'), W=logCv.width, H=logCv.height;
-  x.clearRect(0,0,W,H);
-  x.fillStyle='rgba(8,12,22,.96)'; roundRect(x,3,3,W-6,H-6,28); x.fill();
-  x.strokeStyle=TEMA.cornice; x.lineWidth=4; x.stroke();
-  x.textBaseline='middle'; x.textAlign='left';
-  x.font="600 42px 'Cormorant Garamond', Georgia, serif";
-  x.fillStyle='#e3c169'; x.fillText(oraVR,30,46);
-  x.textAlign='right'; x.fillStyle='rgba(111,123,153,.9)';
-  x.font='24px ui-monospace, Consolas, monospace'; x.fillText(Math.round(fps)+' fps',W-30,46);
-  x.strokeStyle='rgba(90,180,210,.25)'; x.lineWidth=2;
-  x.beginPath(); x.moveTo(30,80); x.lineTo(W-30,80); x.stroke();
-  x.textAlign='left'; x.font='24px ui-monospace, Consolas, monospace';
-  diagRighe.slice(-4).forEach((l,i)=>{
-    x.fillStyle=l.kind==='err'?'#ff8a8a':l.kind==='warn'?'#e3c169':l.kind==='ok'?'#7fd6a4':'#aab4cf';
-    let s=l.msg; if(s.length>68) s=s.slice(0,67)+'…';
-    x.fillText(s,30,116+i*56);
-  });
-  logTex.needsUpdate=true; logSporco=false;
-}
-disegnaLog();
 inPrimoPiano(vrPanel);   // tutto il cruscotto si disegna dopo il mare, che se no lo cancellerebbe
 
 // il banco si mette ATTORNO a chi guarda — l'origine e' l'occhio — e si gira solo di traverso,
@@ -4365,7 +4328,7 @@ function ridipingiCarattere(){
     e.s.scale.set(e.h*rapp,e.h,1);
   });
   BUTTONS.forEach(ridipingi);
-  disegnaCorpo(); disegnaLog();   // anche il corpo del cruscotto e il quadro sono scritti a mano
+  disegnaCorpo();   // anche il corpo del cruscotto e' scritto a mano
 }
 if(document.fonts && document.fonts.load){
   Promise.all([document.fonts.load("600 52px 'Cormorant Garamond'"),
@@ -4391,9 +4354,6 @@ function aggiornaOra(){
   minutoMostrato=chiave; oraScritta=ora;
   document.getElementById('sotto').textContent='φ '+coordTesto(LUOGO.lat,LUOGO.lng).split(' ')[0]+' '+
     LUOGO.nome+' · '+quandoTesto(t,true)+' · WebXR';
-  scriviOrologioVR(LUOGO.nome+' · '+quandoTesto(t,false)+(MARE.acceso?' · orizzonte '+testoMare():'')+
-    (GRAND.s!==1?' · grandangolo '+testoGrand():'')+
-    (ZOOM.s!==1?' · zoom '+testoZoom():''));
 }
 
 // lo zoom entra in ogni materiale del planetario (non nel pannello, nella tastiera, nei controller)
@@ -4404,7 +4364,7 @@ for(const p of PIANETI){
   p.punto.traverse(o=>{ const z=o.material&&o.material.userData.zoom; if(z) z.uZoomCresce.value=1; });
 }
 
-let erroreLoop=false, nFrame=0, tUltimo=0;
+let erroreLoop=false;
 // I raggi dei controller: sul cruscotto si fermano sul tasto e mostrano il puntino; fuori arrivano
 // fino alla volta, e il mirino si posa dove la stella SI VEDE. Torna l'astro indicato.
 const _testa=new THREE.Vector3();
@@ -4483,8 +4443,6 @@ function aggiornaAlt(){
 }
 renderer.setAnimationLoop((time,frame)=>{
   try{
-    nFrame++;
-    if(time-tUltimo>1000){ fps=nFrame*1000/(time-tUltimo); nFrame=0; tUltimo=time; logSporco=true; }
     // il tempo del cielo: agganciato all'orologio, non ai fotogrammi (un salto dopo una pausa non conta)
     const ora=performance.now(), dt=tPrec==null?0:Math.min(ora-tPrec,100); tPrec=ora;
     if(spin) avanzaCielo(dt);
@@ -4509,7 +4467,6 @@ renderer.setAnimationLoop((time,frame)=>{
       indica(aggiornaRaggi());
       aggiornaMani();
       aggiornaCorpi(dt);
-      if(logSporco) disegnaLog();
     } else {
       updateOrbit();
       for(const c of [c0,c1]) if(c&&c.userData.mirino) c.userData.mirino.visible=false;

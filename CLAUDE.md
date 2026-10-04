@@ -37,7 +37,9 @@ chi arriva da fuori: da lì si parte, e non si duplica qui.
 2. `git push` — GitHub Pages si ricostruisce da sé in **uno-tre minuti**.
 3. Nel visore si apre l'indirizzo con una **coda finta**: `egittostellare.github.io/sfera-vr/?22`.
    La pagina ha `max-age=600`, quindi senza quella coda il Quest riserve la versione di dieci minuti
-   prima. **Il numero in uso va detto all'autore a ogni giro, e cresce di uno.**
+   prima. **Il numero in uso va detto all'autore a ogni giro, e cresce di uno.** Lo stesso numero
+   va nella costante `VERSIONE` in cima allo script: si legge sul pulsante «Entra in VR · vNN» e sul
+   cartellino del banco, e dice se il visore ha davvero la pagina nuova.
 
 ## Come si prova (i banchi)
 Non c'è il visore, quindi si prova la **logica** e la **geometria**, non il «come si sente». I banchi
