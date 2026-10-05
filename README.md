@@ -211,14 +211,18 @@ In tutto 720 stelle e 657 lati di figura.
   punta del dito** (come si indica una stella), e si sceglie col **grilletto dell'indice** (piegarlo
   un poco: il raggio si ferma dov'era, piegato di più sceglie). Il pizzico
   prende i corpi; sul banco i tasti si premono anche **col dito**.
-- **I corpi**: sopra il banco, oggetti da toccare col dito e, col tasto *componi*, da prendere e
+- **La scocca**: chi guarda sta dentro una navicella di vetro trasparente — il piano del banco si
+  chiude tutto attorno, e dal suo bordo una parete morbida scende fino a un fondo ai piedi. Sopra la
+  testa niente: il cielo resta pulito.
+- **I corpi**: sopra il banco, incastonati su steli di vetro, oggetti da toccare col dito e, col tasto *componi*, da prendere e
   mettere dove sono comodi. Sono **coppie dialettiche**, una a destra e una a sinistra (azimut e
   altezza, equatore ed eclittica, meridiano e zodiaco, primo verticale e latitudini, asse e *vis
   luminis*, archivio e rotella, griglia equatoriale ed eclittica, orizzonte trasparente e riflesso,
   visione geocentrica e topocentrica), e **corpi mediali** che stanno sull'asse e si spostano solo
   lungo di lui (la griglia azimutale, l'orizzonte pieno). Il tasto *specchio* copia la destra sulla
   sinistra e, mentre si compone, fa seguire al gemello il corpo che si tiene. Ci sono poi le tre
-  cupole del tempo (adesso, velocità, stop), l'orologio di 24 ore coi display del luogo e del tempo,
+  cupole del tempo (adesso, velocità, stop), l'orologio di 24 ore con ai lati i display del luogo
+  (a sinistra) e del tempo (a destra),
   e la **sfera del cielo**, un pallone da rugby di tre strati: la mano che ci entra da un lato fa
   girare il cielo, più affonda più corre. La **visione topocentrica** mostra i pianeti visti dal
   luogo invece che dal centro della Terra (la Luna si sposta fino a un grado).
