@@ -169,6 +169,17 @@
   <button id="tempo-btn">◷ tempo</button>
   <button id="temi-btn">☰ temi</button>
   <button id="guida-btn">? guida</button>
+  <button id="invia-btn">✉ disposizione</button>
+</div>
+<div id="invia" class="box" hidden>
+  <h3>La disposizione</h3>
+  <div class="nota" style="margin-top:0">Dove stanno i corpi della consolle, come li hai messi nel
+    visore col «componi». Manda la mail a te stesso: da lì le posizioni si leggono e si fissano nel
+    codice, e diventano quelle di partenza per tutti.</div>
+  <button class="usa" id="invia-gmail">Scrivi la mail (Gmail)</button>
+  <textarea id="invia-testo" readonly rows="7" style="width:100%;box-sizing:border-box;margin-top:8px;
+    background:rgba(0,0,0,.3);color:#cfd6ea;border:1px solid rgba(150,166,205,.3);border-radius:8px;
+    font:11px ui-monospace,monospace;padding:6px"></textarea>
 </div>
 <div id="temi" class="box" hidden>
   <h3>I temi</h3>
@@ -306,7 +317,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='48';
+const VERSIONE='49';
 const diagBox=document.getElementById('diag');
 const diagRighe=[];
 function diag(msg,kind){
@@ -2661,8 +2672,11 @@ function ditaPiegate(i){
 // quando la mano si muove davvero segue subito (e non resta indietro). I controller non ne hanno
 // bisogno e restano come sono.
 // IL RAGGIO DI UNA MANO E' L'INDICE CHE INDICA. Si accende solo col gesto: MEDIO E ANULARE UNITI AL
-// POLLICE, e l'indice dritto; parte dalla punta dell'indice e va dove va il dito (dalla nocca alla
-// punta). Lasciati medio e anulare, si spegne. Si SCEGLIE col GRILLETTO DELL'INDICE: appena il dito
+// POLLICE, e l'indice dritto; parte dalla punta dell'indice e va dove la punta indica VISTA DAGLI
+// OCCHI: sulla linea occhi-punta, come si indica davvero una stella. (La direzione del dito sola,
+// presa su quattro centimetri di falange, trema di dieci gradi: le giunture il visore le stima a un
+// centimetro. Sui cinquanta centimetri fra occhi e punta lo stesso centimetro vale un grado.)
+// Lasciati medio e anulare, si spegne. Si SCEGLIE col GRILLETTO DELL'INDICE: appena il dito
 // comincia a piegarsi il raggio si ferma dov'era (cosi' la mira non scappa), piegato un poco di piu'
 // sceglie; per scegliere di nuovo, l'indice si raddrizza. I controller non cambiano.
 const RAGGIO_CALMO=0.08, RAGGIO_SVELTO=6;   // quanto segue da fermo (per fotogramma), e quanto cresce con la velocita' (rad/s)
@@ -2683,7 +2697,7 @@ function gestoMano(i){
   for(let k=0;k<4;k++) if(!giuntura(j,K[k],_gK[k])) return null;
   const lungo=_gK[0].distanceTo(_gK[1])+_gK[1].distanceTo(_gK[2])+_gK[2].distanceTo(_gK[3]);
   if(lungo<1e-4) return null;
-  return {unite, dritto:_gK[0].distanceTo(_gK[3])/lungo, nocca:_gK[0], punta:_gK[3]};
+  return {unite, dritto:_gK[0].distanceTo(_gK[3])/lungo, punta:_gK[3]};
 }
 // il raggio di una mano: acceso o spento dal gesto, fermo durante il grilletto, ammorbidito il resto
 function ammorbidisciRaggi(dt){
@@ -2707,7 +2721,7 @@ function ammorbidisciRaggi(dt){
       if(u.armato&&g.dritto<INDICE_GRILLETTO){ u.armato=false; vibra(c,0.6,45); sceltaRaggio(c); }
       return;
     }
-    _mP.copy(g.punta); _mQ.setFromUnitVectors(_mZ,_mB.copy(g.punta).sub(g.nocca).normalize());
+    _mP.copy(g.punta); _mQ.setFromUnitVectors(_mZ,_mB.copy(g.punta).sub(_testa).normalize());
     if(!u.qLiscia) u.qLiscia=_mQ.clone();
     const vel=u.qLiscia.angleTo(_mQ)/Math.max(dt,1)*1000;          // radianti al secondo
     const k=Math.min(1,RAGGIO_CALMO+RAGGIO_SVELTO*vel*Math.max(dt,1)/1000);
@@ -3061,6 +3075,37 @@ ROTELLA.centro=out=>ROTELLA.casa.getWorldPosition(out);
 ROTELLA.fai=()=>diag('la rotella: qui dentro andrà l’elenco delle scelte (da definire)');
 ROTELLA.aggiorna=()=>{};
 corpoTasto(ROTELLA); CORPI.push(ROTELLA);
+
+// ---- la BUSTA: invia la disposizione ----
+// Toccata, si esce dal visore e la pagina apre la finestra «la disposizione»: di li' una mail (Gmail)
+// porta le posizioni dei corpi a chi le fissera' nel codice.
+const INVIA={nome:'invia', id:'invia', zona:0.06, raggio:0.04, luce:LUCE_CORPO, titolo:()=>'Invia la disposizione'};
+{
+  const casa=new THREE.Group(); casa.position.copy(posaCorpo(-62,0.40,0.08)); casa.rotation.y=62*DEG;
+  CORPI_G.add(casa); INVIA.casa=casa;
+  const W=0.08, H=0.055;
+  // carta piena e opaca (lo shader del cristallo, visto di faccia, la lasciava trasparire): la luce
+  // del corpo la schiarisce
+  INVIA.mat={uniforms:{uLuce:{value:LUCE_CORPO}}};
+  INVIA.carta=new THREE.MeshBasicMaterial({color:0xf3e8cc});
+  const busta=new THREE.Group(); busta.rotation.x=-15*DEG; casa.add(busta);
+  busta.add(new THREE.Mesh(new THREE.BoxGeometry(W,H,0.005),INVIA.carta));
+  const z=0.0028, filo=new THREE.LineBasicMaterial({color:0x6b5a3c,transparent:true,opacity:.9});
+  busta.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-W/2,H/2,z),
+    new THREE.Vector3(0,-H*0.12,z),new THREE.Vector3(W/2,H/2,z)]),filo));
+  const sigillo=new THREE.Mesh(new THREE.CircleGeometry(0.007,20),
+    new THREE.MeshBasicMaterial({color:0xb0302a,transparent:true,opacity:.95}));
+  sigillo.position.set(0,-H*0.12,z+0.0004); busta.add(sigillo);
+  const e=etichetta('invia'); e.position.set(0,H/2+0.02,0); casa.add(e);
+}
+INVIA.centro=out=>INVIA.casa.getWorldPosition(out);
+INVIA.fai=()=>{
+  salvaSfere(); APRI_INVIA=true;
+  diag('esco dal visore: sulla pagina si apre «la disposizione», da mandare per posta');
+  if(xrSession) xrSession.end().catch(e=>diag('uscita: '+e.name,'warn')); else apriInvia();
+};
+INVIA.aggiorna=()=>{ INVIA.carta.color.setHex(0xf3e8cc).multiplyScalar(0.55+0.45*INVIA.mat.uniforms.uLuce.value); };
+corpoTasto(INVIA); CORPI.push(INVIA);
 
 // ---- l'ARCHIVIO: una cassetta di schede, gemella della rotella; toccata apre l'archivio dei temi ----
 // Legno pieno, scuro sotto e chiaro sopra (come la rotella, perche' sul banco non sparisca), aperta in
@@ -4420,6 +4465,7 @@ function sessioneFinita(){
   applicaMare(false);                                 // e niente mare: la volta torna a 32 metri
   enter.classList.remove('small'); enter.textContent='◉ Entra in VR · v'+VERSIONE;
   diag('sessione terminata');
+  if(APRI_INVIA){ APRI_INVIA=false; apriInvia(); }
 }
 enter.addEventListener('click',()=>{
   if(xrSession){ diag('esco…'); xrSession.end().catch(e=>diag('uscita: '+e.name,'warn')); return; }
@@ -4949,6 +4995,23 @@ document.getElementById('tema-esporta').addEventListener('click',()=>{
 });
 registraFinestra(btnTemi,boxTemi,aggiornaTemi);
 registraFinestra(document.getElementById('guida-btn'),document.getElementById('hint'));
+// la disposizione dei corpi: il testo, e la mail di Gmail gia' scritta (il destinatario lo mette chi la manda)
+let APRI_INVIA=false;
+const btnInvia=document.getElementById('invia-btn'), boxInvia=document.getElementById('invia');
+function testoDisposizione(){
+  salvaSfere();
+  let o={}; try{ o=JSON.parse(localStorage.getItem(CHIAVE_SFERE)||'{}'); }catch(e){}
+  return 'Sfera VR v'+VERSIONE+' — disposizione dei corpi, '+new Date().toISOString()+'\n'+
+    'id: [angolo °, distanza m, altezza sul tavolo m (, inclinazione °)]\n'+
+    Object.entries(o).map(([k,v])=>k+': '+JSON.stringify(v)).join('\n');
+}
+registraFinestra(btnInvia,boxInvia,()=>{ document.getElementById('invia-testo').value=testoDisposizione(); });
+function apriInvia(){ if(boxInvia.hidden) btnInvia.click(); }
+document.getElementById('invia-gmail').addEventListener('click',()=>{
+  const t=testoDisposizione(); document.getElementById('invia-testo').value=t;
+  window.open('https://mail.google.com/mail/?view=cm&fs=1&su='+encodeURIComponent('Sfera VR — disposizione v'+VERSIONE)+
+    '&body='+encodeURIComponent(t),'_blank');
+});
 aggiornaTemi();
 
 document.getElementById('luogo-usa').addEventListener('click',()=>{

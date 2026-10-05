@@ -207,8 +207,9 @@ In tutto 720 stelle e 657 lati di figura.
 - **Alt**: un cerchio verticale — per lo zenit e il nadir — che **segue lo sguardo**: sta sempre
   sull'azimut verso cui si guarda, e girando la testa gira con lei.
 - **Le mani**: senza controller il visore vede le mani. Il raggio è **l'indice che indica**: si
-  accende unendo medio e anulare al pollice con l'indice dritto, e si sceglie col **grilletto
-  dell'indice** (piegarlo un poco: il raggio si ferma dov'era, piegato di più sceglie). Il pizzico
+  accende unendo medio e anulare al pollice con l'indice dritto, va dagli **occhi attraverso la
+  punta del dito** (come si indica una stella), e si sceglie col **grilletto dell'indice** (piegarlo
+  un poco: il raggio si ferma dov'era, piegato di più sceglie). Il pizzico
   prende i corpi; sul banco i tasti si premono anche **col dito**.
 - **I corpi**: sopra il banco, oggetti da toccare col dito e, col tasto *componi*, da prendere e
   mettere dove sono comodi. Sono **coppie dialettiche**, una a destra e una a sinistra (azimut e
@@ -221,6 +222,8 @@ In tutto 720 stelle e 657 lati di figura.
   e la **sfera del cielo**, un pallone da rugby di tre strati: la mano che ci entra da un lato fa
   girare il cielo, più affonda più corre. La **visione topocentrica** mostra i pianeti visti dal
   luogo invece che dal centro della Terra (la Luna si sposta fino a un grado).
+- **La disposizione**: la busta *invia* (nel visore) o il bottone *✉ disposizione* (sulla pagina)
+  mostrano dove stanno i corpi, e aprono una mail di Gmail già scritta per mandarla.
 - Interruttori per equatore, eclittica, orizzonte, asse, Sole, pianeti, stelle di Regulus,
   stelle delle costellazioni e **linee delle costellazioni**, ognuno per conto suo.
 
