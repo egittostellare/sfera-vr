@@ -317,7 +317,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='50';
+const VERSIONE='51';
 const diagBox=document.getElementById('diag');
 const diagRighe=[];
 function diag(msg,kind){
@@ -637,11 +637,52 @@ const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
     l.geometry.setFromPoints(p);
   }));
 }
+// i fili della treccia dell'asse: una treccia vera a tre capi (quella dei capelli). In piano, ogni filo
+// percorre un otto (di traverso sin f, in profondita' sin 2f), sfasato di un terzo di giro dagli altri:
+// cosi' i tre si scavalcano a turno e non si toccano mai. Qui la treccia e' AVVOLTA attorno all'asse:
+// il traverso diventa un angolo attorno all'asse (la fascia e' larga 60°), la profondita' un poco di
+// raggio in piu' o in meno, e tutta la fascia sale a spirale (un giro ogni 2,7 intrecci). Nessun filo
+// passa per l'asse, cioe' per chi guarda. L: mezza lunghezza (lungo z, dal polo sud al polo nord),
+// A: il raggio della treccia, P: la lunghezza di un intreccio; verso i poli si stringe fino a entrarci.
+const TRECCIA={g:null, tex:null, on:false};
+const TRECCIA_COL=[0xffcf7a,0x6fe8dc,0xc8a2ff];   // oro, turchese, lilla
+function puntiTreccia(k,L,A,P,n){
+  const p=[];
+  for(let i=0;i<=n;i++){
+    const s=-1+2*i/n, z=s*L, f=z/P*TAU+k*TAU/3, w=A*Math.sqrt(Math.max(0,1-s**8));
+    const th=z/(2.7*P)*TAU+Math.sin(f)*30*DEG, rr=w*(1+0.14*Math.sin(2*f));
+    p.push(new THREE.Vector3(rr*Math.cos(th),rr*Math.sin(th),z));
+  }
+  return p;
+}
 { // asse del mondo
   const g=G('axis',sky);
   // col punto di mezzo nel centro: con lo zoom ognuna delle due meta' va verso il suo polo
   g.add(line([new THREE.Vector3(0,0,R*1.12),new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-R*1.12)],0x6f8fd0,.6,1));
   const s=label('Polo','#9db4e6',0.5); s.position.set(0,0,R*1.16); g.add(s);
+  // LA TRECCIA (6 ottobre, l'asse come axis mundi): al secondo tocco della sfera dell'asse, attorno
+  // all'asse corrono tre fili di luce intrecciati da polo a polo. Chi guarda sta SULL'asse, percio' la
+  // treccia gli passa attorno (a un paio di metri) e si stringe verso i due poli, dove entra. Gira
+  // piano su se stessa (un giro in 40 s) e lungo i fili scorrono impulsi di luce verso il polo nord.
+  const tr=new THREE.Group(); tr.visible=false; g.add(tr); TRECCIA.g=tr;
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=4;
+  const x=cv.getContext('2d'), gr=x.createLinearGradient(0,0,256,0);
+  gr.addColorStop(0,'rgba(255,255,255,0.30)'); gr.addColorStop(0.62,'rgba(255,255,255,0.38)');
+  gr.addColorStop(0.9,'rgba(255,255,255,1)'); gr.addColorStop(1,'rgba(255,255,255,0.30)');
+  x.fillStyle=gr; x.fillRect(0,0,256,4);
+  TRECCIA.tex=new THREE.CanvasTexture(cv); TRECCIA.tex.wrapS=THREE.RepeatWrapping; TRECCIA.tex.repeat.set(36,1);
+  TRECCIA_COL.forEach((col,k)=>{
+    const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntiTreccia(k,R*1.05,R*0.07,R*0.22,900)),1400,R*0.0016,6),
+      new THREE.MeshBasicMaterial({color:col,map:TRECCIA.tex,transparent:true,opacity:.9,
+        blending:THREE.AdditiveBlending,depthWrite:false}));
+    tr.add(m);
+  });
+}
+// muove la treccia: un giro in 40 secondi, e gli impulsi verso il polo (un'onda ogni ~1 s)
+function aggiornaTreccia(dt){
+  if(!TRECCIA.on||!stato.axis) return;
+  TRECCIA.g.rotation.z+=dt*TAU/40000;
+  TRECCIA.tex.offset.x=(TRECCIA.tex.offset.x-dt*0.0009)%1;
 }
 // ====================== le tre griglie ======================
 // Tre reticoli da un pixel, ognuno del COLORE DEL SUO ELEMENTO: l'equatoriale come l'equatore
@@ -2186,13 +2227,20 @@ banco.add(corpo);
 // lo si guarda di taglio, coi colori tenui di Moebius: acqua in alto, lilla e pesca giu' verso i piedi;
 // i bordi sono segnati da un filo di luce. Il piano e' quello del banco (altezzaAnello), allargato
 // fin dove stanno i corpi; l'altezza dei piedi la da' il visore (l'occhio da terra), quando la sa.
-const SC_R_DAVANTI=0.74, SC_R_DIETRO=0.58, SC_SP=0.03, SC_TONDO=0.03, SC_GIRO=144;
-// il raggio esterno del piano a un azimut (radianti): largo davanti e ai lati, piu' stretto dietro.
-// Si stringe piano da 100° a 180° (un mezzo coseno): piu' in fretta, il bordo dietro faceva una gobba
+// Vista dall'alto e' una GOCCIA (6 ottobre, scelta dell'autore): un muso lungo e tondo davanti, che
+// scende morbido; i fianchi larghi dove stanno le sfere; dietro le spalle una coda tonda, che porta
+// la sfera dell'asse. Nessuno spigolo: e' una navicella a un posto, alla Miyazaki.
+const SC_R_MUSO=1.02, SC_R_FIANCO=0.76, SC_R_CODA=0.60, SC_SP=0.03, SC_TONDO=0.03, SC_GIRO=144;
+// il raggio esterno del piano a un azimut (radianti): il coseno al cubo davanti fa il muso, il
+// quadrato dietro la coda; ai fianchi (90°) i due si spengono senza gradino
 function raggioScocca(a){
-  const g=Math.abs(Math.atan2(Math.sin(a),Math.cos(a)))/DEG;
-  const t=Math.max(0,Math.min(1,(g-100)/80)), l=(1-Math.cos(t*Math.PI))/2;
-  return SC_R_DAVANTI+(SC_R_DIETRO-SC_R_DAVANTI)*l;
+  const c=Math.cos(a), davanti=Math.max(0,c)**3, dietro=Math.max(0,-c)**2;
+  return SC_R_FIANCO+(SC_R_MUSO-SC_R_FIANCO)*davanti+(SC_R_CODA-SC_R_FIANCO)*dietro;
+}
+// l'altezza della scocca: il piano del banco, che oltre il cruscotto scende piano nel muso
+function altezzaScocca(a,r){
+  const c=Math.max(0,Math.cos(a)), d=Math.max(0,r-0.78);
+  return altezzaAnello(a,r)-1.2*d*d*c*c;
 }
 const VETRO_V=`varying vec3 vN; varying vec3 vV; varying float vY;
 void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vY=position.y;
@@ -2212,7 +2260,7 @@ function vetro(alto,basso,y0,y1,a){
 // all'interno, il bordo interno tondo, il piano, il bordo esterno tondo, la parete fino ai piedi.
 // Torna anche dove stanno i fili di luce (indici nel profilo).
 function profiloScocca(a,piedi){
-  const Re=raggioScocca(a), h=r=>altezzaAnello(a,r), P=[], rb=SC_SP/2, ri=R_IN;
+  const Re=raggioScocca(a), h=r=>altezzaScocca(a,r), P=[], rb=SC_SP/2, ri=R_IN;
   for(let k=0;k<6;k++){ const r=Re-0.005-(Re-0.005-ri-rb)*k/6; P.push([r,h(r)-SC_SP]); }
   const cy=h(ri+rb)-rb;
   for(let k=0;k<=6;k++){ const f=-Math.PI/2-k/6*Math.PI; P.push([ri+rb+Math.cos(f)*rb, cy+Math.sin(f)*rb]); }
@@ -2637,7 +2685,10 @@ function makeController(i){
     // altre dita piegate non e' un pizzico, e' il pugno che afferra il cielo
     if(ctl.userData.src&&ctl.userData.src.hand&&ditaPiegate(i)) return;
     if(prendiCorpo(i)) return;             // la mano sta su un corpo (una sferetta, la cupola, un display…)
-    if(ctl.userData.src&&ctl.userData.src.hand) return;   // la mano col raggio sceglie col grilletto dell'indice
+    if(ctl.userData.src&&ctl.userData.src.hand){
+      if(MIRINO) sceltaMirino(ctl);         // col mirino il pizzico sceglie quello che si guarda
+      return;                               // se no la mano col raggio sceglie col grilletto dell'indice
+    }
     if(prendiScheda(ctl)) return;         // la cornice del riquadro, se il raggio la tocca
     sceltaRaggio(ctl);
   });
@@ -2792,6 +2843,7 @@ function ammorbidisciRaggi(dt){
     if(!c) return;
     const u=c.userData;
     if(!s||!s.hand){ u.qLiscia=null; u.acceso=true; return; }
+    if(MIRINO){ u.acceso=false; u.qLiscia=null; return; }   // col mirino si mira con lo sguardo
     const g=gestoMano(i);
     if(!g){ u.acceso=false; u.qLiscia=null; return; }
     if(!u.acceso){
@@ -2824,14 +2876,17 @@ function ammorbidisciRaggi(dt){
 // «componi» si prendono e si portano dove sono comodi. Sul banco piatto restano solo i comandi che un
 // corpo non ha.
 // Il cristallo e' finto: brilla sui bordi e si fa trasparente al centro, e costa quasi niente.
-const CRISTALLO_V=`varying vec3 vN; varying vec3 vV;
-void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0);
+const CRISTALLO_V=`varying vec3 vN; varying vec3 vV; varying float vYl;
+void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vYl=position.y;
   vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`;
-const CRISTALLO_F=`uniform vec3 uCol; uniform float uLuce; varying vec3 vN; varying vec3 vV;
+// uSotto: quanto resta della meta' di sotto (y<0 nel corpo): le sfere incastonate nel piano la velano,
+// e si leggono affondate nel vetro; gli altri corpi la tengono intera (1)
+const CRISTALLO_F=`uniform vec3 uCol; uniform float uLuce; uniform float uSotto; varying vec3 vN; varying vec3 vV; varying float vYl;
 void main(){ float f=pow(1.0-abs(dot(normalize(vN),normalize(vV))),2.0);
-  gl_FragColor=vec4(uCol*(0.25+0.9*f)*uLuce, (0.10+0.55*f)*(0.6+0.4*uLuce)); }`;
+  float s=mix(uSotto,1.0,smoothstep(-0.003,0.001,vYl));
+  gl_FragColor=vec4(uCol*(0.25+0.9*f)*uLuce*s, (0.10+0.55*f)*(0.6+0.4*uLuce)*s); }`;
 function cristallo(col){
-  return new THREE.ShaderMaterial({uniforms:{uCol:{value:new THREE.Color(col)}, uLuce:{value:0.55}},
+  return new THREE.ShaderMaterial({uniforms:{uCol:{value:new THREE.Color(col)}, uLuce:{value:0.55}, uSotto:{value:1}},
     vertexShader:CRISTALLO_V, fragmentShader:CRISTALLO_F, transparent:true, depthWrite:false});
 }
 const COL_CRISTALLO=0xd6ecff, LUCE_CORPO=0.55, LUCE_VICINO=0.85, LUCE_PRESO=1.0;
@@ -2844,16 +2899,19 @@ function posaCorpo(aGr,r,su){
 // LA DISPOSIZIONE DELL'AUTORE: dove stanno i corpi, come li ha messi nel visore col «componi» e
 // mandati con la busta (5 ottobre 2026). id: [azimut °, distanza m, sopra il tavolo m (, inclinazione °)].
 // I due display, staccati dall'orologio, li ho messi io: ai lati del quadrante, sopra azimut e altezza.
+// 6 ottobre, su richiesta dell'autore: le sfere e le cupole non stanno piu' su uno stelo ma INCASTONATE
+// nel piano per il loro equatore (alt 0: il centro sulla superficie, meta' sopra e meta' sotto); il
+// tasto della tastiera ci si posa sopra; la sfera dell'asse va DIETRO, sulla coda, sull'asse.
 const DISPOSIZIONE={
-  equator:[-39.7,0.549,0.097],  meridiano:[-56.3,0.545,0.101], primovert:[-71.6,0.572,0.077], axis:[-86.4,0.586,0.069],
-  ecliptic:[39.7,0.549,0.097],  zodiaco:[56.3,0.545,0.101],    latitudini:[71.6,0.572,0.077],  vis:[86.4,0.586,0.069],
-  azimut:[-27.5,0.612,0.158],   alt:[27.5,0.612,0.158],
-  grigliaEq:[-47.8,0.651,0.122], grigliaAz:[0,0.38,0.12],     grigliaEcl:[47.8,0.651,0.122],
-  dRefl:[-34.3,0.444,0.07],     dFull:[0,0.475,0.072],        dTrans:[34.3,0.444,0.07],
-  dGeo:[-63.6,0.628,0.171],     dTopo:[63.6,0.628,0.171],
-  stop:[-71.7,0.426,0.068],     moto:[71.6,0.44,0.077],       adesso:[87.1,0.439,0.065],
+  equator:[-39.7,0.549,0],      meridiano:[-56.3,0.545,0],     primovert:[-71.6,0.572,0],     axis:[180,0.45,0],
+  ecliptic:[39.7,0.549,0],      zodiaco:[56.3,0.545,0],        latitudini:[71.6,0.572,0],     vis:[86.4,0.586,0],
+  azimut:[-27.5,0.612,0],       alt:[27.5,0.612,0],
+  grigliaEq:[-47.8,0.651,0],    grigliaAz:[0,0.38,0],         grigliaEcl:[47.8,0.651,0],
+  dRefl:[-34.3,0.444,0],        dFull:[0,0.475,0],            dTrans:[34.3,0.444,0],
+  dGeo:[-63.6,0.628,0],         dTopo:[63.6,0.628,0],
+  stop:[-71.7,0.426,0],         moto:[71.6,0.44,0],           adesso:[87.1,0.439,0],
   archivio:[-105.1,0.621,-0.001], rotella:[105.1,0.621,-0.001],
-  invia:[-62,0.4,0.08],         tastoTastiera:[-42.9,0.389,0.102],
+  invia:[-62,0.4,0.08],         tastoTastiera:[-42.9,0.389,0.018],
   orologio:[-0.3,0.573,0.2,-17], atmosfera:[-0.5,0.116,0.23],
   dispLuogo:[-31,0.58,0.30,-17], dispTempo:[31,0.58,0.30,-17],
 };
@@ -2873,7 +2931,9 @@ const _pl=new THREE.Vector3(), _pc=new THREE.Vector3(), _qB=new THREE.Quaternion
 const R_SF=0.032, SF_SCALA=2;
 const SFERETTE=[];
 const SF_DEF=[
-  {k:'equator'}, {k:'meridiano'}, {k:'primovert'}, {k:'axis'},
+  {k:'equator'}, {k:'meridiano'}, {k:'primovert'},
+  // la sfera dell'asse, dietro le spalle sulla coda della navicella: piu' grande, e sull'asse
+  {k:'axis', scala:SF_SCALA*1.4, mediale:true},
   {k:'ecliptic'}, {k:'zodiaco'}, {k:'latitudini'}, {k:'vis'},
   {k:'azimut'}, {k:'alt'},
   // le tre griglie, in sferette di due terzi: l'azimutale sull'asse
@@ -2922,10 +2982,22 @@ SF_DEF.forEach(d=>{
   if(d.k==='primovert'){        // un cerchio verticale giallo, ad angolo retto col meridiano
     const an=anelloSf(r,0.0016,0xd9a400); an.rotation.y=-55*DEG; icona.add(an);
   }
-  if(d.k==='axis'){             // l'asse del mondo, turchese, inclinato come a mezza latitudine
-    const asse=new THREE.Mesh(new THREE.CylinderGeometry(0.0022,0.0022,R_SF*1.9,10),
-      new THREE.MeshBasicMaterial({color:0x2fd6c8,transparent:true,opacity:.95}));
-    asse.rotation.set(-25*DEG,0,-30*DEG); icona.add(asse);
+  if(d.k==='axis'){             // la Terra in mezzo, e l'asse turchese che la attraversa, VERO: punta al
+    // polo del cielo, e lo si ricalcola a ogni fotogramma (aggiorna). Con la treccia accesa, attorno
+    // all'asse girano i suoi tre fili in piccolo.
+    const perno=new THREE.Group(); icona.add(perno); S.perno=perno;   // il suo +y e' l'asse
+    perno.add(new THREE.Mesh(new THREE.SphereGeometry(R_SF*0.26,24,16),
+      new THREE.MeshBasicMaterial({color:0x3b7dd8,transparent:true,opacity:.9})));
+    perno.add(new THREE.Mesh(new THREE.CylinderGeometry(0.0016,0.0016,R_SF*1.9,10),
+      new THREE.MeshBasicMaterial({color:0x2fd6c8,transparent:true,opacity:.95})));
+    const nord=new THREE.Mesh(new THREE.SphereGeometry(0.0026,10,8),
+      new THREE.MeshBasicMaterial({color:0xd8f6ff,transparent:true,opacity:.95}));
+    nord.position.y=R_SF*0.95; perno.add(nord);
+    S.trecciola=new THREE.Group(); S.trecciola.visible=false; perno.add(S.trecciola);
+    TRECCIA_COL.forEach((col,k)=>S.trecciola.add(new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntiTreccia(k,R_SF*0.85,R_SF*0.22,R_SF*0.42,120)),120,0.0009,5),
+      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.95}))));
+    S.trecciola.rotation.x=-Math.PI/2;   // la treccia corre lungo z: qui va lungo il +y del perno
   }
   if(d.k==='ecliptic'){         // l'eclittica rossa, inclinata
     const an=anelloSf(r,0.0016,0xff5a5a); an.rotation.set(Math.PI/2-22*DEG,0,23.4*DEG); icona.add(an);
@@ -3049,6 +3121,28 @@ SF_DEF.forEach(d=>{
       S.pulsa[0].opacity=on?0.10+0.22*v:0.05; S.pulsa[1].opacity=on?0.03+0.08*v:0.015;
     }
   };
+  if(d.k==='axis'){
+    // tre tocchi: l'asse acceso, poi la TRECCIA, poi spento
+    S.fai=()=>{
+      if(!stato.axis){ TRECCIA.on=false; imposta('axis',true); }
+      else if(!TRECCIA.on) TRECCIA.on=true;
+      else { TRECCIA.on=false; imposta('axis',false); }
+      TRECCIA.g.visible=TRECCIA.on;
+      diag(!stato.axis?'asse spento (dalla sfera)':TRECCIA.on?'asse a treccia: l’axis mundi':'asse acceso (dalla sfera)');
+    };
+    S.titolo=()=>'Asse del mondo';
+    const base=S.aggiorna, _dA=new THREE.Vector3(), _qA=new THREE.Quaternion();
+    S.aggiorna=dt=>{
+      base(dt);
+      // l'asse vero: il +z del cielo (il polo nord), portato nel sistema della sfera
+      sky.updateWorldMatrix(true,false); S.casa.updateWorldMatrix(true,false);
+      _dA.set(0,0,1).transformDirection(sky.matrixWorld);
+      S.casa.getWorldQuaternion(_qA).invert(); _dA.applyQuaternion(_qA);
+      S.perno.quaternion.setFromUnitVectors(SU,_dA.normalize());
+      S.trecciola.visible=TRECCIA.on&&stato.axis;
+      if(S.trecciola.visible) S.trecciola.rotation.z=TRECCIA.g.rotation.z;   // gira con quella del cielo
+    };
+  }
   SFERETTE.push(S); CORPI.push(S);
 });
 
@@ -3385,6 +3479,166 @@ DISP_TEMPO.aggiorna=()=>{
   scriviDisplay(DISP_TEMPO,[anno+' · '+du(c.mese)+' · '+du(c.giorno), du(c.ora)+' : '+du(c.minuto)+' : '+du(c.secondo)]);
 };
 
+// ---- IL CRUSCOTTO: l'orologio e i due display incastonati come gli schermi di un caccia ----
+// (6 ottobre, richiesta dell'autore: «come il display del cruscotto di un caccia, ma con curve
+// morbide, alla Miyazaki».) Davanti, il vetro della scocca si alza in una gobba: la sua faccia sta
+// appena dietro i tre schermi, inclinata come loro; vista da chi siede ha la forma di un occhio —
+// alta al centro, dove tiene il quadrante e scende fino al piano, sottile ai lati, dove tiene i
+// display, e chiusa a punta oltre di loro. In cima una VISIERA tonda sporge verso chi guarda, come una
+// palpebra; dietro, il dorso scende morbido nel muso. Sotto i display la gobba e' sospesa: le sfere di
+// azimut e altezza ci stanno sotto. E' fatta sugli schermi: se col «componi» si spostano
+// l'orologio o i display, alla presa lasciata si rifa' su di loro.
+const CRUSCOTTO={g:new THREE.Group()};
+banco.add(CRUSCOTTO.g);
+const CR_DIETRO=0.018, CR_VISIERA=0.045, CR_SPESSORE=0.018, CR_DORSO=0.30;
+const liscio=(e0,e1,x)=>{ const t=Math.max(0,Math.min(1,(x-e0)/(e1-e0))); return t*t*(3-2*t); };
+// la forma, letta dagli schermi: dove stanno, quanto sono inclinati
+function formaCruscotto(){
+  const polare=c=>{ const p=c.casa.position; return {a:Math.atan2(p.x,-p.z), r:Math.hypot(p.x,p.z), y:p.y}; };
+  const o=polare(OROLOGIO), l=polare(DISP_LUOGO), t=polare(DISP_TEMPO);
+  const ad=Math.max(12*DEG,(Math.abs(l.a-o.a)+Math.abs(t.a-o.a))/2);
+  const tl=Math.tan(Math.max(0,-OROLOGIO.incl)), Yd=(l.y+t.y)/2, Rd=(l.r+t.r)/2;
+  const F={ac:o.a, ad, A:ad+17*DEG, tl, Yc:o.y, Yd,
+    Rc:o.r, Rd0:Rd-(Yd-o.y)*tl,                                // i display, riportati all'altezza del quadrante
+    HC:(R_OR+0.016)*OR_SCALA*Math.cos(Math.atan(tl))+0.012,    // mezza altezza al centro: il quadrante e l'orbita
+    HD:0.026*OR_SCALA+0.028};                                  // mezza altezza ai lati: il display
+  // la faccia, a un azimut (relativo all'orologio) e a un'altezza: il raggio
+  F.s=a=>liscio(8*DEG,F.ad,Math.abs(a));
+  F.q=a=>Math.sqrt(Math.max(0,1-(Math.abs(a)/F.A)**6));
+  F.rf=(a,y)=>F.Rc+(F.Rd0-F.Rc)*F.s(a)+CR_DIETRO+(y-F.Yc)*F.tl;
+  F.yc=a=>F.Yc+(F.Yd-F.Yc)*F.s(a);
+  F.hh=a=>(F.HC+(F.HD-F.HC)*F.s(a))*F.q(a);
+  return F;
+}
+// il profilo chiuso a un azimut: faccia (dal basso in alto), visiera, dorso, pancia; coppie [r, y]
+const CR_NF=10, CR_NL=8, CR_NB=12, CR_NU=10;
+function profiloCruscotto(F,a){
+  const A=F.ac+a, q=F.q(a), h=r=>altezzaScocca(A,r)+0.002, P=[];
+  const yc=F.yc(a), yt=yc+F.hh(a);
+  let yb=yc-F.hh(a); if(q>0) yb=Math.max(yb,h(F.rf(a,yb)));
+  for(let k=0;k<CR_NF;k++){ const y=yb+(yt-yb)*k/(CR_NF-1); P.push([F.rf(a,y),y]); }
+  // la visiera: un mezzo tondo che sporge verso chi guarda
+  const rt=F.rf(a,yt), cr=rt-CR_VISIERA*q, rho=CR_SPESSORE/2*q;
+  for(let k=0;k<CR_NL;k++){ const f=-Math.PI/2-k/(CR_NL-1)*Math.PI; P.push([cr+rho*Math.cos(f), yt+rho+rho*Math.sin(f)]); }
+  // il dorso, dalla cima della visiera giu' nel muso
+  const rN=rt+CR_DORSO*q, yN=yc+(h(rN)-yc)*q, yT=yt+2*rho;
+  const bez=(Q,t)=>{ const u=1-t; return [0,1].map(i=>u*u*u*Q[0][i]+3*u*u*t*Q[1][i]+3*u*t*t*Q[2][i]+t*t*t*Q[3][i]); };
+  const B=[[cr,yT],[rt+0.08*q,yT],[rN-0.06*q,yN+0.05*q],[rN,yN]];
+  for(let k=1;k<=CR_NB;k++) P.push(bez(B,k/CR_NB));
+  // la pancia: dal piede del dorso al piede della faccia, mai sotto il piano
+  const rb=F.rf(a,yb), U=[[rN,yN],[rN-0.04*q,yN],[rb+0.05*q,yb],[rb,yb]];
+  for(let k=1;k<CR_NU;k++){ const p=bez(U,k/CR_NU); if(q>0) p[1]=Math.max(p[1],h(p[0])); P.push(p); }
+  return P;
+}
+function costruisciCruscotto(){
+  CRUSCOTTO.g.children.slice().forEach(o=>{ CRUSCOTTO.g.remove(o); o.geometry.dispose(); });
+  const F=formaCruscotto(); CRUSCOTTO.F=F;
+  const N=Math.ceil(2*F.A/DEG), prof=[];
+  for(let j=0;j<=N;j++) prof.push(profiloCruscotto(F,-F.A+2*F.A*j/N));
+  const M=prof[0].length, pos=[], idx=[];
+  const xyz=(j,r,y)=>{ const A=F.ac-F.A+2*F.A*j/N; return [r*Math.sin(A),y,-r*Math.cos(A)]; };
+  for(let j=0;j<=N;j++) for(const [r,y] of prof[j]) pos.push(...xyz(j,r,y));
+  for(let j=0;j<N;j++) for(let i=0;i<M;i++){
+    const i2=(i+1)%M, A_=j*M+i, B_=(j+1)*M+i, C_=j*M+i2, D_=(j+1)*M+i2; idx.push(A_,B_,C_, B_,D_,C_); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+  g.computeVertexNormals();
+  const guscio=new THREE.Mesh(g,vetro(VETRO_ACQUA,VETRO_LILLA,F.Yc+F.HC,CONS_Y0,1.3)); guscio.renderOrder=28;
+  // i fili di luce: il piede della faccia, il suo orlo in cima e il bordo della visiera
+  const filo=(i,col,op)=>{ const p=prof.map((P,j)=>new THREE.Vector3(...xyz(j,P[i][0],P[i][1])));
+    const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(p),
+      new THREE.LineBasicMaterial({color:col,transparent:true,opacity:op,depthWrite:false})); l.renderOrder=29; return l; };
+  CRUSCOTTO.g.add(guscio,filo(0,VETRO_PESCA,.55),filo(CR_NF-1,VETRO_ACQUA,.45),filo(CR_NF+Math.floor(CR_NL/2),VETRO_ACQUA,.85));
+  CRUSCOTTO.g.traverse(o=>{ o.userData.primoPiano=true; });
+}
+// la cima della visiera al centro: li' sta la sferetta del mirino, come il collimatore di un caccia
+function cimaCruscotto(){
+  const F=CRUSCOTTO.F, yt=F.yc(0)+F.hh(0), r=F.rf(0,yt)-CR_VISIERA/2;
+  return [F.ac/DEG, r, yt+CR_SPESSORE-altezzaAnello(F.ac,r)];
+}
+costruisciCruscotto();
+// i castoni degli schermi: un anello di vetro attorno al quadrante, una cornice attorno ai display
+OROLOGIO.quadro.add(new THREE.Mesh(new THREE.TorusGeometry(R_OR+0.026,0.0035,10,128),
+  new THREE.MeshBasicMaterial({color:VETRO_ACQUA,transparent:true,opacity:.45,depthWrite:false})));
+[DISP_LUOGO,DISP_TEMPO].forEach(D=>{
+  const w=D.scatola[0]+0.006, h=D.scatola[1]+0.006, k=0.012, s=new THREE.Shape();
+  s.moveTo(-w+k,-h); s.lineTo(w-k,-h); s.quadraticCurveTo(w,-h,w,-h+k); s.lineTo(w,h-k); s.quadraticCurveTo(w,h,w-k,h);
+  s.lineTo(-w+k,h); s.quadraticCurveTo(-w,h,-w,h-k); s.lineTo(-w,-h+k); s.quadraticCurveTo(-w,-h,-w+k,-h);
+  D.schermo.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(s.getPoints(12)),
+    new THREE.LineBasicMaterial({color:VETRO_ACQUA,transparent:true,opacity:.6,depthWrite:false})));
+});
+
+// ---- IL MIRINO: si mira con lo sguardo, si sceglie col pizzico ----
+// Una sferetta incastonata in cima alla visiera del cruscotto, come il collimatore di un caccia: toccata
+// accende il MIRINO, toccata di nuovo lo spegne. Acceso, al centro della vista c'e' un cerchietto con
+// quattro tacche, posato sulla volta: segna quello che si guarda (se una stella o un pianeta gli sta
+// vicino, ci salta sopra, e se ne legge il nome), e il PIZZICO di una mano qualsiasi — pollice e
+// indice — lo sceglie. Finche' il mirino e' acceso, i raggi delle dita restano spenti; i controller no.
+// il castone (vedi L'INCASTONATURA, piu' giu'): un anello di luce e un alone che sfuma, nel piano xy
+const CASTONE_G=new THREE.TorusGeometry(1,0.05,8,64), ALONE_G=new THREE.RingGeometry(1,1.45,64);
+const CASTONE_MAT=new THREE.MeshBasicMaterial({color:VETRO_ACQUA,transparent:true,opacity:.75,depthWrite:false});
+const ALONE_MAT=(()=>{
+  const c=document.createElement('canvas'); c.width=c.height=128; const x=c.getContext('2d');
+  const g=x.createRadialGradient(64,64,64/1.45,64,64,64);
+  g.addColorStop(0,'rgba(255,255,255,0.55)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g; x.fillRect(0,0,128,128);
+  return new THREE.MeshBasicMaterial({color:VETRO_ACQUA,map:new THREE.CanvasTexture(c),transparent:true,
+    blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
+})();
+let MIRINO=false, MIRINO_SU=null;   // acceso; l'astro che ha sotto
+const R_MIR=0.022;
+const MIRINO_C={nome:'sfera-mirino', id:'mirino', zona:R_MIR+0.02, raggio:R_MIR, luce:LUCE_CORPO, mediale:true,
+  titolo:()=>'Mirino'};
+// il disegno del mirino: un cerchio vuoto e quattro tacche fuori, nel colore d'ambra dell'orologio
+function disegnaMirino(x,lato,col){
+  const c=lato/2; x.strokeStyle=col; x.lineCap='round';
+  x.lineWidth=lato*0.045; x.beginPath(); x.arc(c,c,lato*0.26,0,TAU); x.stroke();
+  for(let k=0;k<4;k++){ const f=k*Math.PI/2, a=lato*0.34, b=lato*0.47;
+    x.beginPath(); x.moveTo(c+Math.cos(f)*a,c+Math.sin(f)*a); x.lineTo(c+Math.cos(f)*b,c+Math.sin(f)*b); x.stroke(); }
+}
+{
+  DISPOSIZIONE.mirino=cimaCruscotto();
+  const casa=casaDi('mirino'); MIRINO_C.casa=casa;
+  MIRINO_C.mat=cristallo(COL_CRISTALLO); MIRINO_C.mat.uniforms.uSotto.value=0.3;
+  casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_MIR,32,20),MIRINO_C.mat));
+  const icona=tavolettaSf(x=>disegnaMirino(x,128,'#ffc46a'),R_MIR*1.6); casa.add(icona);
+  MIRINO_C.icona=icona.material;
+  const castone=new THREE.Group(); castone.rotation.x=Math.PI/2; castone.scale.setScalar(R_MIR*1.02); casa.add(castone);
+  castone.add(new THREE.Mesh(CASTONE_G,CASTONE_MAT),new THREE.Mesh(ALONE_G,ALONE_MAT));
+}
+MIRINO_C.centro=out=>MIRINO_C.casa.getWorldPosition(out);
+MIRINO_C.acceso=()=>MIRINO;
+MIRINO_C.fai=()=>{
+  MIRINO=!MIRINO; MIRINO_SU=null;
+  diag(MIRINO?'mirino acceso: guarda una stella e scegli col pizzico (i raggi delle dita tacciono)':'mirino spento: tornano i raggi delle dita');
+};
+MIRINO_C.aggiorna=()=>{ MIRINO_C.icona.opacity=MIRINO?1:0.35; if(MIRINO) MIRINO_C.luce=Math.max(MIRINO_C.luce,0.75); };
+corpoTasto(MIRINO_C); CORPI.push(MIRINO_C);
+// il cerchietto sulla volta
+const MIRINO_V=(()=>{
+  const c=document.createElement('canvas'); c.width=c.height=128; disegnaMirino(c.getContext('2d'),128,'#ffd9a0');
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),
+    transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}));
+  m.renderOrder=31; m.visible=false; m.frustumCulled=false; scene.add(m); return m;
+})();
+const _gM=new THREE.Vector3();
+// a ogni fotogramma nel visore: dove guarda la testa, e che cosa c'e' li'. Torna l'astro (o null)
+function aggiornaMirino(){
+  if(!MIRINO){ MIRINO_V.visible=false; MIRINO_SU=null; return null; }
+  renderer.xr.getCamera(camera).getWorldDirection(_gM);
+  const b=puntatoDaRaggio(_testa,_gM); MIRINO_SU=b;
+  if(b){ sky.updateWorldMatrix(true,false); vista(_w.copy(b.pos).applyMatrix4(sky.matrixWorld),MIRINO_V.position); }
+  else MIRINO_V.position.copy(_testa).addScaledVector(_gM,raggioCielo());
+  MIRINO_V.scale.setScalar(MIRINO_V.position.distanceTo(_testa)*0.016);   // largo poco piu' di due gradi, le tacche comprese
+  MIRINO_V.lookAt(_testa); MIRINO_V.visible=true;
+  return b;
+}
+// il pizzico col mirino acceso: sceglie quello che il mirino ha sotto, o toglie la scelta
+function sceltaMirino(ctl){
+  const b=MIRINO_SU;
+  if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); }
+  else if(SEL) seleziona(null);
+}
+
 // ---- il tasto della TASTIERA: fa sparire e ricomparire il banco (i corpi restano) ----
 let BANCO_VISTO=true;
 function mostraBanco(on){
@@ -3514,12 +3768,17 @@ corpoTasto(ATMOSFERA); CORPI.push(ATMOSFERA);
 // sotto di lei compare una griglia a quadretti di 5 cm all'altezza del tavolo, un filo che ci scende,
 // e una scritta con angolo, distanza e altezza. Le posizioni restano nel visore (localStorage), in
 // gradi e metri come posaCorpo li vuole: quando l'autore e' contento, si leggono e si fissano nel codice.
-const CHIAVE_SFERE='sfera-vr-sfere';
+// La chiave cambia quando cambia la disposizione nel codice (v51: le sfere incastonate, l'asse dietro,
+// il cruscotto): se no il visore rimetterebbe i corpi dove li aveva salvati prima.
+const CHIAVE_SFERE='sfera-vr-sfere-51';
+try{ localStorage.removeItem('sfera-vr-sfere'); }catch(e){}
 // dove sta una sferetta, nella misura di posaCorpo: azimut (gradi), distanza (m), sopra il tavolo (m)
 function polareSfera(S){
   const p=S.casa.position, a=Math.atan2(p.x,-p.z), r=Math.hypot(p.x,p.z);
   return {a:a/DEG, r, su:p.y-altezzaAnello(a,r)};
 }
+// i corpi mediali stanno sull'asse: davanti (0°) o dietro (180°), dalla parte dove gia' sono
+const sullAsse=aGr=>Math.abs(aGr)>90?180:0;
 function posaSfera(S,aGr,r,su){ S.casa.position.copy(posaCorpo(aGr,r,su)); S.casa.rotation.y=-aGr*DEG; }
 function salvaSfere(){
   const o={}; CORPI.forEach(S=>{ const q=polareSfera(S);
@@ -3531,7 +3790,7 @@ const POSATI=new Set();   // i corpi che il visore ha gia' messo a posto almeno 
 try{
   const o=JSON.parse(localStorage.getItem(CHIAVE_SFERE)||'null');
   if(o) CORPI.forEach(S=>{ const v=o[S.id]; if(!Array.isArray(v)||!v.every(Number.isFinite)) return;
-    posaSfera(S,S.mediale?0:v[0],v[1],v[2]); POSATI.add(S);
+    posaSfera(S,S.mediale?sullAsse(v[0]):v[0],v[1],v[2]); POSATI.add(S);
     if(S.quadro&&v.length>3){ S.incl=Math.max(-S.inclMax,Math.min(S.inclMax,v[3]*DEG)); S.quadro.rotation.x=S.incl; } });
 }catch(e){}
 // la guida: griglia, filo e scritta, visibile solo mentre una sferetta e' in mano
@@ -3605,8 +3864,17 @@ function trascinaSfera(S,p){
   }
   aggiornaGuida(S); specchiaGemello(S);
 }
+// una sfera (o una cupola) lasciata sopra la consolle ci torna incastonata: il centro sul piano
+function incastonaGiu(S){
+  if(!INCASTONI.some(I=>I.c===S)) return;
+  const q=polareSfera(S);
+  if(q.r>R_IN&&q.r<raggioScocca(q.a*DEG)) posaSfera(S,S.mediale?sullAsse(q.a):q.a,q.r,0);
+}
 function lasciaSfera(S){
-  GUIDA.g.visible=false; GUIDA.filo2.visible=false; salvaSfere();
+  GUIDA.g.visible=false; GUIDA.filo2.visible=false;
+  incastonaGiu(S); const G=SPECCHIO&&gemello(S); if(G) incastonaGiu(G);
+  if(S===OROLOGIO||S===DISP_LUOGO||S===DISP_TEMPO) costruisciCruscotto();   // il cruscotto si rifa' sugli schermi
+  salvaSfere();
   const q=polareSfera(S);
   diag(S.titolo()+' posato: angolo '+Math.round(q.a)+'°, distanza '+Math.round(q.r*100)+' cm, altezza '+Math.round(q.su*100)+' cm'
     +(S.quadro?', inclinato '+Math.round(-S.incl/DEG)+'°':''));
@@ -3616,10 +3884,11 @@ function lasciaSfera(S){
 // mentre col componi si sposta un corpo, il suo gemello si muove insieme a lui, rovesciato: stesso
 // raggio, stessa altezza, angolo col segno cambiato, e un filo li lega. Comanda quello che si tiene in
 // mano, da qualunque lato stia. Mettere due corpi simmetrici a mano, nello spazio, e' quasi impossibile.
-// Le coppie sono DIALETTICHE (una a destra, una a sinistra); i corpi MEDIALI (la griglia azimutale e
-// l'orizzonte pieno) stanno sull'asse, e si spostano solo lungo di lui.
+// Le coppie sono DIALETTICHE (una a destra, una a sinistra); i corpi MEDIALI (la griglia azimutale,
+// l'orizzonte pieno, la sfera dell'asse dietro e il mirino sulla visiera) stanno sull'asse, e si
+// spostano solo lungo di lui. Andato l'asse dietro (v51), la vis luminis e' rimasta senza gemello.
 const COPPIE=[['azimut','alt'],['equator','ecliptic'],['meridiano','zodiaco'],['primovert','latitudini'],
-  ['axis','vis'],['archivio','rotella'],['grigliaEq','grigliaEcl'],['dTrans','dRefl'],['dGeo','dTopo']];
+  ['archivio','rotella'],['grigliaEq','grigliaEcl'],['dTrans','dRefl'],['dGeo','dTopo']];
 function gemello(S){
   for(const [a,b] of COPPIE){ const o=S.id===a?b:S.id===b?a:null; if(o) return CORPI.find(c=>c.id===o)||null; }
   return null;
@@ -3661,36 +3930,31 @@ function cambiaComponi(){
 }
 // quelli che si toccano col dito: tutti
 const TOCCABILI=CORPI;
-// ---- L'INCASTONATURA: ogni sfera e ogni cupola posa su uno stelo di vetro che sale dal piano ----
-// Le sfere stanno in una coppa (un anello di luce e un fondo di cristallo), e dalla coppa uno stelo
-// scende al piano allargandosi morbido, come vetro colato. Lo stelo segue il corpo quando lo si sposta.
+// ---- L'INCASTONATURA: le sfere e le cupole affondano nel piano fino all'equatore ----
+// (6 ottobre: gli steli di vetro non piacevano.) Dove il corpo entra nel vetro c'e' il CASTONE: un
+// anello di luce che lo cinge, e attorno un alone morbido, coricati sul piano. L'anello sta dove la
+// sfera taglia davvero la superficie: se col «componi» la si alza, si stringe; staccata del tutto
+// sparisce. Lasciata sopra la consolle, la sfera torna giu' da se' all'equatore (lasciaSfera).
 // La sfera del cielo, sospesa nel vuoto davanti al petto, non ha piano sotto di se' e resta libera.
-const STELO_G=new THREE.LatheGeometry((()=>{ const p=[]; for(let k=0;k<=14;k++){ const t=k/14;
-  p.push(new THREE.Vector2(0.30+0.70*Math.pow(1-t,3),t)); } return p; })(),32);
-const STELO_MAT=vetro(VETRO_ACQUA,VETRO_LILLA,1,0,1.6);
+// (l'anello e l'alone del castone sono fatti piu' su, col mirino)
 const INCASTONI=[];
-function incastona(c,piede,base){
-  const st=new THREE.Mesh(STELO_G,STELO_MAT); CORPI_G.add(st);
-  INCASTONI.push({c,piede,base,st});
+const _zC=new THREE.Vector3(0,0,1), _nC=new THREE.Vector3();
+// sfera: il castone e' il cerchio dove la sfera (raggio rr) taglia il piano; cupola: il suo disco
+function incastona(c,rr,sfera){
+  const g=new THREE.Group(); g.add(new THREE.Mesh(CASTONE_G,CASTONE_MAT),new THREE.Mesh(ALONE_G,ALONE_MAT));
+  CORPI_G.add(g); INCASTONI.push({c,rr,sfera,g});
 }
-SFERETTE.forEach(S=>{
-  const sc=S.casa.scale.x, coppa=new THREE.Group(); S.casa.add(coppa);
-  const an=new THREE.Mesh(new THREE.TorusGeometry(R_SF*0.80,R_SF*0.035,8,48),
-    new THREE.MeshBasicMaterial({color:VETRO_ACQUA,transparent:true,opacity:.6,depthWrite:false}));
-  an.rotation.x=Math.PI/2; an.position.y=-R_SF*0.6; coppa.add(an);
-  coppa.add(new THREE.Mesh(new THREE.SphereGeometry(R_SF*1.04,32,6,0,TAU,0.70*Math.PI,0.30*Math.PI),
-    vetro(VETRO_ACQUA,VETRO_LILLA,-R_SF*0.6,-R_SF*1.04,1.4)));
-  incastona(S,R_SF*1.04*sc,R_SF*0.55*sc);
-});
-[ADESSO,MOTO,STOP].forEach(K=>incastona(K,0.008,R_MOTO*0.7));
-incastona(TASTIERA_T,0.02,0.022);
+SFERETTE.forEach(S=>{ S.mat.uniforms.uSotto.value=0.3; incastona(S,S.raggio,true); });
+[ADESSO,MOTO,STOP].forEach(K=>incastona(K,R_MOTO*1.25,false));
 function aggiornaIncastoni(){
   for(const I of INCASTONI){
     const p=I.c.casa.position, a=Math.atan2(p.x,-p.z), r=Math.hypot(p.x,p.z);
-    const y0=altezzaAnello(a,r), L=p.y-I.piede-y0;
-    I.st.visible=L>0.004&&r>R_IN;
-    if(!I.st.visible) continue;
-    I.st.position.set(p.x,y0,p.z); I.st.scale.set(I.base,L,I.base);
+    const y0=altezzaAnello(a,r), h=p.y-y0;
+    const rc=I.sfera?Math.sqrt(Math.max(0,I.rr*I.rr-h*h)):(Math.abs(h)<0.01?I.rr:0);
+    I.g.visible=rc>0.004&&r>R_IN&&r<raggioScocca(a);
+    if(!I.g.visible) continue;
+    I.g.position.set(p.x,y0+0.0015,p.z); I.g.scale.setScalar(rc*1.02);
+    I.g.quaternion.setFromUnitVectors(_zC,normaleAnello(a,r,_nC));
   }
 }
 aggiornaIncastoni();
@@ -4774,13 +5038,16 @@ renderer.setAnimationLoop((time,frame)=>{
       INTERATTIVI.forEach(m=>{ m.userData.halo.material.opacity=0; m.scale.setScalar(1); });
       renderer.xr.getCamera(camera).getWorldPosition(_testa);
       ammorbidisciRaggi(dt);
-      indica(aggiornaRaggi());
+      const dalRaggio=aggiornaRaggi(), dalMirino=aggiornaMirino();
+      indica(dalMirino||dalRaggio);
       aggiornaMani();
       aggiornaCorpi(dt);
     } else {
       updateOrbit();
       for(const c of [c0,c1]) if(c&&c.userData.mirino) c.userData.mirino.visible=false;
+      MIRINO_V.visible=false;
     }
+    aggiornaTreccia(dt);
     aggiornaIndicazioni();
     if(stato.orizReale) for(const s of SPRITE_CIELO) s.visible=!sottoOrizzonte(s);
     aggiornaZoom();

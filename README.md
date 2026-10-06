@@ -211,18 +211,32 @@ In tutto 720 stelle e 657 lati di figura.
   punta del dito** (come si indica una stella), e si sceglie col **grilletto dell'indice** (piegarlo
   un poco: il raggio si ferma dov'era, piegato di più sceglie). Il pizzico
   prende i corpi; sul banco i tasti si premono anche **col dito**.
-- **La scocca**: chi guarda sta dentro una navicella di vetro trasparente — il piano del banco si
-  chiude tutto attorno, e dal suo bordo una parete morbida scende fino a un fondo ai piedi. Sopra la
-  testa niente: il cielo resta pulito.
-- **I corpi**: sopra il banco, incastonati su steli di vetro, oggetti da toccare col dito e, col tasto *componi*, da prendere e
+- **Il mirino**: la sferetta in cima alla visiera del cruscotto lo accende e lo spegne. Acceso, un
+  cerchietto con quattro tacche sta al centro della vista: si **mira con lo sguardo** (vicino a una
+  stella o a un pianeta il mirino ci salta sopra) e si sceglie col **pizzico** di una mano qualsiasi.
+  Finché è acceso i raggi delle dita restano spenti.
+- **La scocca**: chi guarda sta dentro una navicella di vetro trasparente a un posto, a forma di
+  **goccia** vista dall'alto — un muso lungo e tondo davanti, i fianchi larghi, una coda tonda dietro
+  le spalle. Il piano del banco si chiude tutto attorno, e dal suo bordo una parete morbida scende fino
+  a un fondo ai piedi. Sopra la testa niente: il cielo resta pulito.
+- **Il cruscotto**: davanti il vetro si alza in una gobba morbida, come il cruscotto di un caccia;
+  ci sono incastonati l'orologio al centro e i display del luogo e del tempo ai lati, e in cima una
+  visiera tonda sporge verso chi guarda.
+- **I corpi**: sfere e cupole incastonate nel piano per il loro **equatore** (metà sopra e metà nel
+  vetro, con un anello di luce attorno), oggetti da toccare col dito e, col tasto *componi*, da prendere e
   mettere dove sono comodi. Sono **coppie dialettiche**, una a destra e una a sinistra (azimut e
-  altezza, equatore ed eclittica, meridiano e zodiaco, primo verticale e latitudini, asse e *vis
-  luminis*, archivio e rotella, griglia equatoriale ed eclittica, orizzonte trasparente e riflesso,
-  visione geocentrica e topocentrica), e **corpi mediali** che stanno sull'asse e si spostano solo
-  lungo di lui (la griglia azimutale, l'orizzonte pieno). Il tasto *specchio* copia la destra sulla
+  altezza, equatore ed eclittica, meridiano e zodiaco, primo verticale e latitudini, archivio e
+  rotella, griglia equatoriale ed eclittica, orizzonte trasparente e riflesso, visione geocentrica e
+  topocentrica; la *vis luminis* è rimasta sola), e **corpi mediali** che stanno sull'asse e si
+  spostano solo lungo di lui (la griglia azimutale, l'orizzonte pieno, il mirino, la sfera dell'asse).
+  Lasciata sopra la consolle, una sfera torna da sé all'equatore. Il tasto *specchio* copia la destra sulla
   sinistra e, mentre si compone, fa seguire al gemello il corpo che si tiene. Ci sono poi le tre
   cupole del tempo (adesso, velocità, stop), l'orologio di 24 ore con ai lati i display del luogo
   (a sinistra) e del tempo (a destra),
+  la **sfera dell'asse** dietro le spalle, con dentro la Terra e il suo asse vero (punta al polo):
+  un tocco accende l'asse, il secondo lo fa **treccia** — tre fili di luce intrecciati che girano
+  attorno a chi guarda da polo a polo, con impulsi che scorrono verso il polo nord, l'*axis mundi* —
+  il terzo lo spegne;
   e la **sfera del cielo**, un pallone da rugby di tre strati: la mano che ci entra da un lato fa
   girare il cielo, più affonda più corre. La **visione topocentrica** mostra i pianeti visti dal
   luogo invece che dal centro della Terra (la Luna si sposta fino a un grado).
