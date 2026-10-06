@@ -211,17 +211,22 @@ In tutto 720 stelle e 657 lati di figura.
   punta del dito** (come si indica una stella), e si sceglie col **grilletto dell'indice** (piegarlo
   un poco: il raggio si ferma dov'era, piegato di più sceglie). Il pizzico
   prende i corpi; sul banco i tasti si premono anche **col dito**.
-- **Il mirino**: la sferetta in cima alla visiera del cruscotto lo accende e lo spegne. Acceso, un
+- **Il mirino**: una piccola sfera sospesa davanti agli occhi lo accende e lo spegne. Acceso, un
   cerchietto con quattro tacche sta al centro della vista: si **mira con lo sguardo** (vicino a una
   stella o a un pianeta il mirino ci salta sopra) e si sceglie col **pizzico** di una mano qualsiasi.
   Finché è acceso i raggi delle dita restano spenti.
 - **La scocca**: chi guarda sta dentro una navicella di vetro trasparente a un posto, a forma di
   **goccia** vista dall'alto — un muso lungo e tondo davanti, i fianchi larghi, una coda tonda dietro
   le spalle. Il piano del banco si chiude tutto attorno, e dal suo bordo una parete morbida scende fino
-  a un fondo ai piedi. Sopra la testa niente: il cielo resta pulito.
-- **Il cruscotto**: davanti il vetro si alza in una gobba morbida, come il cruscotto di un caccia;
-  ci sono incastonati l'orologio al centro e i display del luogo e del tempo ai lati, e in cima una
-  visiera tonda sporge verso chi guarda.
+  a un fondo ai piedi. Sopra la testa niente: il cielo resta pulito. Il posto dove si sta è
+  un'**ellisse** di 70 × 90 cm (più lunga avanti-indietro, col centro un poco dietro gli occhi), e il
+  banco comincia dal suo bordo.
+- **Il cruscotto**: davanti il vetro si alza in una gobba morbida, come il cruscotto di un caccia,
+  con una visiera tonda in cima. **Si modella**: col tasto *componi* compaiono cinque punti di luce
+  (la visiera, le due ali, il piede, il dorso) che si prendono col pizzico e trascinano il vetro; la
+  forma resta nel visore e parte con la disposizione.
+- **L'orologio di 24 ore**: le lancette vivono solo nel tratto esterno del quadrante (le ore rosse, i
+  minuti arancio), perché il centro resti libero per il tema del giorno.
 - **I corpi**: sfere e cupole incastonate nel piano per il loro **equatore** (metà sopra e metà nel
   vetro, con un anello di luce attorno), oggetti da toccare col dito e, col tasto *componi*, da prendere e
   mettere dove sono comodi. Sono **coppie dialettiche**, una a destra e una a sinistra (azimut e

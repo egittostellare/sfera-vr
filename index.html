@@ -317,7 +317,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='51';
+const VERSIONE='52';
 const diagBox=document.getElementById('diag');
 const diagRighe=[];
 function diag(msg,kind){
@@ -1970,10 +1970,25 @@ const PPM=1600, PPM_K=3000;                  // pixel per metro: l'ala degli ele
 const btnMeshes=[];                          // i tasti dell'ala
 const vrPanel=new THREE.Group(); scene.add(vrPanel);
 const banco=new THREE.Group(); vrPanel.add(banco);   // dentro: tutto il disegno, posato sull'anello
+// L'ALLOGGIAMENTO (7 ottobre, richiesta dell'autore: in piedi lo spazio era poco): il bordo interno
+// non e' piu' un cerchio di 54 cm ma un'ELLISSE di 70 × 90 cm (larga 70 di traverso, lunga 90
+// avanti-indietro), col centro 8 cm DIETRO gli occhi, dove sta il corpo: davanti il bordo passa da
+// 27 a 37 cm, ai fianchi a 34, dietro a 53. Il tavolo scivola in fuori insieme al bordo: tutto il
+// disegno del banco (i tasti piatti, la pendenza, la conca) si misura dal bordo, non dal centro.
+const ELL_X=0.35, ELL_Z=0.45, ELL_C=0.08;
+// dove sta il bordo interno a un azimut: la distanza dagli occhi
+function bordoDentro(a){
+  const s=Math.sin(a), c=Math.cos(a);
+  const A=s*s/(ELL_X*ELL_X)+c*c/(ELL_Z*ELL_Z), B=2*c*ELL_C/(ELL_Z*ELL_Z), C=ELL_C*ELL_C/(ELL_Z*ELL_Z)-1;
+  return (-B+Math.sqrt(B*B-4*A*C))/(2*A);
+}
+// di quanto il bordo e' andato in fuori rispetto al cerchio di prima
+const scostamento=a=>bordoDentro(a)-R_IN;
 // l'altezza del tavolo, a un raggio e a un azimut (0 = davanti)
 function altezzaAnello(a,r){
-  const t=Math.max(0,Math.min(1,(r-R_IN)/CR_H)), c=Math.max(0,Math.cos(a));
-  return CONS_Y0+(r-R_IN)*Math.tan(INCL)+CONCA*t*t*c*c;
+  const rr=r-scostamento(a);
+  const t=Math.max(0,Math.min(1,(rr-R_IN)/CR_H)), c=Math.max(0,Math.cos(a));
+  return CONS_Y0+(rr-R_IN)*Math.tan(INCL)+CONCA*t*t*c*c;
 }
 // la normale del tavolo in quel punto (dalle derivate dell'altezza)
 const _nA=new THREE.Vector3();
@@ -1986,7 +2001,7 @@ function normaleAnello(a,r,out){
   return out.set(-dr*sa-da*ca, 1, dr*ca-da*sa).normalize();
 }
 function puntoBanco(x,y,fuori,out){
-  const a=x/R_MID, r=R_IN+y+CR_H/2;
+  const a=x/R_MID, r=R_IN+scostamento(a)+y+CR_H/2;
   out=out||new THREE.Vector3(); out.set(r*Math.sin(a),altezzaAnello(a,r),-r*Math.cos(a));
   if(fuori){ normaleAnello(a,r,_nA); out.addScaledVector(_nA,fuori); }
   return out;
@@ -1995,7 +2010,7 @@ const _bX=new THREE.Vector3(), _bY=new THREE.Vector3(), _bZ=new THREE.Vector3(),
 // posa un pezzo piatto sul banco: dove va, e rivolto come la superficie in quel punto
 function posaBanco(o,x,y,fuori){
   puntoBanco(x,y,fuori,o.position);
-  const a=x/R_MID, r=R_IN+y+CR_H/2;
+  const a=x/R_MID, r=R_IN+scostamento(a)+y+CR_H/2;
   normaleAnello(a,r,_bZ);
   _bX.set(Math.cos(a),0,Math.sin(a)); _bX.addScaledVector(_bZ,-_bX.dot(_bZ)).normalize();
   _bY.crossVectors(_bZ,_bX);
@@ -2230,7 +2245,9 @@ banco.add(corpo);
 // Vista dall'alto e' una GOCCIA (6 ottobre, scelta dell'autore): un muso lungo e tondo davanti, che
 // scende morbido; i fianchi larghi dove stanno le sfere; dietro le spalle una coda tonda, che porta
 // la sfera dell'asse. Nessuno spigolo: e' una navicella a un posto, alla Miyazaki.
-const SC_R_MUSO=1.02, SC_R_FIANCO=0.76, SC_R_CODA=0.60, SC_SP=0.03, SC_TONDO=0.03, SC_GIRO=144;
+// (7 ottobre: la coda da 0,60 a 0,78, perche' l'alloggiamento ellittico va piu' indietro, e la sfera
+// dell'asse con lui)
+const SC_R_MUSO=1.02, SC_R_FIANCO=0.76, SC_R_CODA=0.78, SC_SP=0.03, SC_TONDO=0.03, SC_GIRO=144;
 // il raggio esterno del piano a un azimut (radianti): il coseno al cubo davanti fa il muso, il
 // quadrato dietro la coda; ai fianchi (90°) i due si spengono senza gradino
 function raggioScocca(a){
@@ -2260,7 +2277,7 @@ function vetro(alto,basso,y0,y1,a){
 // all'interno, il bordo interno tondo, il piano, il bordo esterno tondo, la parete fino ai piedi.
 // Torna anche dove stanno i fili di luce (indici nel profilo).
 function profiloScocca(a,piedi){
-  const Re=raggioScocca(a), h=r=>altezzaScocca(a,r), P=[], rb=SC_SP/2, ri=R_IN;
+  const Re=raggioScocca(a), h=r=>altezzaScocca(a,r), P=[], rb=SC_SP/2, ri=bordoDentro(a);
   for(let k=0;k<6;k++){ const r=Re-0.005-(Re-0.005-ri-rb)*k/6; P.push([r,h(r)-SC_SP]); }
   const cy=h(ri+rb)-rb;
   for(let k=0;k<=6;k++){ const f=-Math.PI/2-k/6*Math.PI; P.push([ri+rb+Math.cos(f)*rb, cy+Math.sin(f)*rb]); }
@@ -2319,7 +2336,7 @@ CONSOLLE.forEach(s=>{
   // sull'anello: il centro va all'azimut e alla distanza del tasto; la larghezza «in piano» va
   // corretta perche' sul tavolo, a quella distanza, il tasto abbia la sua misura vera
   const cx=s.pa*DEG*R_MID, cy=s.pr-R_IN-CR_H/2;
-  const wb=(s.w+2*MRG)*U*R_MID/s.pr, hb=(s.h+2*MRG)*U;
+  const wb=(s.w+2*MRG)*U*R_MID/(s.pr+scostamento(s.pa*DEG)), hb=(s.h+2*MRG)*U;
   const fuori=0.004;
   // alphaTest: il margine trasparente attorno al tasto non deve scrivere la profondita', se no
   // buca il corpo del banco e ci si vede il cielo attraverso
@@ -2752,9 +2769,9 @@ const _pD=new THREE.Vector3();
 function tastoSottoDito(pMondo){
   if(!inVista(banco)) return null;
   banco.worldToLocal(_pD.copy(pMondo));
-  const a=Math.atan2(_pD.x,-_pD.z), r=Math.hypot(_pD.x,_pD.z);
+  const a=Math.atan2(_pD.x,-_pD.z), r0=Math.hypot(_pD.x,_pD.z), r=r0-scostamento(a);   // r: come sul banco di prima
   if(r<R_IN-0.02||r>R_OUT+0.02) return null;
-  const sopra=_pD.y-altezzaAnello(a,r);
+  const sopra=_pD.y-altezzaAnello(a,r0);
   let meglio=null;
   for(const t of TASTI){
     if(!t.m.visible) continue;   // la tastiera nascosta
@@ -2897,24 +2914,40 @@ function posaCorpo(aGr,r,su){
   const a=aGr*DEG; return new THREE.Vector3(r*Math.sin(a), altezzaAnello(a,r)+su, -r*Math.cos(a));
 }
 // LA DISPOSIZIONE DELL'AUTORE: dove stanno i corpi, come li ha messi nel visore col «componi» e
-// mandati con la busta (5 ottobre 2026). id: [azimut °, distanza m, sopra il tavolo m (, inclinazione °)].
-// I due display, staccati dall'orologio, li ho messi io: ai lati del quadrante, sopra azimut e altezza.
-// 6 ottobre, su richiesta dell'autore: le sfere e le cupole non stanno piu' su uno stelo ma INCASTONATE
-// nel piano per il loro equatore (alt 0: il centro sulla superficie, meta' sopra e meta' sotto); il
-// tasto della tastiera ci si posa sopra; la sfera dell'asse va DIETRO, sulla coda, sull'asse.
+// mandati con la busta. id: [azimut °, distanza m, sopra il tavolo m (, inclinazione °)].
+// Questa e' la mail del 6 ottobre 2026 (v51), presa tutta com'e' (scelta dell'autore): l'orologio
+// lontano e basso, i due display DIETRO, ai lati delle spalle; la sfera del cielo dietro a destra,
+// sospesa; il mirino sospeso davanti agli occhi (dove la v51 l'aveva messo, in cima alla visiera di
+// allora). Sfere e cupole sono incastonate per l'equatore (alt 0). Poi l'alloggiamento e' diventato
+// un'ellisse: vedi allargaDisposizione.
 const DISPOSIZIONE={
-  equator:[-39.7,0.549,0],      meridiano:[-56.3,0.545,0],     primovert:[-71.6,0.572,0],     axis:[180,0.45,0],
-  ecliptic:[39.7,0.549,0],      zodiaco:[56.3,0.545,0],        latitudini:[71.6,0.572,0],     vis:[86.4,0.586,0],
-  azimut:[-27.5,0.612,0],       alt:[27.5,0.612,0],
-  grigliaEq:[-47.8,0.651,0],    grigliaAz:[0,0.38,0],         grigliaEcl:[47.8,0.651,0],
-  dRefl:[-34.3,0.444,0],        dFull:[0,0.475,0],            dTrans:[34.3,0.444,0],
-  dGeo:[-63.6,0.628,0],         dTopo:[63.6,0.628,0],
-  stop:[-71.7,0.426,0],         moto:[71.6,0.44,0],           adesso:[87.1,0.439,0],
-  archivio:[-105.1,0.621,-0.001], rotella:[105.1,0.621,-0.001],
+  equator:[-18.8,0.738,0],      meridiano:[-43.8,0.716,0],     primovert:[-60.1,0.685,0],     axis:[180,0.45,0],
+  ecliptic:[18.8,0.738,0],      zodiaco:[43.8,0.716,0],        latitudini:[60.1,0.685,0],     vis:[77.5,0.667,0],
+  azimut:[-96.2,0.646,0],       alt:[96.2,0.646,0],
+  grigliaEq:[-30.9,0.751,0],    grigliaAz:[0,0.587,0],        grigliaEcl:[30.9,0.751,0],
+  dTrans:[-9.9,0.636,0],        dFull:[0,0.485,0],            dRefl:[9.9,0.636,0],
+  dGeo:[-19.2,0.866,0],         dTopo:[19.2,0.866,0],
+  adesso:[-1,0.352,0],          moto:[23.9,0.423,0],          stop:[-26.2,0.424,0],
+  archivio:[-117.4,0.611,0.019], rotella:[117.4,0.611,0.019],
   invia:[-62,0.4,0.08],         tastoTastiera:[-42.9,0.389,0.018],
-  orologio:[-0.3,0.573,0.2,-17], atmosfera:[-0.5,0.116,0.23],
-  dispLuogo:[-31,0.58,0.30,-17], dispTempo:[31,0.58,0.30,-17],
+  orologio:[-0.2,0.861,0.054,-34], atmosfera:[150.7,0.8,0.203],
+  dispLuogo:[-143.1,0.766,-0.023,-41], dispTempo:[138.4,0.709,-0.001,-35],
+  mirino:[-0.3,0.633,0.418],
 };
+// L'ELLISSE SPOSTA LA DISPOSIZIONE: la mail e' misurata sul cerchio di prima. Il bordo e' andato in fuori
+// (scostamento), e i corpi vanno in fuori con lui: tutto quello che toccava il bordo di quanto il bordo
+// si e' mosso, poi sempre meno, fino a un metro dagli occhi, dove nulla si muove. Cosi' nessun corpo
+// resta nel vuoto dell'alloggiamento e i vicini restano vicini. I corpi SOSPESI (piu' di 10 cm sopra
+// il tavolo: la sfera del cielo, il mirino) non poggiano sul banco, e restano dove sono.
+const R_FERMO=1.0;
+function allargaDisposizione(D){
+  for(const [id,v] of Object.entries(D)){
+    if(v[2]>0.1) continue;
+    const w=Math.max(0,Math.min(1,(R_FERMO-v[1])/(R_FERMO-R_IN)));
+    v[1]=Math.round((v[1]+scostamento(v[0]*DEG)*w)*1000)/1000;
+  }
+}
+allargaDisposizione(DISPOSIZIONE);
 // la casa di un corpo, al suo posto nella disposizione, rivolta a chi sta al centro
 function casaDi(id){
   const v=DISPOSIZIONE[id], c=new THREE.Group();
@@ -2934,8 +2967,10 @@ const SF_DEF=[
   {k:'equator'}, {k:'meridiano'}, {k:'primovert'},
   // la sfera dell'asse, dietro le spalle sulla coda della navicella: piu' grande, e sull'asse
   {k:'axis', scala:SF_SCALA*1.4, mediale:true},
-  {k:'ecliptic'}, {k:'zodiaco'}, {k:'latitudini'}, {k:'vis'},
-  {k:'azimut'}, {k:'alt'},
+  {k:'ecliptic'}, {k:'zodiaco'}, {k:'latitudini'},
+  // vis luminis, azimut e altezza: piccole come le griglie (7 ottobre, richiesta dell'autore)
+  {k:'vis', scala:SF_SCALA*2/3},
+  {k:'azimut', scala:SF_SCALA*2/3}, {k:'alt', scala:SF_SCALA*2/3},
   // le tre griglie, in sferette di due terzi: l'azimutale sull'asse
   {k:'grigliaEq', scala:SF_SCALA*2/3}, {k:'grigliaAz', scala:SF_SCALA*2/3, mediale:true}, {k:'grigliaEcl', scala:SF_SCALA*2/3},
   // l'orizzonte: trasparente, pieno (sull'asse), riflesso — i tre pallini del banco, meta' delle griglie
@@ -3333,7 +3368,7 @@ corpoTasto(ARCHIVIO); CORPI.push(ARCHIVIO);
 // quando si sceglie un altro istante.
 // Col «componi» si sposta e si INCLINA: preso, segue la mano, e piegando il polso in su o in giu'
 // il quadrante si piega con lui.
-const R_OR=0.15, OR_SCALA=1.25, OR_CIANO=0x7fe8ff, OR_GHIACCIO=0xd8f6ff, OR_AMBRA=0xffc46a;
+const R_OR=0.15, OR_SCALA=1.25, OR_CIANO=0x7fe8ff, OR_AMBRA=0xffc46a, OR_ROSSO=0xff3b30, OR_ARANCIO=0xff9a2e;
 const OROLOGIO={nome:'orologio', id:'orologio', titolo:()=>'Orologio', zona:R_OR*OR_SCALA+0.02, raggio:R_OR*OR_SCALA,
   luce:LUCE_CORPO, incl:DISPOSIZIONE.orologio[3]*DEG, inclMax:80*DEG};
 {
@@ -3391,18 +3426,19 @@ const OROLOGIO={nome:'orologio', id:'orologio', titolo:()=>'Orologio', zona:R_OR
   const tex=new THREE.CanvasTexture(cv); tex.anisotropy=4;
   const faccia=new THREE.Mesh(new THREE.CircleGeometry(R_OR,96),new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}));
   faccia.renderOrder=-1; quadro.add(faccia);   // prima delle lancette: se no, trasparente, le coprirebbe
-  // le lancette: lame affusolate di luce, appena sopra il vetro
-  const lama=(larg,lungo,coda,col)=>{
+  // le lancette, appena sopra il vetro. 7 ottobre, richiesta dell'autore: le lancette vivono solo nell'ULTIMO TRATTO del raggio, sopra le
+  // ore (dal 70% al bordo), senza perno: il centro resta libero, perche' ci andra' il tema del giorno
+  // come in Regulus. Le ore ROSSE, i minuti ARANCIO. Ognuna e' una lama che si assottiglia verso il bordo.
+  const lamaFuori=(r0,r1,larg,col)=>{
     const s=new THREE.Shape();
-    s.moveTo(-larg*0.35,-coda); s.lineTo(larg*0.35,-coda); s.lineTo(larg/2,0); s.lineTo(larg*0.12,lungo); s.lineTo(-larg*0.12,lungo); s.lineTo(-larg/2,0); s.closePath();
-    const m=new THREE.Mesh(new THREE.ShapeGeometry(s),new THREE.MeshBasicMaterial({color:col}));
-    m.position.z=0.0012; quadro.add(m); return m;
+    s.moveTo(-larg*0.3,r0); s.lineTo(larg*0.3,r0); s.lineTo(larg/2,r0+(r1-r0)*0.25); s.lineTo(larg*0.1,r1);
+    s.lineTo(-larg*0.1,r1); s.lineTo(-larg/2,r0+(r1-r0)*0.25); s.closePath();
+    const g=new THREE.Group(), m=new THREE.Mesh(new THREE.ShapeGeometry(s),new THREE.MeshBasicMaterial({color:col}));
+    m.position.z=0.0012; g.add(m); quadro.add(g); return g;
   };
-  OROLOGIO.ore=lama(0.010,0.082,0.014,OR_GHIACCIO);
-  OROLOGIO.min=lama(0.007,0.122,0.018,OR_CIANO);
-  OROLOGIO.min.position.z=0.0016;
-  const mozzo=new THREE.Mesh(new THREE.RingGeometry(0.004,0.0075,32),new THREE.MeshBasicMaterial({color:OR_CIANO}));
-  mozzo.position.z=0.002; quadro.add(mozzo);
+  OROLOGIO.ore=lamaFuori(R_OR*0.70,R_OR*0.88,0.0085,OR_ROSSO);
+  OROLOGIO.min=lamaFuori(R_OR*0.70,R_OR*0.97,0.0065,OR_ARANCIO);
+  OROLOGIO.min.position.z=0.0004;
 }
 OROLOGIO.centro=out=>OROLOGIO.casa.getWorldPosition(out);
 OROLOGIO.fai=()=>{};   // il quadrante si guarda, non si preme
@@ -3479,35 +3515,47 @@ DISP_TEMPO.aggiorna=()=>{
   scriviDisplay(DISP_TEMPO,[anno+' · '+du(c.mese)+' · '+du(c.giorno), du(c.ora)+' : '+du(c.minuto)+' : '+du(c.secondo)]);
 };
 
-// ---- IL CRUSCOTTO: l'orologio e i due display incastonati come gli schermi di un caccia ----
+// ---- IL CRUSCOTTO: una gobba di vetro davanti, come il cruscotto di un caccia ----
 // (6 ottobre, richiesta dell'autore: «come il display del cruscotto di un caccia, ma con curve
-// morbide, alla Miyazaki».) Davanti, il vetro della scocca si alza in una gobba: la sua faccia sta
-// appena dietro i tre schermi, inclinata come loro; vista da chi siede ha la forma di un occhio —
-// alta al centro, dove tiene il quadrante e scende fino al piano, sottile ai lati, dove tiene i
-// display, e chiusa a punta oltre di loro. In cima una VISIERA tonda sporge verso chi guarda, come una
-// palpebra; dietro, il dorso scende morbido nel muso. Sotto i display la gobba e' sospesa: le sfere di
-// azimut e altezza ci stanno sotto. E' fatta sugli schermi: se col «componi» si spostano
-// l'orologio o i display, alla presa lasciata si rifa' su di loro.
+// morbide, alla Miyazaki».) Davanti, il vetro della scocca si alza in una gobba; vista da chi siede ha
+// la forma di un occhio — alta al centro, sottile sulle ALI, e chiusa a punta oltre di loro. In cima
+// una VISIERA tonda sporge verso chi guarda, come una palpebra; dietro, il DORSO scende morbido nel
+// muso; sotto, il PIEDE poggia sul piano (o resta sospeso, se lo si alza).
+// 7 ottobre: la forma si MODELLA. Prima si rifaceva sugli schermi (spostando i display il vetro li
+// seguiva: all'autore e' piaciuto), ma al rientro nel visore tornava quella di partenza. Ora la forma
+// e' sua: col «componi» compaiono CINQUE PUNTI DI LUCE — la visiera, le due ali (si muovono insieme,
+// a specchio), il piede, il dorso — e presi col pizzico la trascinano. Gli schermi sono liberi.
+// La forma resta nel visore e parte con la disposizione nella mail.
+// Di partenza e' quella che l'autore ha visto mandando la mail del 6 ottobre: la forma che i suoi
+// schermi avevano dato al vetro (formaDagliSchermi), finche' una sua mail non ne porta una propria.
 const CRUSCOTTO={g:new THREE.Group()};
 banco.add(CRUSCOTTO.g);
 const CR_DIETRO=0.018, CR_VISIERA=0.045, CR_SPESSORE=0.018, CR_DORSO=0.30;
+const CHIAVE_CRUSCOTTO='sfera-vr-cruscotto-52';
+const CRUSCOTTO_AUTORE=null;   // la forma mandata dall'autore, quando arrivera': {Rb,Yb,Rt,Yt,ad,Ra,Ya,HD,D}
 const liscio=(e0,e1,x)=>{ const t=Math.max(0,Math.min(1,(x-e0)/(e1-e0))); return t*t*(3-2*t); };
-// la forma, letta dagli schermi: dove stanno, quanto sono inclinati
-function formaCruscotto(){
+// la forma di partenza, letta dagli schermi come faceva la v51: il piede e la cima della faccia al
+// centro (dietro il quadrante, inclinata come lui), e le ali dove stanno i display
+function formaDagliSchermi(){
   const polare=c=>{ const p=c.casa.position; return {a:Math.atan2(p.x,-p.z), r:Math.hypot(p.x,p.z), y:p.y}; };
   const o=polare(OROLOGIO), l=polare(DISP_LUOGO), t=polare(DISP_TEMPO);
   const ad=Math.max(12*DEG,(Math.abs(l.a-o.a)+Math.abs(t.a-o.a))/2);
-  const tl=Math.tan(Math.max(0,-OROLOGIO.incl)), Yd=(l.y+t.y)/2, Rd=(l.r+t.r)/2;
-  const F={ac:o.a, ad, A:ad+17*DEG, tl, Yc:o.y, Yd,
-    Rc:o.r, Rd0:Rd-(Yd-o.y)*tl,                                // i display, riportati all'altezza del quadrante
-    HC:(R_OR+0.016)*OR_SCALA*Math.cos(Math.atan(tl))+0.012,    // mezza altezza al centro: il quadrante e l'orbita
-    HD:0.026*OR_SCALA+0.028};                                  // mezza altezza ai lati: il display
-  // la faccia, a un azimut (relativo all'orologio) e a un'altezza: il raggio
+  const tl=Math.tan(Math.max(0,-OROLOGIO.incl)), HC=(R_OR+0.016)*OR_SCALA*Math.cos(Math.atan(tl))+0.012;
+  const rf=y=>o.r+CR_DIETRO+(y-o.y)*tl;
+  let Yb=o.y-HC; Yb=Math.max(Yb,altezzaScocca(o.a,rf(Yb))+0.002);
+  return {Rb:rf(Yb), Yb, Rt:rf(o.y+HC), Yt:o.y+HC, ad:Math.min(ad,158*DEG),
+    Ra:(l.r+t.r)/2+CR_DIETRO, Ya:(l.y+t.y)/2, HD:0.026*OR_SCALA+0.028, D:CR_DORSO};
+}
+// dai parametri, la forma: la faccia a un azimut e a un'altezza (il raggio), il centro e la mezza altezza
+function formaCruscotto(P){
+  const F={P, ac:0, ad:P.ad, A:P.ad+17*DEG};
+  const yc0=(P.Yb+P.Yt)/2, hh0=(P.Yt-P.Yb)/2, tl=(P.Rt-P.Rb)/(P.Yt-P.Yb), R0c=(P.Rb+P.Rt)/2;
+  F.Yc=yc0; F.HC=hh0;
   F.s=a=>liscio(8*DEG,F.ad,Math.abs(a));
   F.q=a=>Math.sqrt(Math.max(0,1-(Math.abs(a)/F.A)**6));
-  F.rf=(a,y)=>F.Rc+(F.Rd0-F.Rc)*F.s(a)+CR_DIETRO+(y-F.Yc)*F.tl;
-  F.yc=a=>F.Yc+(F.Yd-F.Yc)*F.s(a);
-  F.hh=a=>(F.HC+(F.HD-F.HC)*F.s(a))*F.q(a);
+  F.yc=a=>yc0+(P.Ya-yc0)*F.s(a);
+  F.hh=a=>(hh0+(P.HD-hh0)*F.s(a))*F.q(a);
+  F.rf=(a,y)=>R0c+(P.Ra-R0c)*F.s(a)+(y-F.yc(a))*tl;
   return F;
 }
 // il profilo chiuso a un azimut: faccia (dal basso in alto), visiera, dorso, pancia; coppie [r, y]
@@ -3521,7 +3569,7 @@ function profiloCruscotto(F,a){
   const rt=F.rf(a,yt), cr=rt-CR_VISIERA*q, rho=CR_SPESSORE/2*q;
   for(let k=0;k<CR_NL;k++){ const f=-Math.PI/2-k/(CR_NL-1)*Math.PI; P.push([cr+rho*Math.cos(f), yt+rho+rho*Math.sin(f)]); }
   // il dorso, dalla cima della visiera giu' nel muso
-  const rN=rt+CR_DORSO*q, yN=yc+(h(rN)-yc)*q, yT=yt+2*rho;
+  const rN=rt+F.P.D*q, yN=yc+(h(rN)-yc)*q, yT=yt+2*rho;
   const bez=(Q,t)=>{ const u=1-t; return [0,1].map(i=>u*u*u*Q[0][i]+3*u*u*t*Q[1][i]+3*u*t*t*Q[2][i]+t*t*t*Q[3][i]); };
   const B=[[cr,yT],[rt+0.08*q,yT],[rN-0.06*q,yN+0.05*q],[rN,yN]];
   for(let k=1;k<=CR_NB;k++) P.push(bez(B,k/CR_NB));
@@ -3532,7 +3580,7 @@ function profiloCruscotto(F,a){
 }
 function costruisciCruscotto(){
   CRUSCOTTO.g.children.slice().forEach(o=>{ CRUSCOTTO.g.remove(o); o.geometry.dispose(); });
-  const F=formaCruscotto(); CRUSCOTTO.F=F;
+  const F=formaCruscotto(CRUSCOTTO.P); CRUSCOTTO.F=F;
   const N=Math.ceil(2*F.A/DEG), prof=[];
   for(let j=0;j<=N;j++) prof.push(profiloCruscotto(F,-F.A+2*F.A*j/N));
   const M=prof[0].length, pos=[], idx=[];
@@ -3550,11 +3598,11 @@ function costruisciCruscotto(){
   CRUSCOTTO.g.add(guscio,filo(0,VETRO_PESCA,.55),filo(CR_NF-1,VETRO_ACQUA,.45),filo(CR_NF+Math.floor(CR_NL/2),VETRO_ACQUA,.85));
   CRUSCOTTO.g.traverse(o=>{ o.userData.primoPiano=true; });
 }
-// la cima della visiera al centro: li' sta la sferetta del mirino, come il collimatore di un caccia
-function cimaCruscotto(){
-  const F=CRUSCOTTO.F, yt=F.yc(0)+F.hh(0), r=F.rf(0,yt)-CR_VISIERA/2;
-  return [F.ac/DEG, r, yt+CR_SPESSORE-altezzaAnello(F.ac,r)];
-}
+CRUSCOTTO.P=CRUSCOTTO_AUTORE?{...CRUSCOTTO_AUTORE}:formaDagliSchermi();
+try{   // la forma modellata nel visore, se c'e'
+  const o=JSON.parse(localStorage.getItem(CHIAVE_CRUSCOTTO)||'null');
+  if(o&&['Rb','Yb','Rt','Yt','ad','Ra','Ya','HD','D'].every(k=>Number.isFinite(o[k]))) CRUSCOTTO.P=o;
+}catch(e){}
 costruisciCruscotto();
 // i castoni degli schermi: un anello di vetro attorno al quadrante, una cornice attorno ai display
 OROLOGIO.quadro.add(new THREE.Mesh(new THREE.TorusGeometry(R_OR+0.026,0.0035,10,128),
@@ -3568,7 +3616,7 @@ OROLOGIO.quadro.add(new THREE.Mesh(new THREE.TorusGeometry(R_OR+0.026,0.0035,10,
 });
 
 // ---- IL MIRINO: si mira con lo sguardo, si sceglie col pizzico ----
-// Una sferetta incastonata in cima alla visiera del cruscotto, come il collimatore di un caccia: toccata
+// Una sferetta (nella v51 incastonata in cima alla visiera; ora sospesa dove l'autore l'ha lasciata): toccata
 // accende il MIRINO, toccata di nuovo lo spegne. Acceso, al centro della vista c'e' un cerchietto con
 // quattro tacche, posato sulla volta: segna quello che si guarda (se una stella o un pianeta gli sta
 // vicino, ci salta sopra, e se ne legge il nome), e il PIZZICO di una mano qualsiasi — pollice e
@@ -3596,14 +3644,11 @@ function disegnaMirino(x,lato,col){
     x.beginPath(); x.moveTo(c+Math.cos(f)*a,c+Math.sin(f)*a); x.lineTo(c+Math.cos(f)*b,c+Math.sin(f)*b); x.stroke(); }
 }
 {
-  DISPOSIZIONE.mirino=cimaCruscotto();
   const casa=casaDi('mirino'); MIRINO_C.casa=casa;
-  MIRINO_C.mat=cristallo(COL_CRISTALLO); MIRINO_C.mat.uniforms.uSotto.value=0.3;
+  MIRINO_C.mat=cristallo(COL_CRISTALLO);
   casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_MIR,32,20),MIRINO_C.mat));
   const icona=tavolettaSf(x=>disegnaMirino(x,128,'#ffc46a'),R_MIR*1.6); casa.add(icona);
   MIRINO_C.icona=icona.material;
-  const castone=new THREE.Group(); castone.rotation.x=Math.PI/2; castone.scale.setScalar(R_MIR*1.02); casa.add(castone);
-  castone.add(new THREE.Mesh(CASTONE_G,CASTONE_MAT),new THREE.Mesh(ALONE_G,ALONE_MAT));
 }
 MIRINO_C.centro=out=>MIRINO_C.casa.getWorldPosition(out);
 MIRINO_C.acceso=()=>MIRINO;
@@ -3637,6 +3682,73 @@ function sceltaMirino(ctl){
   const b=MIRINO_SU;
   if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); }
   else if(SEL) seleziona(null);
+}
+
+// ---- I PUNTI DI MODELLAZIONE del cruscotto (vedi IL CRUSCOTTO) ----
+// Cinque pallini di luce, visibili solo col «componi»: presi col pizzico (o col grilletto), il vetro
+// li segue. VISIERA (ambra): la punta della visiera al centro — su e giu' alza la cima, avanti e
+// indietro sposta la faccia in alto; ALI (acqua, una per lato, si muovono insieme a specchio): girando
+// attorno a chi guarda si allungano o si accorciano, e vanno su e giu', avanti e indietro; PIEDE
+// (pesca): dove la faccia tocca il piano, avanti e indietro, e alzandolo resta sospesa; DORSO (lilla):
+// quanto il dorso scende lungo nel muso.
+const MANIGLIE=[], MAN_R=0.014;
+const _mM=new THREE.Vector3();
+const CR_Q=ad=>Math.sqrt(Math.max(0,1-(ad/(ad+17*DEG))**6));   // quanto e' ancora alta l'ala alla sua punta
+// dove sta un punto, nel sistema del banco, secondo la forma di adesso
+function puntoManiglia(M,out){
+  const P=CRUSCOTTO.P, F=CRUSCOTTO.F; let a=0, r, y;
+  if(M.tipo==='visiera'){ r=P.Rt-CR_VISIERA; y=P.Yt+CR_SPESSORE/2; }
+  else if(M.tipo==='ala'){ a=M.lato*P.ad; y=F.yc(a)+F.hh(a); r=F.rf(a,y); }
+  else if(M.tipo==='piede'){ y=Math.max(P.Yb,altezzaScocca(0,F.rf(0,P.Yb))+0.002); r=F.rf(0,y); }
+  else { r=P.Rt+P.D; y=altezzaScocca(0,r)+0.012; }
+  return out.set(r*Math.sin(a),y,-r*Math.cos(a));
+}
+const limita=(v,a,b)=>Math.max(a,Math.min(b,v));
+function trascinaManiglia(M,pMondo){
+  const p=CORPI_G.worldToLocal(_mM.copy(pMondo)), P=CRUSCOTTO.P;
+  const a=Math.atan2(p.x,-p.z), r=Math.hypot(p.x,p.z), y=p.y;
+  if(M.tipo==='visiera'){ P.Rt=limita(r+CR_VISIERA,bordoDentro(0)+0.1,1.3); P.Yt=Math.max(P.Yb+0.05,y-CR_SPESSORE/2); }
+  else if(M.tipo==='ala'){
+    P.ad=limita(Math.abs(a),15*DEG,158*DEG);
+    const q=CR_Q(P.ad), tl=(P.Rt-P.Rb)/(P.Yt-P.Yb);
+    P.Ya=y-P.HD*q; P.Ra=limita(r-P.HD*q*tl,bordoDentro(P.ad)+0.05,1.3);
+  }
+  else if(M.tipo==='piede'){ P.Rb=limita(r,bordoDentro(0)+0.05,1.3); P.Yb=Math.min(P.Yt-0.05,Math.max(y,altezzaScocca(0,r)+0.002)); }
+  else P.D=limita(r-P.Rt,0.03,0.7);
+  CRUSCOTTO.sporco=true;
+}
+function lasciaManiglia(M){
+  costruisciCruscotto(); CRUSCOTTO.sporco=false;
+  try{ localStorage.setItem(CHIAVE_CRUSCOTTO,JSON.stringify(CRUSCOTTO.P)); }catch(e){}
+  diag('cruscotto modellato ('+M.nome+')');
+}
+[['visiera',0,0xffc46a,'visiera'],['ala',-1,0xa8f0ff,'ala sinistra'],['ala',1,0xa8f0ff,'ala destra'],
+ ['piede',0,0xffd2b8,'piede'],['dorso',0,0xd9b8ff,'dorso']].forEach(([tipo,lato,col,nome])=>{
+  const g=new THREE.Group(); g.visible=false; CORPI_G.add(g);
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(MAN_R,16,12),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.95,depthWrite:false})));
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(MAN_R*2.2,16,12),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.25,
+    blending:THREE.AdditiveBlending,depthWrite:false})));
+  const M={tipo,lato,nome,g,zona:0.045,luce:LUCE_CORPO};
+  M.trascina=p=>trascinaManiglia(M,p); M.lascia=()=>lasciaManiglia(M);
+  MANIGLIE.push(M);
+});
+// il punto vicino alla mano, col «componi» acceso
+function manigliaVicina(p){
+  let meglio=null, dm=Infinity;
+  for(const M of MANIGLIE){ const d=M.g.getWorldPosition(_mM).distanceTo(p); if(d<M.zona&&d<dm){ dm=d; meglio=M; } }
+  return meglio;
+}
+// a ogni fotogramma: i punti al loro posto (visibili solo componendo), e il vetro rifatto al massimo
+// venti volte al secondo mentre lo si trascina
+function aggiornaManiglie(){
+  const ora=performance.now();
+  if(CRUSCOTTO.sporco&&ora-(CRUSCOTTO.t||0)>50){ costruisciCruscotto(); CRUSCOTTO.sporco=false; CRUSCOTTO.t=ora; }
+  for(const M of MANIGLIE){
+    M.g.visible=COMPONI; if(!COMPONI) continue;
+    puntoManiglia(M,M.g.position);
+    M.g.scale.setScalar(M.luce>=LUCE_PRESO?1.5:M.luce>LUCE_CORPO?1.25:1);
+    M.luce=LUCE_CORPO;
+  }
 }
 
 // ---- il tasto della TASTIERA: fa sparire e ricomparire il banco (i corpi restano) ----
@@ -3770,8 +3882,9 @@ corpoTasto(ATMOSFERA); CORPI.push(ATMOSFERA);
 // gradi e metri come posaCorpo li vuole: quando l'autore e' contento, si leggono e si fissano nel codice.
 // La chiave cambia quando cambia la disposizione nel codice (v51: le sfere incastonate, l'asse dietro,
 // il cruscotto): se no il visore rimetterebbe i corpi dove li aveva salvati prima.
-const CHIAVE_SFERE='sfera-vr-sfere-51';
-try{ localStorage.removeItem('sfera-vr-sfere'); }catch(e){}
+// (v52: la mail del 6 ottobre e l'alloggiamento ellittico)
+const CHIAVE_SFERE='sfera-vr-sfere-52';
+try{ ['sfera-vr-sfere','sfera-vr-sfere-51'].forEach(k=>localStorage.removeItem(k)); }catch(e){}
 // dove sta una sferetta, nella misura di posaCorpo: azimut (gradi), distanza (m), sopra il tavolo (m)
 function polareSfera(S){
   const p=S.casa.position, a=Math.atan2(p.x,-p.z), r=Math.hypot(p.x,p.z);
@@ -3868,12 +3981,11 @@ function trascinaSfera(S,p){
 function incastonaGiu(S){
   if(!INCASTONI.some(I=>I.c===S)) return;
   const q=polareSfera(S);
-  if(q.r>R_IN&&q.r<raggioScocca(q.a*DEG)) posaSfera(S,S.mediale?sullAsse(q.a):q.a,q.r,0);
+  if(q.r>bordoDentro(q.a*DEG)&&q.r<raggioScocca(q.a*DEG)) posaSfera(S,S.mediale?sullAsse(q.a):q.a,q.r,0);
 }
 function lasciaSfera(S){
   GUIDA.g.visible=false; GUIDA.filo2.visible=false;
   incastonaGiu(S); const G=SPECCHIO&&gemello(S); if(G) incastonaGiu(G);
-  if(S===OROLOGIO||S===DISP_LUOGO||S===DISP_TEMPO) costruisciCruscotto();   // il cruscotto si rifa' sugli schermi
   salvaSfere();
   const q=polareSfera(S);
   diag(S.titolo()+' posato: angolo '+Math.round(q.a)+'°, distanza '+Math.round(q.r*100)+' cm, altezza '+Math.round(q.su*100)+' cm'
@@ -3951,7 +4063,7 @@ function aggiornaIncastoni(){
     const p=I.c.casa.position, a=Math.atan2(p.x,-p.z), r=Math.hypot(p.x,p.z);
     const y0=altezzaAnello(a,r), h=p.y-y0;
     const rc=I.sfera?Math.sqrt(Math.max(0,I.rr*I.rr-h*h)):(Math.abs(h)<0.01?I.rr:0);
-    I.g.visible=rc>0.004&&r>R_IN&&r<raggioScocca(a);
+    I.g.visible=rc>0.004&&r>bordoDentro(a)&&r<raggioScocca(a);
     if(!I.g.visible) continue;
     I.g.position.set(p.x,y0+0.0015,p.z); I.g.scale.setScalar(rc*1.02);
     I.g.quaternion.setFromUnitVectors(_zC,normaleAnello(a,r,_nC));
@@ -3985,6 +4097,8 @@ const _pp=new THREE.Vector3();
 function prendiCorpo(i){
   if(!inVista(CORPI_G)) return false;
   const q=puntoPresa(i,_pp); if(!q) return false;
+  const m=COMPONI&&manigliaVicina(q.p);   // componendo, prima i punti del cruscotto
+  if(m){ PRESE[i]=m; vibra([c0,c1][i],0.4,25); return true; }
   const c=corpoVicino(q.p); if(!c) return false;
   BECCHEGGIO=beccheggioMano(i);
   if(c.prendi(q.p,q.mano)) PRESE[i]=c;
@@ -3998,6 +4112,7 @@ function aggiornaCorpi(dt){
     for(let i=0;i<2;i++){
       const q=puntoPresa(i,_pp);
       if(PRESE[i]){ if(q){ BECCHEGGIO=beccheggioMano(i); PRESE[i].trascina(q.p); } PRESE[i].luce=LUCE_PRESO; continue; }
+      const m=COMPONI&&q&&manigliaVicina(q.p); if(m){ m.luce=LUCE_VICINO; continue; }
       const c=q&&corpoVicino(q.p); if(c) c.luce=Math.max(c.luce,LUCE_VICINO);
     }
     // il dito dentro il globo (o una sferetta) lo preme; per ripremerlo deve uscirne di un paio di centimetri
@@ -4016,7 +4131,7 @@ function aggiornaCorpi(dt){
     }
   }
   for(const c of CORPI){ c.aggiorna(dt); c.mat.uniforms.uLuce.value=c.luce; }
-  aggiornaIncastoni();
+  aggiornaIncastoni(); aggiornaManiglie();
 }
 
 // ====================== la dissolvenza ======================
@@ -5394,7 +5509,9 @@ function testoDisposizione(){
   let o={}; try{ o=JSON.parse(localStorage.getItem(CHIAVE_SFERE)||'{}'); }catch(e){}
   return 'Sfera VR v'+VERSIONE+' — disposizione dei corpi, '+new Date().toISOString()+'\n'+
     'id: [angolo °, distanza m, altezza sul tavolo m (, inclinazione °)]\n'+
-    Object.entries(o).map(([k,v])=>k+': '+JSON.stringify(v)).join('\n');
+    Object.entries(o).map(([k,v])=>k+': '+JSON.stringify(v)).join('\n')+'\n'+
+    // la forma del cruscotto, modellata coi suoi cinque punti (metri e radianti, nel sistema del banco)
+    'cruscotto: '+JSON.stringify(Object.fromEntries(Object.entries(CRUSCOTTO.P).map(([k,v])=>[k,Math.round(v*10000)/10000])));
 }
 registraFinestra(btnInvia,boxInvia,()=>{ document.getElementById('invia-testo').value=testoDisposizione(); });
 function apriInvia(){ if(boxInvia.hidden) btnInvia.click(); }
