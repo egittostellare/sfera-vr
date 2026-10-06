@@ -317,7 +317,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='52';
+const VERSIONE='53';
 const diagBox=document.getElementById('diag');
 const diagRighe=[];
 function diag(msg,kind){
@@ -2694,7 +2694,7 @@ function makeController(i){
   ctl.addEventListener('squeezestart',()=>prendi(ctl));   // il tasto laterale: afferra il planetario
   ctl.addEventListener('squeezeend',()=>lascia(ctl));
   ctl.addEventListener('selectend',()=>{
-    lasciaCorpo(i);
+    lasciaCorpo(i); TENUTE[i]=null;
     if(scPresa&&scPresa.ctl===ctl){ scPresa=null; vibra(ctl,0.3,25); diag('riquadro posato'); }
   });
   ctl.addEventListener('selectstart',()=>{
@@ -2713,10 +2713,12 @@ function makeController(i){
 }
 // scegliere col raggio: il tasto che tocca; fuori dai pannelli quello che indica, o niente
 function sceltaRaggio(ctl){
+  const k=ctl.userData.corpo;   // il corpo sotto il raggio (aggiornaRaggi), se e' piu' vicino di un tasto
+  if(k){ vibra(ctl,0.6,45); k.fai(); return; }
   const hit=hitTest(ctl);
   if(hit){ vibra(ctl,0.6,45); hit.object.userData.fai(); return; }
   const b=ctl.userData.puntato||null;
-  if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); }
+  if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); tieni(ctl,b); }
   else if(SEL) seleziona(null);
 }
 const _orig=new THREE.Vector3(), _dir=new THREE.Vector3();
@@ -2734,6 +2736,23 @@ function hitTest(ctl){
   const h=hits.find(x=>!x.object.userData.dentro||!x.uv||x.object.userData.dentro(x.uv));
   return h||null;   // l'intersezione intera: serve anche la distanza
 }
+// IL RAGGIO SUI CORPI (8 ottobre: coi controller le sfere non si premevano). Il raggio — del
+// controller o dell'indice — che passa per un corpo lo accende, e il grilletto lo preme come il dito.
+// Si conta la sua zona (il corpo e un paio di centimetri attorno). L'orologio e la sfera del cielo non
+// si premono; componendo, i corpi si prendono e non si premono.
+const _cR=new THREE.Vector3();
+function corpoSulRaggio(o,d){
+  if(COMPONI||!inVista(CORPI_G)) return null;
+  let meglio=null;
+  for(const c of CORPI){
+    if(c.nonSiPreme) continue;
+    const rr=c.zona-0.01, t=_cR.copy(c.centro(_cR)).sub(o).dot(d); if(t<0) continue;
+    const d2=c.centro(_cR).sub(o).lengthSq()-t*t; if(d2>rr*rr) continue;
+    const dist=t-Math.sqrt(rr*rr-d2);
+    if(!meglio||dist<meglio.dist) meglio={c,dist};
+  }
+  return meglio;
+}
 // una vibrazione breve nella mano, se il controller la sa fare (sul Quest si')
 function vibra(ctl,forza,ms){
   try{
@@ -2744,6 +2763,54 @@ function vibra(ctl,forza,ms){
 }
 let c0,c1;
 function inVista(o){ for(;o;o=o.parent) if(!o.visible) return false; return true; }
+
+// ====================== I GESTI DELLE MANI ======================
+// (8 ottobre: le mani fanno quel che fanno i tasti del controller, e viceversa.) Oltre ai corpi
+// «ricentra» e «riquadro»:
+// - la SCELTA TENUTA apre il riquadro: scelta una stella (col grilletto del controller, col grilletto
+//   dell'indice, col pizzico del mirino), se la presa resta per 0,8 s si apre la sua scheda — come il
+//   tasto Y, con le mani e coi controller;
+// - il PALMO APERTO GIRATO IN SU, tenuto un secondo, RICENTRA — come il tasto X. Per rifarlo, la mano
+//   si gira di nuovo.
+const TENUTA_MS=800, PALMO_MS=1000;
+const TENUTE=[null,null];   // per mano: {t0, b} della scelta ancora tenuta
+function tieni(ctl,b){ const i=ctl===c0?0:ctl===c1?1:-1; if(i>=0&&b.tipo==='stella') TENUTE[i]={t0:performance.now(),b}; }
+// la scelta e' ancora tenuta? Il controller e il pizzico lo dicono con selectend; il grilletto
+// dell'indice finche' il raggio resta fermo
+function tenutaViva(i){
+  const c=[c0,c1][i], s=c&&c.userData.src;
+  if(s&&s.hand&&!MIRINO) return !!(c.userData.acceso&&c.userData.fermo);
+  return true;
+}
+const _gW=new THREE.Vector3(), _gI=new THREE.Vector3(), _gP=new THREE.Vector3(), _gN=new THREE.Vector3();
+// il palmo della mano i: la sua normale (verso dove guarda il palmo) e se la mano e' aperta, o null
+function palmo(i){
+  const M=MANI[i], j=M&&M.h.visible&&M.h.joints, c=[c0,c1][i], s=c&&c.userData.src; if(!j||!s) return null;
+  if(!giuntura(j,'wrist',_gW)||!giuntura(j,'index-finger-phalanx-proximal',_gI)||!giuntura(j,'pinky-finger-phalanx-proximal',_gP)) return null;
+  _gN.crossVectors(_gI.sub(_gW),_gP.sub(_gW)).normalize().multiplyScalar(s.handedness==='left'?-1:1);
+  let aperta=true;
+  for(const d of ['index','middle','ring','pinky']){
+    const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
+    if(!t||!n||t.visible===false){ aperta=false; break; }
+    if(t.getWorldPosition(_gI).distanceTo(n.getWorldPosition(_gP))<0.11){ aperta=false; break; }
+  }
+  return {n:_gN, aperta};
+}
+const PALMI=[{t0:null,armato:true},{t0:null,armato:true}];
+function gestiMani(){
+  const ora=performance.now();
+  for(let i=0;i<2;i++){
+    const T=TENUTE[i];
+    if(T&&!tenutaViva(i)) TENUTE[i]=null;
+    else if(T&&ora-T.t0>TENUTA_MS){ TENUTE[i]=null; if(SEL===T.b&&!SCHEDA.visible){ vibra([c0,c1][i],0.5,40); mostraScheda(true); } }
+    const P=PALMI[i], p=palmo(i), su=p&&p.aperta&&p.n.y>0.8;
+    if(!p||p.n.y<0.5) P.armato=true;
+    if(su&&P.armato){
+      if(P.t0===null) P.t0=ora;
+      else if(ora-P.t0>PALMO_MS){ P.t0=null; P.armato=false; diag('palmo in su: ricentro'); toggleBtn(BUTTONS.find(b=>b.k==='recenter')); }
+    } else P.t0=null;
+  }
+}
 
 // ====================== LE MANI ======================
 // Senza controller, col visore che vede le mani (la sessione chiede «hand-tracking»):
@@ -2782,6 +2849,26 @@ function tastoSottoDito(pMondo){
   }
   return meglio?{t:meglio,sopra}:null;
 }
+// IL DITO SUI PANNELLI (8 ottobre: con le mani non si scriveva il tema). La tastiera, i pannelli del
+// luogo, del tempo e dei temi e l'ala degli elementi sono lastre piatte: il dito che ci arriva sopra
+// preme il tasto sotto la punta, come sul banco. Torna il tasto e quanto la punta gli sta davanti
+// (negativo: e' passata oltre; fino a 6 cm si conta ancora, cosi' non si ripreme tornando indietro).
+const _pL=new THREE.Vector3(), _sL=new THREE.Vector3();
+let MESH_BANCO=null;   // i tasti del banco, che hanno la loro prova (tastoSottoDito)
+function pannelloSottoDito(pMondo){
+  if(!MESH_BANCO) MESH_BANCO=new Set(TASTI.map(t=>t.m));
+  let meglio=null, dz=Infinity;
+  for(const m of INTERATTIVI){
+    if(MESH_BANCO.has(m)||!m.geometry.parameters||!inVista(m)) continue;
+    const {width:w,height:h}=m.geometry.parameters; if(!w||!h) continue;
+    m.worldToLocal(_pL.copy(pMondo));
+    if(Math.abs(_pL.x)>w/2||Math.abs(_pL.y)>h/2) continue;
+    const z=_pL.z*m.getWorldScale(_sL).z;
+    if(z<-0.06||z>0.06) continue;
+    if(Math.abs(z)<dz){ dz=Math.abs(z); meglio={t:{m},sopra:z}; }
+  }
+  return meglio;
+}
 function aggiornaMani(){
   for(const M of MANI){
     const giunture=M.h.joints?Object.values(M.h.joints):[];
@@ -2795,7 +2882,8 @@ function aggiornaMani(){
     if(!punta||!punta.visible||!M.h.visible){ M.premuto=null; continue; }
     if(punta.userData.pallino) punta.userData.pallino.material=PUNTA_MAT;
     punta.updateWorldMatrix(true,false);
-    const sotto=tastoSottoDito(punta.getWorldPosition(_occhio2));
+    punta.getWorldPosition(_occhio2);
+    const sotto=tastoSottoDito(_occhio2)||pannelloSottoDito(_occhio2);
     if(M.premuto){                                     // gia' premuto: si riarma solo risalendo
       if(!sotto||sotto.sopra>DITO_SU) M.premuto=null;
       continue;
@@ -2948,6 +3036,9 @@ function allargaDisposizione(D){
   }
 }
 allargaDisposizione(DISPOSIZIONE);
+// 8 ottobre: i corpi che fanno quel che fanno i tasti del controller (vedi I TASTI DEL CONTROLLER, PER
+// LE MANI). Li ho messi io, dove il banco era libero, gia' sul bordo ellittico: da comporre.
+Object.assign(DISPOSIZIONE,{ricentra:[-72,0.56,0], riquadro:[72,0.56,0], leva:[-84,0.6,0]});
 // la casa di un corpo, al suo posto nella disposizione, rivolta a chi sta al centro
 function casaDi(id){
   const v=DISPOSIZIONE[id], c=new THREE.Group();
@@ -3442,6 +3533,7 @@ const OROLOGIO={nome:'orologio', id:'orologio', titolo:()=>'Orologio', zona:R_OR
 }
 OROLOGIO.centro=out=>OROLOGIO.casa.getWorldPosition(out);
 OROLOGIO.fai=()=>{};   // il quadrante si guarda, non si preme
+OROLOGIO.nonSiPreme=true;
 // i millisecondi dell'ora civile del luogo: lo scarto dal tempo universale si ricalcola solo ogni
 // tanto, perche' Intl a ogni fotogramma costerebbe
 let _fusoT=NaN, _fusoMs=0, _fusoNome='';
@@ -3680,9 +3772,87 @@ function aggiornaMirino(){
 // il pizzico col mirino acceso: sceglie quello che il mirino ha sotto, o toglie la scelta
 function sceltaMirino(ctl){
   const b=MIRINO_SU;
-  if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); }
+  if(b){ if(b!==SEL) seleziona(b); vibra(ctl,0.45,35); tieni(ctl,b); }
   else if(SEL) seleziona(null);
 }
+
+// ---- I TASTI DEL CONTROLLER, PER LE MANI (8 ottobre: quel che si fa coi controller si fa con le
+// mani, e viceversa) ----
+// Due sferette incastonate, in coppia nello specchio: RICENTRA (come il tasto X: una freccia che gira)
+// e RIQUADRO (come il tasto Y: la scheda della stella scelta). E la LEVA DELLO ZOOM: un'asta con un
+// pomello, che il dito (o il controller) spinge avanti o tira indietro come la levetta — zoom o
+// grandangolo, secondo il tasto «zoom» del banco. Si toccano anche col raggio e il grilletto.
+// Per chi li vuole senza cercarli ci sono anche i GESTI (vedi I GESTI DELLE MANI).
+function sferettaTasto(id,titolo,disegna,fai){
+  const K={nome:'sfera-'+id, id, zona:R_SF*SF_SCALA/2+0.02, raggio:R_SF*SF_SCALA/2, luce:LUCE_CORPO, titolo:()=>titolo};
+  const casa=casaDi(id); K.casa=casa; casa.scale.setScalar(SF_SCALA/2);
+  K.mat=cristallo(COL_CRISTALLO);
+  casa.add(new THREE.Mesh(new THREE.SphereGeometry(R_SF,32,20),K.mat));
+  casa.add(tavolettaSf(disegna,R_SF*1.5));
+  K.centro=out=>K.casa.getWorldPosition(out);
+  K.fai=fai; K.aggiorna=()=>{};
+  corpoTasto(K); CORPI.push(K); return K;
+}
+const RICENTRA_C=sferettaTasto('ricentra','Ricentra',x=>{
+  x.strokeStyle='#a8f0ff'; x.fillStyle='#a8f0ff'; x.lineWidth=10; x.lineCap='round';
+  x.beginPath(); x.arc(64,64,36,-0.3*Math.PI,1.35*Math.PI); x.stroke();
+  const f=-0.3*Math.PI, px=64+36*Math.cos(f), py=64+36*Math.sin(f);   // la punta della freccia
+  x.beginPath(); x.moveTo(px+14,py-6); x.lineTo(px-8,py-16); x.lineTo(px-4,py+12); x.closePath(); x.fill();
+  x.beginPath(); x.arc(64,64,7,0,TAU); x.fill();
+},()=>toggleBtn(BUTTONS.find(b=>b.k==='recenter')));
+const RIQUADRO_C=sferettaTasto('riquadro','Riquadro della stella',x=>{
+  x.strokeStyle='#ffe6a8'; x.lineWidth=7; roundRect(x,22,26,84,76,10); x.stroke();
+  x.lineWidth=5; for(const y of [56,72,88]){ x.beginPath(); x.moveTo(36,y); x.lineTo(92,y); x.stroke(); }
+  x.fillStyle='#ffe6a8'; x.beginPath(); x.arc(46,40,6,0,TAU); x.fill();
+},()=>mostraScheda(!SCHEDA.visible));
+const R_LEVA=0.026, LEVA_H=0.05, LEVA_CORSA=0.03;   // la base, l'altezza del pomello, la corsa piena
+const LEVA_C={nome:'leva-zoom', id:'leva', zona:0.05, raggio:0.03, luce:LUCE_CORPO, titolo:()=>'Leva dello zoom',
+  nonSiPreme:true, valore:0};
+{
+  const casa=casaDi('leva'); LEVA_C.casa=casa;
+  LEVA_C.mat=cristallo(COL_CRISTALLO);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(R_LEVA,R_LEVA*1.1,0.008,40),LEVA_C.mat); base.position.y=-0.002; casa.add(base);
+  const asta=new THREE.Group(); casa.add(asta); LEVA_C.asta=asta;
+  const metallo=new THREE.MeshBasicMaterial({color:0xa8f0ff,transparent:true,opacity:.85});
+  const st=new THREE.Mesh(new THREE.CylinderGeometry(0.0028,0.0035,LEVA_H,12),metallo); st.position.y=LEVA_H/2; asta.add(st);
+  const pomo=new THREE.Mesh(new THREE.SphereGeometry(0.012,20,14),new THREE.MeshBasicMaterial({color:0xffc46a}));
+  pomo.position.y=LEVA_H; asta.add(pomo);
+  const e=etichetta('zoom'); e.position.set(0,LEVA_H+0.03,0); casa.add(e);
+}
+LEVA_C.centro=out=>LEVA_C.casa.localToWorld(out.set(0,LEVA_H*0.6,0));
+LEVA_C.fai=()=>{};
+// le punte che possono spingere il pomello: gli indici delle mani, o i controller
+const _lP=new THREE.Vector3();
+// La punta che tocca il pomello lo AGGANCIA (1,6 cm); poi la leva la segue, avanti e indietro, finche'
+// la punta non se ne allontana di 6 cm; lasciata, torna dritta.
+const punteLeva=i=>{
+  const M=MANI[i], j=M&&M.h.visible&&M.h.joints, t=j&&j['index-finger-tip'], c=[c0,c1][i];
+  if(t&&t.visible!==false) return t.getWorldPosition(_lP);
+  if(c&&c.visible&&c.userData.src&&!c.userData.src.hand) return c.getWorldPosition(_lP);
+  return null;
+};
+LEVA_C.presa=null;
+LEVA_C.aggiorna=()=>{
+  let v=0;
+  if(COMPONI||!inVista(CORPI_G)) LEVA_C.presa=null;
+  else {
+    if(LEVA_C.presa===null) for(let i=0;i<2;i++){
+      const p=punteLeva(i); if(!p) continue;
+      LEVA_C.casa.worldToLocal(p);
+      if(Math.hypot(p.x,p.y-LEVA_H,p.z)<0.016){ LEVA_C.presa=i; vibra([c0,c1][i],0.3,20); break; }
+    }
+    if(LEVA_C.presa!==null){
+      const p=punteLeva(LEVA_C.presa);
+      if(p) LEVA_C.casa.worldToLocal(p);
+      if(!p||Math.hypot(p.x,p.y-LEVA_H,p.z)>0.06) LEVA_C.presa=null;
+      else v=Math.max(-1,Math.min(1,-p.z/LEVA_CORSA));   // il suo davanti (+z) guarda chi siede: in la' e' avanti
+    }
+  }
+  LEVA_C.valore=Math.abs(v)<0.15?0:v;
+  LEVA_C.asta.rotation.x=-v*25*DEG;
+  if(v) LEVA_C.luce=LUCE_PRESO;
+};
+corpoTasto(LEVA_C); CORPI.push(LEVA_C);
 
 // ---- I PUNTI DI MODELLAZIONE del cruscotto (vedi IL CRUSCOTTO) ----
 // Cinque pallini di luce, visibili solo col «componi»: presi col pizzico (o col grilletto), il vetro
@@ -3833,14 +4003,21 @@ const ATMOSFERA={nome:'atmosfera', id:'atmosfera', titolo:()=>'Sfera del cielo',
 }
 ATMOSFERA.centro=out=>ATMOSFERA.casa.getWorldPosition(out);
 ATMOSFERA.fai=()=>{};   // non si preme: ci si entra
+ATMOSFERA.nonSiPreme=true;
 const ATM_GIUNTURE=['index-finger-tip','middle-finger-tip','ring-finger-tip','pinky-finger-tip','thumb-tip',
   'index-finger-metacarpal','middle-finger-metacarpal','pinky-finger-metacarpal','wrist'];
 const _pA=new THREE.Vector3(), _pAm=new THREE.Vector3();
 // quanto un punto (nel sistema della sfera) sta dentro il pallone: 1 sulla buccia, 0 nel centro
 const affondo=p=>Math.sqrt((p.x/R_ATM)**2+(p.y*p.y+p.z*p.z)/(R_ATM_B*R_ATM_B));
-// il punto della mano piu' dentro la sfera (nel sistema della sfera), o null se la mano e' fuori
-function puntoInAtmosfera(M,out){
-  const j=M.h.visible&&M.h.joints; if(!j) return null;
+// il punto della mano piu' dentro la sfera (nel sistema della sfera), o null se la mano e' fuori.
+// Senza la mano vale il controller (i): ci si entra anche con lui.
+function puntoInAtmosfera(M,out,i){
+  const j=M.h.visible&&M.h.joints;
+  if(!j){
+    const c=[c0,c1][i]; if(!c||!c.visible||!c.userData.src||c.userData.src.hand) return null;
+    ATMOSFERA.casa.worldToLocal(c.getWorldPosition(_pA));
+    if(affondo(_pA)>=1) return null; return out.copy(_pA);
+  }
   let meglio=Infinity;
   for(const n of ATM_GIUNTURE){
     const g=j[n]; if(!g||g.visible===false) continue;
@@ -3855,7 +4032,7 @@ ATMOSFERA.aggiorna=dt=>{
     let fondo=Infinity;
     MANI.forEach((M,i)=>{
       if(PRESE[i]) return;
-      const p=puntoInAtmosfera(M,_pAm); if(!p) return;
+      const p=puntoInAtmosfera(M,_pAm,i); if(!p) return;
       const d=affondo(p); if(d>=fondo) return;
       fondo=d; verso=Math.abs(p.x)<ATM_MORTA?0:(p.x>0?1:-1);
       strato=d<ATM_STRATI[2].r?2:d<ATM_STRATI[1].r?1:0;
@@ -4000,7 +4177,7 @@ function lasciaSfera(S){
 // l'orizzonte pieno, la sfera dell'asse dietro e il mirino sulla visiera) stanno sull'asse, e si
 // spostano solo lungo di lui. Andato l'asse dietro (v51), la vis luminis e' rimasta senza gemello.
 const COPPIE=[['azimut','alt'],['equator','ecliptic'],['meridiano','zodiaco'],['primovert','latitudini'],
-  ['archivio','rotella'],['grigliaEq','grigliaEcl'],['dTrans','dRefl'],['dGeo','dTopo']];
+  ['archivio','rotella'],['grigliaEq','grigliaEcl'],['dTrans','dRefl'],['dGeo','dTopo'],['ricentra','riquadro']];
 function gemello(S){
   for(const [a,b] of COPPIE){ const o=S.id===a?b:S.id===b?a:null; if(o) return CORPI.find(c=>c.id===o)||null; }
   return null;
@@ -4058,6 +4235,8 @@ function incastona(c,rr,sfera){
 }
 SFERETTE.forEach(S=>{ S.mat.uniforms.uSotto.value=0.3; incastona(S,S.raggio,true); });
 [ADESSO,MOTO,STOP].forEach(K=>incastona(K,R_MOTO*1.25,false));
+[RICENTRA_C,RIQUADRO_C].forEach(K=>{ K.mat.uniforms.uSotto.value=0.3; incastona(K,K.raggio,true); });
+incastona(LEVA_C,R_LEVA*1.1,false);
 function aggiornaIncastoni(){
   for(const I of INCASTONI){
     const p=I.c.casa.position, a=Math.atan2(p.x,-p.z), r=Math.hypot(p.x,p.z);
@@ -4108,6 +4287,7 @@ function prendiCorpo(i){
 function lasciaCorpo(i){ const c=PRESE[i]; if(!c) return; PRESE[i]=null; if(c.lascia) c.lascia(); }
 function aggiornaCorpi(dt){
   for(const c of CORPI) c.luce=LUCE_CORPO;
+  for(const k of [c0,c1]) if(k&&k.userData.corpo) k.userData.corpo.luce=LUCE_VICINO;   // sotto un raggio
   if(inVista(CORPI_G)){
     for(let i=0;i<2;i++){
       const q=puntoPresa(i,_pp);
@@ -4376,12 +4556,16 @@ function azzeraZoom(motivo){
   minutoMostrato=null;
   if(motivo) diag('zoom tolto ('+motivo+'): vista naturale');
 }
+// (ctl null: la leva dello zoom, che un raggio non ce l'ha — si ingrandisce sulla stella scelta, o
+// dove si guarda)
+const _gZ=new THREE.Vector3();
 function centraZoom(ctl){
-  const b=ctl&&ctl.userData.puntato, O=world.position;
+  const b=ctl?ctl.userData.puntato:SEL, O=world.position;
   sky.updateWorldMatrix(true,false);
   if(b) _w.copy(b.pos).applyMatrix4(sky.matrixWorld);
-  else {   // nessun astro: il punto della volta dove arriva il raggio
-    const [o,d]=raggioDi(ctl), rel=o.clone().sub(O), bd=rel.dot(d), Rs=R*world.scale.x;
+  else {   // nessun astro: il punto della volta dove arriva il raggio (o lo sguardo)
+    const [o,d]=ctl?raggioDi(ctl):[_testa,renderer.xr.getCamera(camera).getWorldDirection(_gZ)];
+    const rel=o.clone().sub(O), bd=rel.dot(d), Rs=R*world.scale.x;
     const t=-bd+Math.sqrt(Math.max(0,bd*bd-(rel.lengthSq()-Rs*Rs)));
     _w.copy(o).addScaledVector(d,t);
   }
@@ -4397,6 +4581,8 @@ function levetta(dt){
     const vx=g.axes.length>=4?g.axes[2]:(g.axes[0]||0);
     if(Math.max(Math.abs(vy),Math.abs(vx))>Math.max(Math.abs(y),Math.abs(x))){ y=vy; x=vx; chi=c; }
   }
+  // la leva dello zoom, spinta col dito, vale come la levetta in avanti o indietro
+  if(Math.abs(LEVA_C.valore)>Math.max(Math.abs(y),Math.abs(x))){ y=-LEVA_C.valore; x=0; chi=null; }
   const MORTA=0.15;
   if(!stato.zoom){
     // di traverso: il bordo del mare (a destra si allontana). In avanti e indietro: il grandangolo.
@@ -5061,9 +5247,15 @@ function aggiornaRaggi(){
     // la mano senza il gesto dell'indicare non ha raggio
     const acceso=c.userData.acceso!==false;
     c.userData.ray.visible=acceso;
-    if(!acceso){ c.userData.dot.visible=false; c.userData.mirino.visible=false; c.userData.sopra=null; c.userData.suAstro=null; continue; }
-    const h=hitTest(c);
-    if(h){   // sul cruscotto: il raggio si ferma sul tasto
+    if(!acceso){ c.userData.corpo=null; c.userData.dot.visible=false; c.userData.mirino.visible=false; c.userData.sopra=null; c.userData.suAstro=null; continue; }
+    const h=hitTest(c), [o0,d0]=raggioDi(c), k=corpoSulRaggio(o0.clone(),d0.clone());
+    c.userData.corpo=null;
+    if(k&&(!h||k.dist<h.distance)){   // su un corpo: il raggio si ferma li', e il grilletto lo premera'
+      c.userData.corpo=k.c; c.userData.ray.scale.z=k.dist;
+      c.userData.dot.visible=true; c.userData.dot.position.z=-k.dist; c.userData.dot.scale.setScalar(1);
+      c.userData.mirino.visible=false; c.userData.suAstro=null;
+      if(c.userData.sopra!==k.c){ c.userData.sopra=k.c; vibra(c,0.25,18); }
+    } else if(h){   // sul cruscotto: il raggio si ferma sul tasto
       c.userData.ray.scale.z=h.distance;
       c.userData.dot.visible=true; c.userData.dot.position.z=-h.distance; c.userData.dot.scale.setScalar(1);
       c.userData.mirino.visible=false;
@@ -5156,6 +5348,7 @@ renderer.setAnimationLoop((time,frame)=>{
       const dalRaggio=aggiornaRaggi(), dalMirino=aggiornaMirino();
       indica(dalMirino||dalRaggio);
       aggiornaMani();
+      gestiMani();
       aggiornaCorpi(dt);
     } else {
       updateOrbit();

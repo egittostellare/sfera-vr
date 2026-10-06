@@ -211,6 +211,13 @@ In tutto 720 stelle e 657 lati di figura.
   punta del dito** (come si indica una stella), e si sceglie col **grilletto dell'indice** (piegarlo
   un poco: il raggio si ferma dov'era, piegato di più sceglie). Il pizzico
   prende i corpi; sul banco i tasti si premono anche **col dito**.
+- **Mani e controller fanno le stesse cose**: il dito preme anche la tastiera e i pannelli fluttuanti
+  (si scrive il nome di un tema con le mani); il raggio — del controller o dell'indice — preme anche
+  le sfere e gli altri corpi; col controller si entra nella sfera del cielo come con la mano. I tasti
+  del controller hanno il loro corpo sulla consolle: *ricentra* (X), *riquadro* della stella (Y) e la
+  **leva dello zoom** (la levetta), che il dito aggancia e spinge avanti o indietro. E due gesti: il
+  **palmo aperto in su**, tenuto un secondo, ricentra; la **scelta tenuta** su una stella (grilletto o
+  pizzico, per quasi un secondo) apre il suo riquadro.
 - **Il mirino**: una piccola sfera sospesa davanti agli occhi lo accende e lo spegne. Acceso, un
   cerchietto con quattro tacche sta al centro della vista: si **mira con lo sguardo** (vicino a una
   stella o a un pianeta il mirino ci salta sopra) e si sceglie col **pizzico** di una mano qualsiasi.
