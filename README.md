@@ -246,9 +246,9 @@ In tutto 720 stelle e 657 lati di figura.
   cupole del tempo (adesso, velocità, stop), l'orologio di 24 ore con ai lati i display del luogo
   (a sinistra) e del tempo (a destra),
   la **sfera dell'asse** dietro le spalle, con dentro la Terra e il suo asse vero (punta al polo):
-  un tocco accende l'asse, il secondo lo fa **treccia** — tre fili di luce intrecciati che girano
-  attorno a chi guarda da polo a polo, con impulsi che scorrono verso il polo nord, l'*axis mundi* —
-  il terzo lo spegne;
+  un tocco accende l'asse, i seguenti lo fanno **treccia** — l'*axis mundi*: il filo dell'asse
+  diventa una treccia compatta di fili sottili, da 3 (la treccia dei capelli), da 7 (un cordone) o
+  da 12 (la treccia tonda) — e l'ultimo lo spegne;
   e la **sfera del cielo**, un pallone da rugby di tre strati: la mano che ci entra da un lato fa
   girare il cielo, più affonda più corre. La **visione topocentrica** mostra i pianeti visti dal
   luogo invece che dal centro della Terra (la Luna si sposta fino a un grado).

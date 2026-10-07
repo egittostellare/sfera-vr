@@ -317,7 +317,7 @@
 // il riquadro lo dice invece di lasciare una pagina muta.
 // la versione: cresce di uno a ogni pubblicazione, insieme alla coda dell'indirizzo (?37). Si legge
 // sul pulsante «Entra in VR» e sul cartellino del banco: dice quale pagina sta davvero girando
-const VERSIONE='53';
+const VERSIONE='54';
 const diagBox=document.getElementById('diag');
 const diagRighe=[];
 function diag(msg,kind){
@@ -637,52 +637,61 @@ const eclVb=(l,b)=>{ const cb=Math.cos(b), sb=Math.sin(b);
     l.geometry.setFromPoints(p);
   }));
 }
-// i fili della treccia dell'asse: una treccia vera a tre capi (quella dei capelli). In piano, ogni filo
-// percorre un otto (di traverso sin f, in profondita' sin 2f), sfasato di un terzo di giro dagli altri:
-// cosi' i tre si scavalcano a turno e non si toccano mai. Qui la treccia e' AVVOLTA attorno all'asse:
-// il traverso diventa un angolo attorno all'asse (la fascia e' larga 60°), la profondita' un poco di
-// raggio in piu' o in meno, e tutta la fascia sale a spirale (un giro ogni 2,7 intrecci). Nessun filo
-// passa per l'asse, cioe' per chi guarda. L: mezza lunghezza (lungo z, dal polo sud al polo nord),
-// A: il raggio della treccia, P: la lunghezza di un intreccio; verso i poli si stringe fino a entrarci.
-const TRECCIA={g:null, tex:null, on:false};
+// LA TRECCIA DELL'ASSE (8 ottobre, correzione dell'autore: «togli la spirale; il filo che ora e'
+// l'asse diventi, restando filiforme, un insieme di fili intrecciati, una treccia compatta, e fine»).
+// Al posto della riga dell'asse corrono N fili sottili (righe da un pixel, come l'asse) intrecciati
+// stretti attorno a lui, da polo a polo. Tre trecce, una per tocco della sfera dell'asse:
+// - 3 fili: la treccia dei capelli. Ogni filo, visto lungo l'asse, percorre un otto (sin f, sin 2f a
+//   meta'), sfasato di un terzo di giro: i tre si scavalcano a turno e non si toccano;
+// - 7 fili: il cordone, uno dritto nel mezzo e sei avvolti attorno;
+// - 12 fili: la treccia tonda, sei che girano in un verso e sei nell'altro, che si passano sopra e
+//   sotto a turno (il raggio di ognuno si gonfia e si stringe sei volte a giro).
+// Chi guarda sta sull'asse, e lo vede come un filo solo perche' i suoi occhi ne stanno qualche
+// centimetro di lato: la treccia comincia percio' a 15 cm da lui, dove e' larga mezzo centimetro, e si
+// allarga piano (come la radice della distanza: un centimetro e mezzo a un metro e mezzo) fino al polo.
+// Da lontano resta un filo, da vicino si vede intrecciata. Ferma: niente giri, niente impulsi.
+const TRECCIA={g:null, fili:0, trecce:{}};          // fili: 0 (la riga semplice), 3, 7 o 12
 const TRECCIA_COL=[0xffcf7a,0x6fe8dc,0xc8a2ff];   // oro, turchese, lilla
-function puntiTreccia(k,L,A,P,n){
-  const p=[];
-  for(let i=0;i<=n;i++){
-    const s=-1+2*i/n, z=s*L, f=z/P*TAU+k*TAU/3, w=A*Math.sqrt(Math.max(0,1-s**8));
-    const th=z/(2.7*P)*TAU+Math.sin(f)*30*DEG, rr=w*(1+0.14*Math.sin(2*f));
-    p.push(new THREE.Vector3(rr*Math.cos(th),rr*Math.sin(th),z));
+const TRECCE=[3,7,12];
+// dove sta il filo k di una treccia di N, a una fase (1 = un intreccio), in unita' del raggio
+function posFilo(N,k,fase,out){
+  const a=fase*TAU;
+  if(N===3){ const f=a+k*TAU/3; return out.set(Math.sin(f),0.5*Math.sin(2*f)); }
+  if(N===7){ if(k===0) return out.set(0,0); const t=a+(k-1)*TAU/6; return out.set(Math.cos(t),Math.sin(t)); }
+  const giu=k>=6, t=giu?-a+(k-6)*TAU/6+Math.PI/6:a+k*TAU/6, r=1+(giu?-0.25:0.25)*Math.sin(6*a);
+  return out.set(r*Math.cos(t),r*Math.sin(t));
+}
+// i punti del filo k lungo z, da z0 a z1 (stesso segno): il raggio rho, oppure — se zRif c'e' —
+// rho a quella distanza, che cresce come la radice della distanza; un intreccio lungo otto raggi,
+// ventiquattro punti a intreccio
+function filoTreccia(N,k,z0,z1,rho,zRif){
+  const p=[], v=new THREE.Vector2(), sg=Math.sign(z1-z0); let z=z0, fase=0;
+  while(sg*(z1-z)>0){
+    const r=zRif?rho*Math.sqrt(Math.abs(z)/zRif):rho;
+    posFilo(N,k,fase,v); p.push(new THREE.Vector3(v.x*r,v.y*r,z));
+    z+=sg*8*r/24; fase+=1/24;
   }
   return p;
 }
 { // asse del mondo
   const g=G('axis',sky);
   // col punto di mezzo nel centro: con lo zoom ognuna delle due meta' va verso il suo polo
-  g.add(line([new THREE.Vector3(0,0,R*1.12),new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-R*1.12)],0x6f8fd0,.6,1));
+  const riga=line([new THREE.Vector3(0,0,R*1.12),new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-R*1.12)],0x6f8fd0,.6,1);
+  g.add(riga); TRECCIA.riga=riga;
   const s=label('Polo','#9db4e6',0.5); s.position.set(0,0,R*1.16); g.add(s);
-  // LA TRECCIA (6 ottobre, l'asse come axis mundi): al secondo tocco della sfera dell'asse, attorno
-  // all'asse corrono tre fili di luce intrecciati da polo a polo. Chi guarda sta SULL'asse, percio' la
-  // treccia gli passa attorno (a un paio di metri) e si stringe verso i due poli, dove entra. Gira
-  // piano su se stessa (un giro in 40 s) e lungo i fili scorrono impulsi di luce verso il polo nord.
-  const tr=new THREE.Group(); tr.visible=false; g.add(tr); TRECCIA.g=tr;
-  const cv=document.createElement('canvas'); cv.width=256; cv.height=4;
-  const x=cv.getContext('2d'), gr=x.createLinearGradient(0,0,256,0);
-  gr.addColorStop(0,'rgba(255,255,255,0.30)'); gr.addColorStop(0.62,'rgba(255,255,255,0.38)');
-  gr.addColorStop(0.9,'rgba(255,255,255,1)'); gr.addColorStop(1,'rgba(255,255,255,0.30)');
-  x.fillStyle=gr; x.fillRect(0,0,256,4);
-  TRECCIA.tex=new THREE.CanvasTexture(cv); TRECCIA.tex.wrapS=THREE.RepeatWrapping; TRECCIA.tex.repeat.set(36,1);
-  TRECCIA_COL.forEach((col,k)=>{
-    const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntiTreccia(k,R*1.05,R*0.07,R*0.22,900)),1400,R*0.0016,6),
-      new THREE.MeshBasicMaterial({color:col,map:TRECCIA.tex,transparent:true,opacity:.9,
-        blending:THREE.AdditiveBlending,depthWrite:false}));
-    tr.add(m);
-  });
+  const tr=new THREE.Group(); g.add(tr); TRECCIA.g=tr;
+  // a scala 4: comincia a 15 cm; a un metro e mezzo e' larga un centimetro e mezzo (0,6°)
+  const VICINO=R*0.0047, RIF=R*0.047, RHO=R*0.0005;
+  for(const N of TRECCE){
+    const t=new THREE.Group(); t.visible=false; tr.add(t); TRECCIA.trecce[N]=t;
+    for(let k=0;k<N;k++) for(const sg of [1,-1])
+      t.add(line(filoTreccia(N,k,sg*VICINO,sg*R*1.05,RHO,RIF),TRECCIA_COL[k%3],.75,1));
+  }
 }
-// muove la treccia: un giro in 40 secondi, e gli impulsi verso il polo (un'onda ogni ~1 s)
-function aggiornaTreccia(dt){
-  if(!TRECCIA.on||!stato.axis) return;
-  TRECCIA.g.rotation.z+=dt*TAU/40000;
-  TRECCIA.tex.offset.x=(TRECCIA.tex.offset.x-dt*0.0009)%1;
+// mostra la treccia di N fili (0: la riga semplice dell'asse)
+function mostraTreccia(N){
+  TRECCIA.fili=N; TRECCIA.riga.visible=!N;
+  for(const n of TRECCE) TRECCIA.trecce[n].visible=n===N;
 }
 // ====================== le tre griglie ======================
 // Tre reticoli da un pixel, ognuno del COLORE DEL SUO ELEMENTO: l'equatoriale come l'equatore
@@ -2782,20 +2791,32 @@ function tenutaViva(i){
   if(s&&s.hand&&!MIRINO) return !!(c.userData.acceso&&c.userData.fermo);
   return true;
 }
-const _gW=new THREE.Vector3(), _gI=new THREE.Vector3(), _gP=new THREE.Vector3(), _gN=new THREE.Vector3();
+const _gW=new THREE.Vector3(), _gI=new THREE.Vector3(), _gP=new THREE.Vector3(), _gN=new THREE.Vector3(), _gC=new THREE.Vector3();
 // il palmo della mano i: la sua normale (verso dove guarda il palmo) e se la mano e' aperta, o null
 function palmo(i){
   const M=MANI[i], j=M&&M.h.visible&&M.h.joints, c=[c0,c1][i], s=c&&c.userData.src; if(!j||!s) return null;
   if(!giuntura(j,'wrist',_gW)||!giuntura(j,'index-finger-phalanx-proximal',_gI)||!giuntura(j,'pinky-finger-phalanx-proximal',_gP)) return null;
   _gN.crossVectors(_gI.sub(_gW),_gP.sub(_gW)).normalize().multiplyScalar(s.handedness==='left'?-1:1);
+  // aperta: le quattro dita DRITTE (dalla nocca alla punta, in linea retta, almeno l'85% della
+  // lunghezza delle tre falangi). La v53 chiedeva 11 cm dalla base del dito: il mignolo non ci arrivava.
   let aperta=true;
+  const K=['phalanx-proximal','phalanx-intermediate','phalanx-distal','tip'];
   for(const d of ['index','middle','ring','pinky']){
-    const t=j[d+'-finger-tip'], n=j[d+'-finger-metacarpal'];
-    if(!t||!n||t.visible===false){ aperta=false; break; }
-    if(t.getWorldPosition(_gI).distanceTo(n.getWorldPosition(_gP))<0.11){ aperta=false; break; }
+    const P=K.map((k,q)=>giuntura(j,d+'-finger-'+k,_gK[q]));
+    if(P.some(x=>!x)){ aperta=false; break; }
+    const lungo=P[0].distanceTo(P[1])+P[1].distanceTo(P[2])+P[2].distanceTo(P[3]);
+    if(lungo<1e-4||P[0].distanceTo(P[3])/lungo<0.85){ aperta=false; break; }
   }
-  return {n:_gN, aperta};
+  // il centro del palmo: fra il polso e la nocca del medio
+  const m=giuntura(j,'middle-finger-phalanx-proximal',_gC);
+  return {n:_gN, aperta, centro:m?_gC.add(_gW).multiplyScalar(0.5):_gC.copy(_gW)};
 }
+// l'anello che si riempie sul palmo mentre si tiene il gesto: si vede che il visore l'ha capito
+const ANELLO_PALMO=(()=>{
+  const m=new THREE.Mesh(new THREE.RingGeometry(0.03,0.036,48,1,0,TAU),
+    new THREE.MeshBasicMaterial({color:0xa8f0ff,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}));
+  m.visible=false; m.renderOrder=35; scene.add(m); return m;
+})();
 const PALMI=[{t0:null,armato:true},{t0:null,armato:true}];
 function gestiMani(){
   const ora=performance.now();
@@ -2803,12 +2824,17 @@ function gestiMani(){
     const T=TENUTE[i];
     if(T&&!tenutaViva(i)) TENUTE[i]=null;
     else if(T&&ora-T.t0>TENUTA_MS){ TENUTE[i]=null; if(SEL===T.b&&!SCHEDA.visible){ vibra([c0,c1][i],0.5,40); mostraScheda(true); } }
-    const P=PALMI[i], p=palmo(i), su=p&&p.aperta&&p.n.y>0.8;
-    if(!p||p.n.y<0.5) P.armato=true;
+    const P=PALMI[i], p=palmo(i), su=p&&p.aperta&&p.n.y>0.65;   // il palmo in su, fino a 50° di traverso
+    if(!p||p.n.y<0.4) P.armato=true;
     if(su&&P.armato){
       if(P.t0===null) P.t0=ora;
-      else if(ora-P.t0>PALMO_MS){ P.t0=null; P.armato=false; diag('palmo in su: ricentro'); toggleBtn(BUTTONS.find(b=>b.k==='recenter')); }
-    } else P.t0=null;
+      const f=Math.min(1,(ora-P.t0)/PALMO_MS);
+      // l'anello sul palmo: un arco che si chiude in un secondo, sopra il centro della mano
+      ANELLO_PALMO.geometry.dispose(); ANELLO_PALMO.geometry=new THREE.RingGeometry(0.03,0.036,48,1,Math.PI/2,-f*TAU);
+      ANELLO_PALMO.position.copy(p.centro).addScaledVector(p.n,0.03); ANELLO_PALMO.lookAt(_gI.copy(ANELLO_PALMO.position).add(p.n));
+      ANELLO_PALMO.visible=true; ANELLO_PALMO.userData.mano=i;
+      if(f>=1){ P.t0=null; P.armato=false; ANELLO_PALMO.visible=false; diag('palmo in su: ricentro'); toggleBtn(BUTTONS.find(b=>b.k==='recenter')); }
+    } else { P.t0=null; if(ANELLO_PALMO.userData.mano===i) ANELLO_PALMO.visible=false; }
   }
 }
 
@@ -3109,21 +3135,24 @@ SF_DEF.forEach(d=>{
     const an=anelloSf(r,0.0016,0xd9a400); an.rotation.y=-55*DEG; icona.add(an);
   }
   if(d.k==='axis'){             // la Terra in mezzo, e l'asse turchese che la attraversa, VERO: punta al
-    // polo del cielo, e lo si ricalcola a ogni fotogramma (aggiorna). Con la treccia accesa, attorno
-    // all'asse girano i suoi tre fili in piccolo.
+    // polo del cielo, e lo si ricalcola a ogni fotogramma (aggiorna). Con la treccia accesa, l'asse
+    // diventa la sua treccia in piccolo (3, 7 o 12 fili), come in cielo.
     const perno=new THREE.Group(); icona.add(perno); S.perno=perno;   // il suo +y e' l'asse
     perno.add(new THREE.Mesh(new THREE.SphereGeometry(R_SF*0.26,24,16),
       new THREE.MeshBasicMaterial({color:0x3b7dd8,transparent:true,opacity:.9})));
-    perno.add(new THREE.Mesh(new THREE.CylinderGeometry(0.0016,0.0016,R_SF*1.9,10),
-      new THREE.MeshBasicMaterial({color:0x2fd6c8,transparent:true,opacity:.95})));
+    S.asta=new THREE.Mesh(new THREE.CylinderGeometry(0.0016,0.0016,R_SF*1.9,10),
+      new THREE.MeshBasicMaterial({color:0x2fd6c8,transparent:true,opacity:.95}));
+    perno.add(S.asta);
     const nord=new THREE.Mesh(new THREE.SphereGeometry(0.0026,10,8),
       new THREE.MeshBasicMaterial({color:0xd8f6ff,transparent:true,opacity:.95}));
     nord.position.y=R_SF*0.95; perno.add(nord);
-    S.trecciola=new THREE.Group(); S.trecciola.visible=false; perno.add(S.trecciola);
-    TRECCIA_COL.forEach((col,k)=>S.trecciola.add(new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntiTreccia(k,R_SF*0.85,R_SF*0.22,R_SF*0.42,120)),120,0.0009,5),
-      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.95}))));
-    S.trecciola.rotation.x=-Math.PI/2;   // la treccia corre lungo z: qui va lungo il +y del perno
+    S.trecciole={};
+    for(const N of TRECCE){
+      const t=new THREE.Group(); t.visible=false; t.rotation.x=-Math.PI/2;   // la treccia corre lungo z: qui lungo il +y del perno
+      for(let k=0;k<N;k++) t.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(filoTreccia(N,k,-R_SF*0.9,R_SF*0.9,R_SF*0.07,false)),
+        new THREE.LineBasicMaterial({color:TRECCIA_COL[k%3],transparent:true,opacity:.95})));
+      perno.add(t); S.trecciole[N]=t;
+    }
   }
   if(d.k==='ecliptic'){         // l'eclittica rossa, inclinata
     const an=anelloSf(r,0.0016,0xff5a5a); an.rotation.set(Math.PI/2-22*DEG,0,23.4*DEG); icona.add(an);
@@ -3248,13 +3277,14 @@ SF_DEF.forEach(d=>{
     }
   };
   if(d.k==='axis'){
-    // tre tocchi: l'asse acceso, poi la TRECCIA, poi spento
+    // a ogni tocco il passo dopo: l'asse acceso, la treccia di 3 fili, il cordone di 7, la treccia
+    // tonda di 12, spento
     S.fai=()=>{
-      if(!stato.axis){ TRECCIA.on=false; imposta('axis',true); }
-      else if(!TRECCIA.on) TRECCIA.on=true;
-      else { TRECCIA.on=false; imposta('axis',false); }
-      TRECCIA.g.visible=TRECCIA.on;
-      diag(!stato.axis?'asse spento (dalla sfera)':TRECCIA.on?'asse a treccia: l’axis mundi':'asse acceso (dalla sfera)');
+      const giro=[0,...TRECCE];
+      if(!stato.axis){ mostraTreccia(0); imposta('axis',true); }
+      else { const i=giro.indexOf(TRECCIA.fili)+1;
+        if(i<giro.length) mostraTreccia(giro[i]); else { mostraTreccia(0); imposta('axis',false); } }
+      diag(!stato.axis?'asse spento (dalla sfera)':TRECCIA.fili?'asse a treccia di '+TRECCIA.fili+' fili: l’axis mundi':'asse acceso (dalla sfera)');
     };
     S.titolo=()=>'Asse del mondo';
     const base=S.aggiorna, _dA=new THREE.Vector3(), _qA=new THREE.Quaternion();
@@ -3265,8 +3295,8 @@ SF_DEF.forEach(d=>{
       _dA.set(0,0,1).transformDirection(sky.matrixWorld);
       S.casa.getWorldQuaternion(_qA).invert(); _dA.applyQuaternion(_qA);
       S.perno.quaternion.setFromUnitVectors(SU,_dA.normalize());
-      S.trecciola.visible=TRECCIA.on&&stato.axis;
-      if(S.trecciola.visible) S.trecciola.rotation.z=TRECCIA.g.rotation.z;   // gira con quella del cielo
+      for(const N of TRECCE) S.trecciole[N].visible=stato.axis&&TRECCIA.fili===N;
+      S.asta.visible=!(stato.axis&&TRECCIA.fili);
     };
   }
   SFERETTE.push(S); CORPI.push(S);
@@ -3566,7 +3596,9 @@ function display(id,titolo,larg,alto){
   D.schermo=D.quadro=lastra;
   D.mat=cristallo(COL_CRISTALLO);
   lastra.add(new THREE.Mesh(new THREE.BoxGeometry(larg+0.004,alto+0.004,0.002),D.mat));
-  D.cv=document.createElement('canvas'); D.cv.width=1024; D.cv.height=Math.round(1024*alto/larg);
+  // 512 pixel di largo (erano 1024): quello del tempo si ridisegna ogni secondo, e ogni volta va mandato
+  // alla scheda grafica — un quarto del peso, che sul Quest era un piccolo inciampo al secondo
+  D.cv=document.createElement('canvas'); D.cv.width=512; D.cv.height=Math.round(512*alto/larg);
   D.tex=new THREE.CanvasTexture(D.cv); D.tex.anisotropy=4;
   const vetro=new THREE.Mesh(new THREE.PlaneGeometry(larg,alto),new THREE.MeshBasicMaterial({map:D.tex,transparent:true,depthWrite:false}));
   vetro.position.z=0.0015; lastra.add(vetro);
@@ -3580,17 +3612,15 @@ function scriviDisplay(D,righe){
   const t=righe.join('|'); if(t===D.testo) return; D.testo=t;
   const x=D.cv.getContext('2d'), W=D.cv.width, H=D.cv.height;
   x.clearRect(0,0,W,H);
-  x.fillStyle='rgba(2,10,22,0.97)'; roundRect(x,0,0,W,H,22); x.fill();
-  x.strokeStyle='rgba(127,232,255,0.8)'; x.lineWidth=5; roundRect(x,4,4,W-8,H-8,20); x.stroke();
+  x.fillStyle='rgba(2,10,22,0.97)'; roundRect(x,0,0,W,H,11); x.fill();
+  x.strokeStyle='rgba(127,232,255,0.8)'; x.lineWidth=2.5; roundRect(x,2,2,W-4,H-4,10); x.stroke();
   x.textAlign='center'; x.textBaseline='middle';
   righe.forEach((l,i)=>{
     let fs=i===0?H*0.40:H*0.26;
     const fnt=()=>x.font=(i===0?'500 ':'300 ')+Math.round(fs)+'px "IBM Plex Mono",ui-monospace,monospace';
-    fnt(); while(x.measureText(l).width>W*0.9&&fs>12){ fs--; fnt(); }
-    x.fillStyle=i===0?'#d8f6ff':'#7fe8ff';
-    if(i===0){ x.shadowColor='#7fe8ff'; x.shadowBlur=16; }
+    fnt(); while(x.measureText(l).width>W*0.9&&fs>8){ fs--; fnt(); }
+    x.fillStyle=i===0?'#d8f6ff':'#7fe8ff';   // senza alone: lo shadowBlur, ogni secondo, costava
     x.fillText(l,W/2,H*(i===0?0.38:0.76));
-    x.shadowBlur=0;
   });
   D.tex.needsUpdate=true;
 }
@@ -5136,6 +5166,15 @@ async function entraVR(){
                                :'grandangolo '+testoGrand()+' (la levetta lo cambia)');
 
     if(!c0){ c0=makeController(0); c1=makeController(1); creaMani(); }
+    // I BLOCCHI (8 ottobre: «la vista si blocca un poco, e il cielo si aggancia allo sguardo»). Quando
+    // un fotogramma non arriva in tempo il visore ripresenta l'ultimo, e per un attimo il cielo segue la
+    // testa. La causa piu' grossa: ogni materiale si compilava la PRIMA volta che compariva (una sfera
+    // accesa, un pannello aperto, la treccia), e sul Quest sono decimi di secondo. Ora si compilano
+    // tutti qui, anche quelli nascosti. E il visore disegna i bordi della vista a risoluzione ridotta
+    // (fixedFoveation): l'occhio li vede sfocati comunque, e il vetro trasparente costa meno.
+    try{ const t0=performance.now(); renderer.compile(scene,camera); diag('materiali preparati in '+Math.round(performance.now()-t0)+' ms','ok'); }
+    catch(e){ diag('preparazione dei materiali: '+e.message,'warn'); }
+    try{ const l=session.renderState.baseLayer; if(l&&'fixedFoveation' in l) l.fixedFoveation=0.5; }catch(e){}
     enter.classList.add('small'); enter.textContent='◉ Esci';
   }catch(err){
     diag('ERRORE: '+(err.name||'')+' — '+(err.message||err),'err');
@@ -5355,7 +5394,6 @@ renderer.setAnimationLoop((time,frame)=>{
       for(const c of [c0,c1]) if(c&&c.userData.mirino) c.userData.mirino.visible=false;
       MIRINO_V.visible=false;
     }
-    aggiornaTreccia(dt);
     aggiornaIndicazioni();
     if(stato.orizReale) for(const s of SPRITE_CIELO) s.visible=!sottoOrizzonte(s);
     aggiornaZoom();
